@@ -1,0 +1,10 @@
+{
+  "version": "1.0.0",
+  "organization": "CosmosDB Agent Kit",
+  "date": "January 2026",
+  "abstract": "Performance optimization and best practices guide for Azure Cosmos DB applications, ordered by impact. Contains rules for data modeling, partition key design, query optimization, SDK usage, indexing, throughput management, global distribution, and monitoring.",
+  "references": [
+    "https://learn.microsoft.com/azure/cosmos-db/",
+    "https://learn.microsoft.com/azure/well-architected/service-guides/cosmos-db"
+  ]
+}

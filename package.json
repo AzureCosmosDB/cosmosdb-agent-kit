@@ -1,0 +1,33 @@
+{
+  "name": "cosmosdb-agent-kit",
+  "version": "1.0.0",
+  "description": "Azure Cosmos DB best practices for AI coding agents",
+  "keywords": [
+    "cosmosdb",
+    "azure",
+    "best-practices",
+    "agent-skills",
+    "ai",
+    "copilot",
+    "claude",
+    "agent-kit"
+  ],
+  "author": "CosmosDB Agent Kit",
+  "license": "MIT",
+  "homepage": "https://github.com/AzureCosmosDB/cosmosdb-agent-kit#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AzureCosmosDB/cosmosdb-agent-kit.git"
+  },
+  "files": [
+    "skills/**/*"
+  ],
+  "scripts": {
+    "build": "node scripts/compile.js",
+    "validate": "node scripts/validate.js"
+  },
+  "devDependencies": {
+    "glob": "^10.3.0",
+    "gray-matter": "^4.0.3"
+  }
+}
