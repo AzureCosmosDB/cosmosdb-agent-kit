@@ -20,11 +20,13 @@
     "url": "https://github.com/AzureCosmosDB/cosmosdb-agent-kit.git"
   },
   "files": [
-    "skills/**/*"
+    "skills/**/*",
+    "scripts/postinstall.js"
   ],
   "scripts": {
     "build": "node scripts/compile.js",
-    "validate": "node scripts/validate.js"
+    "validate": "node scripts/validate.js",
+    "postinstall": "node scripts/postinstall.js"
   },
   "devDependencies": {
     "glob": "^10.3.0",
