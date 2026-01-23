@@ -61,7 +61,7 @@ Works with Claude Code, GitHub Copilot, Gemini CLI, and other Agent Skills-compa
 
 ## Contributing
 
-See [AGENTS.md](AGENTS.md) for contribution guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
 ## License
 
