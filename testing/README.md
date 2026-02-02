@@ -6,46 +6,28 @@ This framework provides a structured approach for iteratively testing and improv
 
 ## 🚀 QUICK START: Run a Test Iteration
 
-**Copy and paste one of these prompts into a NEW chat session to run a test iteration.**
+**Copy and paste this prompt into a NEW chat session:**
 
-### E-Commerce Order API (.NET) - Next iteration
 ```
-I want to run a test iteration for the Cosmos DB Agent Kit.
+I want to test the {scenario-name} scenario using {language}.
 
-FIRST: Read the file `skills/cosmosdb-best-practices/AGENTS.md` completely - this contains 
-all the Cosmos DB best practices you must follow.
-
-THEN: Read `testing/scenarios/ecommerce-order-api/SCENARIO.md` for the requirements.
-
-THEN: Check `testing/scenarios/ecommerce-order-api/iterations/` to find the next iteration number.
-
-Create a new iteration folder (iteration-002-dotnet or next available) and build the 
-application following the .NET prompt in SCENARIO.md. Apply ALL the Cosmos DB best 
-practices from AGENTS.md throughout the implementation.
-
-After building, run the app and test all endpoints. Document findings in ITERATION.md.
+Read testing/README.md for complete instructions on running test iterations.
 ```
 
-### E-Commerce Order API (Java)
+**Replace:**
+- `{scenario-name}` with: `ecommerce-order-api`, `iot-device-telemetry`, `gaming-leaderboard`, `ai-chat-rag`, or `multitenant-saas`
+- `{language}` with: `dotnet`, `java`, `python`, `nodejs`, `go`, or `rust`
+
+**Examples:**
 ```
-I want to run a test iteration for the Cosmos DB Agent Kit.
-
-FIRST: Read `skills/cosmosdb-best-practices/AGENTS.md` completely for Cosmos DB best practices.
-THEN: Read `testing/scenarios/ecommerce-order-api/SCENARIO.md` for requirements.
-THEN: Check iterations folder for next number.
-
-Create iteration-XXX-java folder and build using the Java prompt. Apply ALL best practices.
-Run the app, test endpoints, document findings in ITERATION.md.
+I want to test the ecommerce-order-api scenario using dotnet.
+Read testing/README.md for complete instructions on running test iterations.
 ```
 
-### Other Scenarios
-Replace `ecommerce-order-api` with:
-- `iot-device-telemetry` - IoT time-series data
-- `gaming-leaderboard` - Real-time leaderboards  
-- `ai-chat-rag` - AI chat with vector search
-- `multitenant-saas` - Multi-tenant SaaS app
-
-And choose language: `dotnet`, `java`, `python`, `nodejs`, `go`, or `rust`
+```
+I want to test the ai-chat-rag scenario using python.
+Read testing/README.md for complete instructions on running test iterations.
+```
 
 ---
 
