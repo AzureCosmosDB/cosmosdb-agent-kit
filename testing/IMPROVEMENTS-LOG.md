@@ -18,6 +18,94 @@ Each improvement entry should include:
 
 ## Improvements
 
+#### 2026-02-02: Iteration 001 - Multi-Tenant SaaS Scenario (.NET / ASP.NET Core)
+
+- **Scenario**: multitenant-saas
+- **Iteration**: 001-dotnet
+- **Result**: ✅ **BUILD SUCCESSFUL** / ⚠️ **PACKAGING ERROR**
+- **Score**: 7/10
+- **Key Achievement**: Created valid Newtonsoft.Json dependency rule based on Microsoft docs
+
+**New Rules Created** ⭐:
+
+1. **sdk-newtonsoft-dependency.md** (MEDIUM)
+   - Documents explicit Newtonsoft.Json >= 13.0.3 requirement
+   - Covers security vulnerabilities in 10.x versions
+   - Explains requirement even when using System.Text.Json
+   - Provides version conflict troubleshooting
+   - Based on Microsoft Learn official documentation section
+
+**Issues Encountered**:
+
+1. **Type Name Conflict** (Build Error) - ✅ RESOLVED
+   - Problem: `User` class conflicts with `Microsoft.Azure.Cosmos.User`
+   - Solution: Type alias `using CosmosUser = MultiTenantSaas.Models.User;`
+   - Lesson: Avoid common SDK class names
+
+2. **Missing Newtonsoft.Json** (Build Error) - ✅ RESOLVED → RULE CREATED
+   - Problem: SDK requires explicit Newtonsoft.Json >= 13.0.3
+   - Solution: `dotnet add package Newtonsoft.Json`
+   - **Validation**: Microsoft docs have entire section "Managing Newtonsoft.Json Dependencies"
+   - **Merit**: Documented pain point, security implications, non-obvious requirement
+   - **Action**: Created comprehensive rule with troubleshooting
+
+3. **Packaging Error** (Agent Error) - ✅ IDENTIFIED
+   - Problem: Created zip with files at wrong directory levels
+   - Result: Duplicate Program.cs files when extracted
+   - Error: `error CS8802: Only one compilation unit can have top-level statements`
+   - Impact: Prevented proper archival and testing
+
+**Agent Methodology Issues** (Learning Experience):
+
+1. ❌ **Premature Diagnosis**
+   - Initially assumed "emulator SSL issue" without evidence
+   - Created incorrect rule, then removed after user review
+   - Should have: Extracted zip, read compiler error, diagnosed properly
+
+2. ❌ **Poor Packaging**
+   - Created source-code.zip with incorrect directory structure
+   - Didn't verify extraction and build process
+   - Prevented endpoint testing
+
+3. ✅ **Corrective Actions**
+   - Removed incorrect emulator SSL rule
+   - Researched Microsoft docs to validate Newtonsoft.Json issue
+   - Created proper rule with security guidance
+
+**Best Practices Applied Successfully**:
+
+1. ✅ **Hierarchical Partition Keys** - `[/tenantId, /projectId]` (EXCELLENT design)
+   - Perfect for multi-tenant isolation
+   - Overcomes 20GB limit per tenant
+   - Enables efficient project-scoped queries
+
+2. ✅ **Singleton CosmosClient** - DI registration with Direct mode
+3. ✅ **Parameterized Queries** - All repositories use QueryDefinition
+4. ✅ **Type Discriminators** - Polymorphic data in shared container
+5. ✅ **Embedded Data** - Comments embedded in Tasks
+
+**Files Modified**:
+- **New Rule**: `skills/cosmosdb-best-practices/rules/sdk-newtonsoft-dependency.md`
+- **Regenerated**: `skills/cosmosdb-best-practices/AGENTS.md` (55 rules, up from 54)
+- **Documented**: `testing/scenarios/multitenant-saas/iterations/iteration-001-dotnet/ITERATION.md`
+
+**Key Lessons**:
+
+1. **Validate with official docs** - Microsoft Learn confirmed Newtonsoft.Json is a real issue
+2. **Test packaging thoroughly** - Always extract and build from zip before archiving
+3. **Read error messages** - Compiler errors tell you exactly what's wrong
+4. **Don't assume root causes** - Evidence-based diagnosis prevents wasted effort
+5. **User review is valuable** - Caught the premature conclusion about SSL
+
+**Positive Outcomes**:
+
+- Discovered and documented legitimate Newtonsoft.Json dependency rule
+- Excellent hierarchical partition key design for multi-tenancy
+- Demonstrated proper Cosmos DB best practices in code
+- Learned better packaging and testing methodology
+
+---
+
 #### 2026-01-29: Iteration 001 - AI Chat/RAG Scenario (.NET / ASP.NET Core)
 
 - **Scenario**: ai-chat-rag
