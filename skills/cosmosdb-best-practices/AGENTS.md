@@ -46,15 +46,16 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 4.4 [Use Direct Connection Mode for Production](#44-use-direct-connection-mode-for-production)
    - 4.5 [Log Diagnostics for Troubleshooting](#45-log-diagnostics-for-troubleshooting)
    - 4.6 [Configure SSL and connection mode for Cosmos DB Emulator](#46-configure-ssl-and-connection-mode-for-cosmos-db-emulator)
-   - 4.7 [Configure Excluded Regions for Dynamic Failover](#47-configure-excluded-regions-for-dynamic-failover)
-   - 4.8 [Enable content response on write operations in Java SDK](#48-enable-content-response-on-write-operations-in-java-sdk)
-   - 4.9 [Spring Boot and Java version compatibility for Cosmos DB SDK](#49-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
-   - 4.10 [Configure local development environment to avoid cloud connection conflicts](#410-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
-   - 4.11 [Explicitly reference Newtonsoft.Json package](#411-explicitly-reference-newtonsoft-json-package)
-   - 4.12 [Configure Preferred Regions for Availability](#412-configure-preferred-regions-for-availability)
-   - 4.13 [Handle 429 Errors with Retry-After](#413-handle-429-errors-with-retry-after)
-   - 4.14 [Use consistent enum serialization between Cosmos SDK and application layer](#414-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
-   - 4.15 [Reuse CosmosClient as Singleton](#415-reuse-cosmosclient-as-singleton)
+   - 4.7 [Use ETags for optimistic concurrency on read-modify-write operations](#47-use-etags-for-optimistic-concurrency-on-read-modify-write-operations)
+   - 4.8 [Configure Excluded Regions for Dynamic Failover](#48-configure-excluded-regions-for-dynamic-failover)
+   - 4.9 [Enable content response on write operations in Java SDK](#49-enable-content-response-on-write-operations-in-java-sdk)
+   - 4.10 [Spring Boot and Java version compatibility for Cosmos DB SDK](#410-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
+   - 4.11 [Configure local development environment to avoid cloud connection conflicts](#411-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
+   - 4.12 [Explicitly reference Newtonsoft.Json package](#412-explicitly-reference-newtonsoft-json-package)
+   - 4.13 [Configure Preferred Regions for Availability](#413-configure-preferred-regions-for-availability)
+   - 4.14 [Handle 429 Errors with Retry-After](#414-handle-429-errors-with-retry-after)
+   - 4.15 [Use consistent enum serialization between Cosmos SDK and application layer](#415-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
+   - 4.16 [Reuse CosmosClient as Singleton](#416-reuse-cosmosclient-as-singleton)
 5. [Indexing Strategies](#5-indexing-strategies) — **MEDIUM-HIGH**
    - 5.1 [Use Composite Indexes for ORDER BY](#51-use-composite-indexes-for-order-by)
    - 5.2 [Exclude Unused Index Paths](#52-exclude-unused-index-paths)
@@ -82,6 +83,7 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 8.5 [Alert on Throttling (429s)](#85-alert-on-throttling-429s-)
 9. [Design Patterns](#9-design-patterns) — **HIGH**
    - 9.1 [Use Change Feed for cross-partition query optimization with materialized views](#91-use-change-feed-for-cross-partition-query-optimization-with-materialized-views)
+   - 9.2 [Use count-based or cached rank approaches instead of full partition scans for ranking](#92-use-count-based-or-cached-rank-approaches-instead-of-full-partition-scans-for-ranking)
 
 ---
 
@@ -1297,12 +1299,30 @@ Reference: [Query optimization tips](https://learn.microsoft.com/azure/cosmos-db
 
 ## Use Continuation Tokens for Pagination
 
-Use continuation tokens to paginate through large result sets efficiently. Never use OFFSET/LIMIT for deep pagination.
+Use continuation tokens to paginate through large result sets efficiently. **Never use OFFSET/LIMIT for deep pagination** — it is a common anti-pattern with severe performance implications.
+
+### ⚠️ OFFSET/LIMIT Anti-Pattern
+
+**OFFSET/LIMIT is one of the most common and costly Cosmos DB anti-patterns.** The RU cost of OFFSET scales linearly with the offset value because Cosmos DB must read and discard all skipped documents:
+
+| Page | OFFSET | Documents Scanned | Documents Returned | Relative RU Cost |
+|------|--------|-------------------|--------------------|------------------|
+| 1 | 0 | 100 | 100 | 1x |
+| 10 | 900 | 1,000 | 100 | 10x |
+| 100 | 9,900 | 10,000 | 100 | 100x |
+| 1,000 | 99,900 | 100,000 | 100 | 1,000x |
+
+This pattern is especially dangerous in **leaderboard** and **feed** scenarios where users page through large result sets.
+
+Use OFFSET/LIMIT only when:
+- The total result set is small (< 1,000 items)
+- You need random access to a specific page (rare)
+- Deep pagination is impossible (e.g., top 100 only)
 
 **Incorrect (OFFSET/LIMIT for pagination):**
 
 ```csharp
-// Anti-pattern: OFFSET increases cost linearly with page number
+// ❌ Anti-pattern: OFFSET increases cost linearly with page number
 public async Task<List<Product>> GetProductsPage(int page, int pageSize)
 {
     // Page 1: Skip 0, Page 100: Skip 9900
@@ -2390,26 +2410,202 @@ azure:
     # Note: Spring Data Cosmos uses Gateway mode by default
 ```
 
-**Alternative - Disable SSL validation (development only!):**
+**Alternative - Custom truststore (no admin required):**
+
+If you cannot modify the JDK's `cacerts` (requires administrator access), create a custom truststore instead:
+
+```powershell
+# Step 1: Copy JDK's default cacerts to a local custom truststore
+$jdkCacerts = "$env:JAVA_HOME\lib\security\cacerts"
+Copy-Item $jdkCacerts -Destination .\custom-cacerts
+
+# Step 2: Extract the emulator's SSL certificate
+$tcpClient = New-Object System.Net.Sockets.TcpClient("localhost", 8081)
+$sslStream = New-Object System.Net.Security.SslStream($tcpClient.GetStream(), $false, {$true})
+$sslStream.AuthenticateAsClient("localhost")
+$cert = $sslStream.RemoteCertificate
+[System.IO.File]::WriteAllBytes("emulator-cert.cer", $cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+$sslStream.Close(); $tcpClient.Close()
+
+# Step 3: Import into custom truststore
+keytool -importcert -alias cosmosemulator -file emulator-cert.cer `
+    -keystore custom-cacerts -storepass changeit -noprompt
+```
+
+```powershell
+# Step 4: Run your app with the custom truststore
+java "-Djavax.net.ssl.trustStore=custom-cacerts" `
+     "-Djavax.net.ssl.trustStorePassword=changeit" `
+     -jar your-app.jar
+```
+
+**⚠️ `COSMOS.EMULATOR_SSL_TRUST_ALL` does NOT work with Java/Netty:**
 
 ```java
-// NOT RECOMMENDED - only for quick local testing
-// This disables ALL SSL validation which is a security risk
-System.setProperty("COSMOS.EMULATOR_SSL_TRUST_ALL", "true");
+// WARNING: This property does NOT work with the Java Cosmos SDK!
+// The Java SDK uses Netty with OpenSSL, which bypasses Java's SSLContext entirely.
+// Setting this property has no effect — SSL handshake will still fail.
+System.setProperty("COSMOS.EMULATOR_SSL_TRUST_ALL", "true");  // INEFFECTIVE!
 
-// Or via JVM argument:
-// -DCOSMOS.EMULATOR_SSL_TRUST_ALL=true
+// Also ineffective as a JVM argument:
+// -DCOSMOS.EMULATOR_SSL_TRUST_ALL=true  // DOES NOT WORK
+
+// Instead, use one of these approaches:
+// 1. Import the emulator certificate into the JDK truststore (Step 2 above)
+// 2. Use a custom truststore with -Djavax.net.ssl.trustStore (recommended)
 ```
 
 **Key Points:**
 - Direct connection mode does not work reliably with the emulator even after certificate import
 - Gateway mode is required for local development with the Java SDK and emulator
+- **`COSMOS.EMULATOR_SSL_TRUST_ALL` does NOT work** — the Java SDK uses Netty/OpenSSL which ignores Java SSL system properties. You must import the emulator certificate into a JDK or custom truststore
+- The custom truststore approach avoids needing administrator access
 - The emulator's well-known key is: `C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==`
 - For production, switch back to Direct mode and use your actual Cosmos DB endpoint
 
 Reference: [Use the Azure Cosmos DB Emulator for local development](https://learn.microsoft.com/azure/cosmos-db/emulator)
 
-### 4.7 Configure Excluded Regions for Dynamic Failover
+### 4.7 Use ETags for optimistic concurrency on read-modify-write operations
+
+**Impact: HIGH** (prevents lost updates in concurrent write scenarios)
+
+## Use ETags for Optimistic Concurrency
+
+When performing read-modify-write operations (read a document, update a field, write it back), always use ETags to prevent lost updates from concurrent writes. Without ETags, the last writer silently overwrites changes from other operations.
+
+**Problem: Lost updates without ETag checks**
+
+```csharp
+// Anti-pattern: Read-modify-write without concurrency control
+// If two requests run concurrently, one update is silently lost
+public async Task UpdatePlayerStatsAsync(string playerId, int newScore)
+{
+    // Thread A reads player (bestScore: 100)
+    var response = await _container.ReadItemAsync<Player>(
+        playerId, new PartitionKey(playerId));
+    var player = response.Resource;
+
+    // Thread B also reads player (bestScore: 100)
+    // Thread B updates bestScore to 200 and writes
+
+    // Thread A updates bestScore to 150 and writes
+    // Thread A's write OVERWRITES Thread B's update!
+    player.BestScore = Math.Max(player.BestScore, newScore);
+    player.TotalGamesPlayed++;
+    player.TotalScore += newScore;
+    player.AverageScore = player.TotalScore / player.TotalGamesPlayed;
+
+    await _container.UpsertItemAsync(player,  // Overwrites without checking!
+        new PartitionKey(playerId));
+}
+```
+
+**Solution: ETag-based optimistic concurrency with retry**
+
+```csharp
+// Correct: Use ETag to detect concurrent modifications and retry
+public async Task UpdatePlayerStatsAsync(string playerId, int newScore)
+{
+    const int maxRetries = 3;
+
+    for (int attempt = 0; attempt < maxRetries; attempt++)
+    {
+        try
+        {
+            // Read current state (includes ETag in response headers)
+            var response = await _container.ReadItemAsync<Player>(
+                playerId, new PartitionKey(playerId));
+            var player = response.Resource;
+            var etag = response.ETag;  // Capture the ETag
+
+            // Modify the document
+            player.BestScore = Math.Max(player.BestScore, newScore);
+            player.TotalGamesPlayed++;
+            player.TotalScore += newScore;
+            player.AverageScore = player.TotalScore / player.TotalGamesPlayed;
+            player.LastPlayedAt = DateTime.UtcNow;
+
+            // Write with ETag condition — fails if document changed since read
+            await _container.UpsertItemAsync(player,
+                new PartitionKey(playerId),
+                new ItemRequestOptions
+                {
+                    IfMatchEtag = etag  // Only succeeds if ETag matches
+                });
+
+            return; // Success
+        }
+        catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.PreconditionFailed)
+        {
+            // HTTP 412: Document was modified by another request
+            // Retry by re-reading the latest version
+            if (attempt == maxRetries - 1)
+            {
+                throw new InvalidOperationException(
+                    $"Failed to update player {playerId} after {maxRetries} attempts due to concurrent modifications.", ex);
+            }
+            // Loop back to re-read and retry
+        }
+    }
+}
+```
+
+**Java equivalent:**
+
+```java
+// Java SDK: Use ETag with ifMatchETag option
+CosmosItemResponse<Player> response = container.readItem(
+    playerId, new PartitionKey(playerId), Player.class);
+Player player = response.getItem();
+String etag = response.getETag();
+
+// Modify player...
+
+CosmosItemRequestOptions options = new CosmosItemRequestOptions();
+options.setIfMatchETag(etag);  // Conditional write
+
+try {
+    container.upsertItem(player, new PartitionKey(playerId), options);
+} catch (CosmosException ex) {
+    if (ex.getStatusCode() == 412) {
+        // Retry: document was modified concurrently
+    }
+}
+```
+
+**Python equivalent:**
+
+```python
+# Python SDK: Use ETag with match_condition
+response = container.read_item(item=player_id, partition_key=player_id)
+etag = response.get('_etag')
+
+# Modify response...
+
+container.upsert_item(
+    body=response,
+    match_condition=etag,      # If-Match header
+    etag=etag
+)
+# Raises CosmosHttpResponseError with status_code=412 on conflict
+```
+
+**When to use ETags:**
+- **Always use** for read-modify-write patterns (counters, aggregates, status updates)
+- **Always use** when multiple users/services can modify the same document
+- **Skip** for append-only operations (new document creation with unique IDs)
+- **Skip** for idempotent overwrites where last-writer-wins is acceptable
+
+**Key Points:**
+- Every Cosmos DB document has a system-managed `_etag` property that changes on every write
+- Pass `IfMatchEtag` (or `setIfMatchETag` in Java) to get HTTP 412 on conflicts
+- Always implement retry logic (typically 3 attempts) for ETag conflicts
+- ETag checks add no extra RU cost — it's a header comparison, not an additional read
+- For high-contention scenarios (thousands of concurrent updates to same document), consider a different data model (e.g., append scores as separate documents, aggregate periodically)
+
+Reference: [Optimistic concurrency control in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/database-transactions-optimistic-concurrency#optimistic-concurrency-control)
+
+### 4.8 Configure Excluded Regions for Dynamic Failover
 
 **Impact: MEDIUM** (enables dynamic routing control without code changes)
 
@@ -2553,7 +2749,7 @@ var outageOptions = new ItemRequestOptions
 Reference: [Performance tips - .NET SDK Excluded Regions](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-dotnet-sdk-v3#excluded-regions)
 Reference: [Performance tips - Java SDK Excluded Regions](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-java-sdk-v4#excluded-regions)
 
-### 4.8 Enable content response on write operations in Java SDK
+### 4.9 Enable content response on write operations in Java SDK
 
 **Impact: MEDIUM** (ensures created/updated documents are returned from write operations)
 
@@ -2665,7 +2861,7 @@ Enabling content response does NOT increase RU cost - the document is already fe
 
 Reference: [Azure Cosmos DB Java SDK best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-java)
 
-### 4.9 Spring Boot and Java version compatibility for Cosmos DB SDK
+### 4.10 Spring Boot and Java version compatibility for Cosmos DB SDK
 
 **Impact: CRITICAL** (Prevents build failures due to version incompatibility between Spring Boot and Java)
 
@@ -2796,7 +2992,7 @@ export PATH=$JAVA_HOME/bin:$PATH
 - [Spring Boot 2.7.x System Requirements](https://docs.spring.io/spring-boot/docs/2.7.x/reference/html/getting-started.html#getting-started-system-requirements)
 - [Azure Cosmos DB Java SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-java-v4)
 
-### 4.10 Configure local development environment to avoid cloud connection conflicts
+### 4.11 Configure local development environment to avoid cloud connection conflicts
 
 **Impact: MEDIUM** (prevents accidental connections to production instead of emulator)
 
@@ -2967,7 +3163,7 @@ azure:
 
 Reference: [Azure Cosmos DB Emulator](https://learn.microsoft.com/azure/cosmos-db/emulator)
 
-### 4.11 Explicitly reference Newtonsoft.Json package
+### 4.12 Explicitly reference Newtonsoft.Json package
 
 **Impact: MEDIUM** (Prevents build failures and security vulnerabilities from missing or outdated Newtonsoft.Json dependency)
 
@@ -3069,7 +3265,7 @@ Solution:
 
 Reference: [Managing Newtonsoft.Json Dependencies](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-dotnet-sdk-v3?tabs=trace-net-core#managing-newtonsoftjson-dependencies)
 
-### 4.12 Configure Preferred Regions for Availability
+### 4.13 Configure Preferred Regions for Availability
 
 **Impact: HIGH** (enables automatic failover, reduces latency)
 
@@ -3165,7 +3361,7 @@ Best practices:
 
 Reference: [Configure preferred regions](https://learn.microsoft.com/azure/cosmos-db/nosql/tutorial-global-distribution)
 
-### 4.13 Handle 429 Errors with Retry-After
+### 4.14 Handle 429 Errors with Retry-After
 
 **Impact: HIGH** (prevents cascading failures)
 
@@ -3282,7 +3478,7 @@ await Task.WhenAll(tasks);
 
 Reference: [Handle rate limiting](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-request-rate-too-large)
 
-### 4.14 Use consistent enum serialization between Cosmos SDK and application layer
+### 4.15 Use consistent enum serialization between Cosmos SDK and application layer
 
 **Impact: critical** (undefined)
 
@@ -3379,7 +3575,7 @@ public class Order
 - Point reads work but filtered queries don't
 - API returns different enum format than stored in Cosmos DB
 
-### 4.15 Reuse CosmosClient as Singleton
+### 4.16 Reuse CosmosClient as Singleton
 
 **Impact: CRITICAL** (prevents connection exhaustion)
 
@@ -6229,6 +6425,165 @@ var query = ordersByStatusContainer.GetItemQueryIterator<OrderStatusView>(
 - Consider Azure Functions with Cosmos DB trigger for serverless implementation
 
 Reference: [Change feed in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/change-feed)
+
+### 9.2 Use count-based or cached rank approaches instead of full partition scans for ranking
+
+**Impact: HIGH** (reduces rank lookups from O(N) partition scans to O(1) or O(log N) operations)
+
+## Efficient Ranking in Cosmos DB
+
+When implementing leaderboards or rankings, avoid scanning an entire partition to determine a single player's rank. Full partition scans for rank lookups are an anti-pattern that becomes unsustainable at scale.
+
+**Problem: Full partition scan to find rank**
+
+```csharp
+// Anti-pattern: Reads ALL entries in a partition to find one player's rank
+// At 500K players, this consumes thousands of RU and takes seconds
+public async Task<int> GetPlayerRankAsync(string leaderboardKey, string playerId)
+{
+    var query = new QueryDefinition(
+        "SELECT c.playerId, c.bestScore FROM c WHERE c.type = @type ORDER BY c.bestScore DESC"
+    ).WithParameter("@type", "leaderboardEntry");
+
+    var allEntries = new List<LeaderboardEntry>();
+    using var iterator = _container.GetItemQueryIterator<LeaderboardEntry>(
+        query, requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(leaderboardKey) });
+
+    while (iterator.HasMoreResults)
+    {
+        var response = await iterator.ReadNextAsync();
+        allEntries.AddRange(response); // Loading ALL entries into memory!
+    }
+
+    // O(N) scan to find player
+    return allEntries.FindIndex(e => e.PlayerId == playerId) + 1;
+}
+```
+
+This approach:
+- Reads every document in the partition (potentially 500K+ documents)
+- Consumes thousands of RU per request
+- Has multi-second latency
+- Loads all entries into memory
+
+**Solution 1: COUNT-based rank query (simplest)**
+
+```csharp
+// Count players with higher scores to determine rank
+// Single query, ~3-5 RU regardless of partition size
+public async Task<int> GetPlayerRankAsync(string leaderboardKey, string playerId, int playerScore)
+{
+    var countQuery = new QueryDefinition(
+        "SELECT VALUE COUNT(1) FROM c WHERE c.type = @type AND c.bestScore > @score"
+    )
+    .WithParameter("@type", "leaderboardEntry")
+    .WithParameter("@score", playerScore);
+
+    using var iterator = _container.GetItemQueryIterator<int>(
+        countQuery, requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(leaderboardKey) });
+
+    var response = await iterator.ReadNextAsync();
+    return response.Resource.FirstOrDefault() + 1; // Rank = count of players above + 1
+}
+```
+
+**Solution 2: Cached rank offsets with Change Feed**
+
+For extremely high-volume leaderboard reads, pre-compute and cache rank data:
+
+```csharp
+// Maintain a rank cache that is periodically updated
+// Leaderboard entry includes pre-computed rank
+public class RankedLeaderboardEntry
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; }  // playerId
+
+    [JsonPropertyName("leaderboardKey")]
+    public string LeaderboardKey { get; set; }
+
+    [JsonPropertyName("rank")]
+    public int Rank { get; set; }  // Pre-computed rank
+
+    [JsonPropertyName("bestScore")]
+    public int BestScore { get; set; }
+
+    [JsonPropertyName("displayName")]
+    public string DisplayName { get; set; }
+}
+
+// Change Feed processor periodically recomputes ranks
+// Run on a schedule (e.g., every 30 seconds) for near-real-time rankings
+public async Task RecomputeRanksAsync(string leaderboardKey)
+{
+    var query = new QueryDefinition(
+        "SELECT c.id, c.playerId, c.bestScore, c.displayName FROM c " +
+        "WHERE c.type = @type ORDER BY c.bestScore DESC"
+    ).WithParameter("@type", "leaderboardEntry");
+
+    int rank = 0;
+    using var iterator = _container.GetItemQueryIterator<LeaderboardEntry>(
+        query, requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(leaderboardKey) });
+
+    while (iterator.HasMoreResults)
+    {
+        var batch = await iterator.ReadNextAsync();
+        foreach (var entry in batch)
+        {
+            rank++;
+            entry.Rank = rank;
+            await _container.UpsertItemAsync(entry,
+                new PartitionKey(leaderboardKey));
+        }
+    }
+}
+
+// Then rank lookup is a simple point read: O(1), 1 RU
+public async Task<int> GetPlayerRankAsync(string leaderboardKey, string playerId)
+{
+    var response = await _container.ReadItemAsync<RankedLeaderboardEntry>(
+        playerId, new PartitionKey(leaderboardKey));
+    return response.Resource.Rank;
+}
+```
+
+**Solution 3: Approximate ranking with score buckets**
+
+For leaderboards where approximate rank is acceptable:
+
+```csharp
+// Maintain score distribution buckets for O(1) approximate ranking
+// Partition key: /leaderboardKey, id: "bucket-{range}"
+public class ScoreBucket
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; }  // e.g., "bucket-9000-10000"
+
+    [JsonPropertyName("leaderboardKey")]
+    public string LeaderboardKey { get; set; }
+
+    [JsonPropertyName("minScore")]
+    public int MinScore { get; set; }
+
+    [JsonPropertyName("maxScore")]
+    public int MaxScore { get; set; }
+
+    [JsonPropertyName("playerCount")]
+    public int PlayerCount { get; set; }
+}
+
+// Approximate rank = sum of players in all higher buckets + position within bucket
+```
+
+**Key Points:**
+- **Never scan an entire partition** to find a single item's rank — this is O(N) and doesn't scale
+- **COUNT queries** are the simplest solution and work well for moderate scale (< 1M entries)
+- **Pre-computed ranks** via Change Feed are best for high-volume reads with eventual consistency tolerance
+- **Score buckets** provide O(1) approximate ranking for very large datasets
+- Consider the trade-off: exact real-time rank (more RU) vs. slightly stale rank (less RU)
+- For "nearby players ±10", combine a COUNT query with a TOP 21 query centered on the player's score
+
+Reference: [Cosmos DB query optimization](https://learn.microsoft.com/azure/cosmos-db/nosql/query/getting-started)
 
 ---
 

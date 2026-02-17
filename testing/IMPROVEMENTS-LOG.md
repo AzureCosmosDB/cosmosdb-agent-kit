@@ -18,6 +18,176 @@ Each improvement entry should include:
 
 ## Improvements
 
+#### 2026-02-17: Iteration 001 - Gaming Leaderboard Scenario (.NET / ASP.NET Core)
+
+- **Scenario**: gaming-leaderboard
+- **Iteration**: 001-dotnet
+- **Result**: ✅ SUCCESSFUL - All endpoints functional, data persists correctly
+- **Score**: 7/10
+- **Key Achievement**: Identified two significant gaps — O(N) rank lookups and missing ETag concurrency — and created new rules for both
+
+**New Rules Created** ⭐:
+
+1. **pattern-efficient-ranking.md** (HIGH)
+   - Documents count-based, cached rank, and score bucket approaches for efficient ranking
+   - Prevents O(N) full partition scan anti-pattern found in `GetPlayerRankAsync`
+   - Covers three solutions: COUNT queries, Change Feed pre-computed ranks, score buckets
+   - Applicable to all leaderboard/ranking scenarios across languages
+
+2. **sdk-etag-concurrency.md** (HIGH)
+   - Documents ETag-based optimistic concurrency for read-modify-write operations
+   - Player stat aggregation had race condition: concurrent score submissions cause lost updates
+   - Includes .NET, Java, and Python examples with retry logic
+   - Covers when to use vs. skip ETag checks
+
+**Issues Encountered & Resolved**:
+
+1. **O(N) Rank Lookup** — ⚠️ DESIGN ISSUE → RULE CREATED
+   - Problem: `GetPlayerRankAsync` reads ALL entries in a leaderboard partition to find one player's rank
+   - Impact: At 500K players, this consumes thousands of RU and takes seconds
+   - Solution: Created `pattern-efficient-ranking.md` with COUNT-based approach
+   - Status: ✅ Rule created to prevent this in future iterations
+
+2. **Missing Optimistic Concurrency** — ⚠️ DESIGN ISSUE → RULE CREATED
+   - Problem: `Player._etag` exists but is never used in `UpdatePlayerStatsAsync`
+   - Impact: Concurrent score submissions can overwrite each other's stat updates
+   - Solution: Created `sdk-etag-concurrency.md` with retry pattern
+   - Status: ✅ Rule created to prevent this in future iterations
+
+3. **OFFSET/LIMIT Instead of Continuation Tokens** — ⚠️ PARTIAL
+   - Problem: Used `OFFSET 0 LIMIT @limit` instead of continuation tokens
+   - Impact: RU cost increases with page depth
+   - Status: ⚠️ Existing `query-pagination.md` rule should be strengthened with anti-pattern warning
+
+**Test Results**:
+- ✅ POST /api/scores — Score submission with player/leaderboard updates
+- ✅ GET /api/leaderboard/global — Weekly global top N
+- ✅ GET /api/leaderboard/global/all-time — All-time global rankings
+- ✅ GET /api/leaderboard/regional/{country} — Regional weekly rankings
+- ✅ GET /api/leaderboard/regional/{country}/all-time — Regional all-time rankings
+- ✅ GET /api/leaderboard/player/{playerId} — Player rank + nearby players
+- ✅ GET /api/players/{playerId} — Player profile with cumulative stats
+- ✅ 404 for non-existent players
+- ✅ 400 for missing required fields
+- ✅ Empty results for countries with no data
+
+**Best Practices Applied Successfully**:
+1. ✅ **Materialized Views** — Leaderboard container as denormalized view (excellent)
+2. ✅ **Synthetic Partition Keys** — `leaderboardKey` = `"global_2026-W07"`, `"US_all-time"`
+3. ✅ **Singleton CosmosClient** — DI registration, Direct mode for production
+4. ✅ **Composite Index** — `(bestScore DESC, lastUpdatedAt ASC)` on leaderboards
+5. ✅ **Enum Serialization** — `JsonStringEnumConverter` with System.Text.Json
+6. ✅ **Parameterized Queries** — All queries use `QueryDefinition.WithParameter`
+7. ✅ **Projections** — Specific field selection instead of `SELECT *`
+8. ✅ **Single-Partition Queries** — All queries target a single partition key
+9. ✅ **Type Discriminators** — `"player"`, `"score"`, `"leaderboardEntry"` type fields
+10. ✅ **Denormalized Reads** — Player stats embedded, leaderboard entries denormalized
+
+**Best Practices NOT Applied**:
+- ❌ Preferred regions, availability strategy, circuit breaker
+- ❌ Diagnostics logging (only Debug-level RU logging)
+- ❌ Azure Monitor / Application Insights integration
+- ❌ Throughput configuration (autoscale/provisioned)
+- ❌ Custom indexing policies on players/scores containers
+- ❌ Schema versioning
+
+**Lessons Learned**:
+1. **Rank computation is a non-trivial problem** — Full partition scans are a natural but incorrect first approach
+2. **Skills effectiveness is visible** — Materialized views, composite indexes, enum serialization all applied correctly because skills were loaded
+3. **Production hardening gap** — Skills cover these topics but agent prioritized functionality over operational readiness
+4. **ETag concurrency is commonly overlooked** — Read-modify-write patterns need explicit guidance
+
+**FILES MODIFIED**:
+- ✅ `skills/cosmosdb-best-practices/rules/pattern-efficient-ranking.md` — NEW (HIGH)
+- ✅ `skills/cosmosdb-best-practices/rules/sdk-etag-concurrency.md` — NEW (HIGH)
+- ✅ `skills/cosmosdb-best-practices/AGENTS.md` — Recompiled (57 total rules, up from 55)
+- ✅ `testing/scenarios/gaming-leaderboard/iterations/iteration-001-dotnet/ITERATION.md` — NEW
+
+---
+
+#### 2026-02-17: Iteration 002 - Gaming Leaderboard Scenario (Java / Spring Boot 3)
+
+- **Scenario**: gaming-leaderboard
+- **Iteration**: 002-java
+- **Result**: ✅ SUCCESSFUL - All endpoints functional, data persists correctly
+- **Score**: 7/10
+- **Key Achievement**: Skills feedback loop validated — COUNT-based ranking (Rule 9.2) from iteration-001 applied correctly. Schema versioning (Rule 1.5) also added. Java/Spring Data Cosmos API knowledge gaps identified.
+
+**New Rules Created**: None (iteration-001's new rules were sufficient)
+
+**Recommended Rule Updates** 📝:
+
+1. **sdk-emulator-ssl.md** — UPDATE RECOMMENDED (HIGH)
+   - `COSMOS.EMULATOR_SSL_TRUST_ALL` system property does NOT work with Java's Netty-based Cosmos SDK
+   - Netty uses OpenSSL, bypassing Java's `SSLContext` entirely
+   - Correct approach: extract emulator certificate, import into JDK truststore or custom truststore
+   - Run with `-Djavax.net.ssl.trustStore=<path> -Djavax.net.ssl.trustStorePassword=changeit`
+
+2. **query-pagination.md** — STRENGTHEN RECOMMENDED (MEDIUM)
+   - Same OFFSET/LIMIT gap as iteration-001
+   - Add explicit anti-pattern warning: "OFFSET/LIMIT RU cost scales linearly with offset depth"
+
+**Issues Encountered & Resolved**:
+
+1. **Wrong `CosmosTemplate.runQuery()` Signature** — ❌ BUILD ERROR → FIXED
+   - Problem: Agent used `runQuery(SqlQuerySpec, Class<T>, String containerName)` — container name as 3rd arg
+   - Correct: `runQuery(SqlQuerySpec, Class<?> domainType, Class<T> returnType)` — container inferred from `@Container` annotation
+   - Impact: 3 compilation errors in LeaderboardService.java
+   - Status: ✅ Fixed manually. SDK API documentation/skills gap identified.
+
+2. **`Iterable` vs Stream API** — ❌ BUILD ERROR → FIXED
+   - Problem: `CosmosTemplate.runQuery()` returns `Iterable<T>`, agent called `.stream()` on it
+   - Correct: `StreamSupport.stream(iterable.spliterator(), false).toList()`
+   - Status: ✅ Fixed. Common Java pattern not documented in skills.
+
+3. **Emulator SSL with Netty** — ❌ RUNTIME ERROR → FIXED
+   - Problem: `COSMOS.EMULATOR_SSL_TRUST_ALL` doesn't work with Netty/OpenSSL
+   - Solution: Extracted emulator cert via PowerShell TcpClient, imported into custom truststore
+   - Run JAR with `-Djavax.net.ssl.trustStore` and `-Djavax.net.ssl.trustStorePassword`
+   - Status: ✅ Fixed. Rule update recommended for `sdk-emulator-ssl.md`.
+
+4. **Validation Error Returns 500** — 🐛 BUG FOUND (NOT FIXED)
+   - Problem: `GlobalExceptionHandler` handles `IllegalArgumentException` → 400, but Spring's `MethodArgumentNotValidException` falls to generic `Exception` → 500
+   - Impact: POST /api/players with empty body returns HTTP 500
+   - Status: ⚠️ Not fixed (documentation/testing only). Spring Boot-specific knowledge gap.
+
+5. **`partitionKey` Null in JSON** — 🐛 BUG FOUND (NOT FIXED)
+   - Problem: LeaderboardEntry `partitionKey` field serializes as `null` in REST responses
+   - Impact: Cosmetic — queries work correctly via Cosmos DB partition key routing
+   - Status: ⚠️ Likely Jackson/Spring Data Cosmos annotation interaction issue
+
+**Comparison with Iteration 001 (.NET)**:
+
+| Aspect | Iter-001 (.NET) | Iter-002 (Java) | Delta |
+|--------|----------------|----------------|-------|
+| Rank computation | ❌ O(N) scan | ✅ COUNT-based | ✅ Improved |
+| Schema versioning | ❌ Missing | ✅ Applied | ✅ Improved |
+| Build success | ✅ First try | ❌ 3 fixes needed | ❌ Regression |
+| Validation errors | ✅ Returns 400 | ❌ Returns 500 | ❌ Regression |
+| Composite index | ✅ Declared | ❌ Not available | ❌ Spring Data limitation |
+| SSL handling | ✅ Easy callback | ❌ Truststore import | ❌ Harder |
+| Error handling | ❌ No global handler | ✅ GlobalExceptionHandler | ✅ Improved |
+
+**Skills Feedback Loop Validation** ✅:
+- `pattern-efficient-ranking.md` (created in iter-001) → Applied correctly as COUNT-based ranking
+- `sdk-etag-concurrency.md` (created in iter-001) → Partially applied (Spring Data implicit ETags)
+- Rules created from previous iterations ARE improving subsequent iterations
+
+**Best Practices Applied**:
+- ✅ Materialized views (Rule 9.1), COUNT-based ranking (Rule 9.2)
+- ✅ Synthetic partition keys (Rule 2.6), high cardinality keys (Rule 2.4)
+- ✅ Singleton client (Rule 4.16), Gateway/Direct auto-detect (Rule 4.6)
+- ✅ Session consistency (Rule 7.2), query metrics (Rule 8.4)
+- ✅ Parameterized queries (Rule 3.5), projections (Rule 3.6)
+- ✅ Type discriminators (Rule 1.6), schema versioning (Rule 1.5)
+- ✅ contentResponseOnWriteEnabled (Rule 4.9)
+- ❌ Preferred regions, availability strategy, circuit breaker, diagnostics, custom indexing
+
+**FILES MODIFIED**:
+- ✅ `testing/scenarios/gaming-leaderboard/iterations/iteration-002-java/ITERATION.md` — NEW
+
+---
+
 #### 2026-02-02: Iteration 001 - Multi-Tenant SaaS Scenario (.NET / ASP.NET Core)
 
 - **Scenario**: multitenant-saas

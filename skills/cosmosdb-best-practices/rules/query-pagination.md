@@ -7,12 +7,30 @@ tags: query, pagination, continuation-token, performance
 
 ## Use Continuation Tokens for Pagination
 
-Use continuation tokens to paginate through large result sets efficiently. Never use OFFSET/LIMIT for deep pagination.
+Use continuation tokens to paginate through large result sets efficiently. **Never use OFFSET/LIMIT for deep pagination** — it is a common anti-pattern with severe performance implications.
+
+### ⚠️ OFFSET/LIMIT Anti-Pattern
+
+**OFFSET/LIMIT is one of the most common and costly Cosmos DB anti-patterns.** The RU cost of OFFSET scales linearly with the offset value because Cosmos DB must read and discard all skipped documents:
+
+| Page | OFFSET | Documents Scanned | Documents Returned | Relative RU Cost |
+|------|--------|-------------------|--------------------|------------------|
+| 1 | 0 | 100 | 100 | 1x |
+| 10 | 900 | 1,000 | 100 | 10x |
+| 100 | 9,900 | 10,000 | 100 | 100x |
+| 1,000 | 99,900 | 100,000 | 100 | 1,000x |
+
+This pattern is especially dangerous in **leaderboard** and **feed** scenarios where users page through large result sets.
+
+Use OFFSET/LIMIT only when:
+- The total result set is small (< 1,000 items)
+- You need random access to a specific page (rare)
+- Deep pagination is impossible (e.g., top 100 only)
 
 **Incorrect (OFFSET/LIMIT for pagination):**
 
 ```csharp
-// Anti-pattern: OFFSET increases cost linearly with page number
+// ❌ Anti-pattern: OFFSET increases cost linearly with page number
 public async Task<List<Product>> GetProductsPage(int page, int pageSize)
 {
     // Page 1: Skip 0, Page 100: Skip 9900

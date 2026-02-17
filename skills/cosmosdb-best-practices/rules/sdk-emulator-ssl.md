@@ -157,20 +157,56 @@ azure:
     # Note: Spring Data Cosmos uses Gateway mode by default
 ```
 
-**Alternative - Disable SSL validation (development only!):**
+**Alternative - Custom truststore (no admin required):**
+
+If you cannot modify the JDK's `cacerts` (requires administrator access), create a custom truststore instead:
+
+```powershell
+# Step 1: Copy JDK's default cacerts to a local custom truststore
+$jdkCacerts = "$env:JAVA_HOME\lib\security\cacerts"
+Copy-Item $jdkCacerts -Destination .\custom-cacerts
+
+# Step 2: Extract the emulator's SSL certificate
+$tcpClient = New-Object System.Net.Sockets.TcpClient("localhost", 8081)
+$sslStream = New-Object System.Net.Security.SslStream($tcpClient.GetStream(), $false, {$true})
+$sslStream.AuthenticateAsClient("localhost")
+$cert = $sslStream.RemoteCertificate
+[System.IO.File]::WriteAllBytes("emulator-cert.cer", $cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+$sslStream.Close(); $tcpClient.Close()
+
+# Step 3: Import into custom truststore
+keytool -importcert -alias cosmosemulator -file emulator-cert.cer `
+    -keystore custom-cacerts -storepass changeit -noprompt
+```
+
+```powershell
+# Step 4: Run your app with the custom truststore
+java "-Djavax.net.ssl.trustStore=custom-cacerts" `
+     "-Djavax.net.ssl.trustStorePassword=changeit" `
+     -jar your-app.jar
+```
+
+**⚠️ `COSMOS.EMULATOR_SSL_TRUST_ALL` does NOT work with Java/Netty:**
 
 ```java
-// NOT RECOMMENDED - only for quick local testing
-// This disables ALL SSL validation which is a security risk
-System.setProperty("COSMOS.EMULATOR_SSL_TRUST_ALL", "true");
+// WARNING: This property does NOT work with the Java Cosmos SDK!
+// The Java SDK uses Netty with OpenSSL, which bypasses Java's SSLContext entirely.
+// Setting this property has no effect — SSL handshake will still fail.
+System.setProperty("COSMOS.EMULATOR_SSL_TRUST_ALL", "true");  // INEFFECTIVE!
 
-// Or via JVM argument:
-// -DCOSMOS.EMULATOR_SSL_TRUST_ALL=true
+// Also ineffective as a JVM argument:
+// -DCOSMOS.EMULATOR_SSL_TRUST_ALL=true  // DOES NOT WORK
+
+// Instead, use one of these approaches:
+// 1. Import the emulator certificate into the JDK truststore (Step 2 above)
+// 2. Use a custom truststore with -Djavax.net.ssl.trustStore (recommended)
 ```
 
 **Key Points:**
 - Direct connection mode does not work reliably with the emulator even after certificate import
 - Gateway mode is required for local development with the Java SDK and emulator
+- **`COSMOS.EMULATOR_SSL_TRUST_ALL` does NOT work** — the Java SDK uses Netty/OpenSSL which ignores Java SSL system properties. You must import the emulator certificate into a JDK or custom truststore
+- The custom truststore approach avoids needing administrator access
 - The emulator's well-known key is: `C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==`
 - For production, switch back to Direct mode and use your actual Cosmos DB endpoint
 
