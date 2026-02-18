@@ -1,0 +1,13 @@
+{
+  "name": "cosmosdb",
+  "description": "Azure Cosmos DB best practices for AI coding agents. Covers data modeling, partition key design, query optimization, SDK usage, indexing strategies, throughput & scaling, global distribution, monitoring, and design patterns.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Azure Cosmos DB",
+    "url": "https://learn.microsoft.com/azure/cosmos-db/"
+  },
+  "homepage": "https://github.com/AzureCosmosDB/cosmosdb-agent-kit",
+  "repository": "https://github.com/AzureCosmosDB/cosmosdb-agent-kit.git",
+  "license": "MIT",
+  "keywords": ["cosmosdb", "azure", "database", "nosql", "best-practices"]
+}
