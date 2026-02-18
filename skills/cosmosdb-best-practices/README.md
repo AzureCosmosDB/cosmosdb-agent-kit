@@ -22,7 +22,7 @@ This skill contains 45+ rules across 8 categories, ordered by impact:
 ### Using add-skill (Recommended)
 
 ```bash
-npx add-skill AzureCosmosDB/cosmosdb-agent-kit
+npx skills add AzureCosmosDB/cosmosdb-agent-kit
 ```
 
 This installs the skill into your `.copilot/skills/` directory.

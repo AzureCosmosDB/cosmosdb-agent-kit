@@ -1,6 +1,11 @@
 ---
 name: cosmosdb-best-practices
-description: Azure Cosmos DB performance optimization and best practices guidelines for NoSQL, partitioning, queries, and SDK usage. Use when writing, reviewing, or refactoring code that interacts with Azure Cosmos DB, designing data models, optimizing queries, or implementing high-performance database operations. Triggers on tasks involving Cosmos DB, NoSQL databases, partition keys, RU optimization, or Azure database performance.
+description: |
+  Azure Cosmos DB performance optimization and best practices guidelines for NoSQL,
+  partitioning, queries, and SDK usage. Use when writing, reviewing, or refactoring
+  code that interacts with Azure Cosmos DB, designing data models, optimizing queries,
+  or implementing high-performance database operations.
+
 license: MIT
 metadata:
   author: cosmosdb-agent-kit
@@ -75,7 +80,15 @@ Reference these guidelines when:
 - `sdk-retry-429` - Handle 429s with retry-after
 - `sdk-connection-mode` - Use Direct mode for production
 - `sdk-preferred-regions` - Configure preferred regions
+- `sdk-excluded-regions` - Exclude regions experiencing issues
+- `sdk-availability-strategy` - Configure availability strategy for resilience
+- `sdk-circuit-breaker` - Use circuit breaker for fault tolerance
 - `sdk-diagnostics` - Log diagnostics for troubleshooting
+- `sdk-serialization-enums` - Serialize enums as strings not integers
+- `sdk-emulator-ssl` - Configure SSL and connection mode for Cosmos DB Emulator
+- `sdk-java-content-response` - Enable content response on write operations (Java)
+- `sdk-java-spring-boot-versions` - Match Java version to Spring Boot requirements
+- `sdk-local-dev-config` - Configure local development to avoid cloud conflicts
 
 ### 5. Indexing Strategies (MEDIUM-HIGH)
 
@@ -100,6 +113,7 @@ Reference these guidelines when:
 - `global-conflict-resolution` - Implement conflict resolution
 - `global-failover` - Configure automatic failover
 - `global-read-regions` - Add read regions near users
+- `global-zone-redundancy` - Enable zone redundancy for HA
 
 ### 8. Monitoring & Diagnostics (LOW-MEDIUM)
 
@@ -108,6 +122,10 @@ Reference these guidelines when:
 - `monitoring-throttling` - Alert on throttling
 - `monitoring-azure-monitor` - Integrate Azure Monitor
 - `monitoring-diagnostic-logs` - Enable diagnostic logging
+
+### 9. Design Patterns (HIGH)
+
+- `pattern-change-feed-materialized-views` - Use Change Feed for cross-partition query optimization
 
 ## How to Use
 

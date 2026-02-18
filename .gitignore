@@ -1,3 +1,6 @@
 node_modules/
 .DS_Store
 *.log
+# Testing iteration extracted source (keep only zips)
+testing/scenarios/**/iterations/**/ecommerce-order-api/
+testing/scenarios/**/iterations/**/target/

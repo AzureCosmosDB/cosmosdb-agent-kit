@@ -110,5 +110,5 @@ cp -r skills/cosmosdb-best-practices ~/.copilot/skills/
 
 **Using add-skill:**
 ```bash
-npx add-skill AzureCosmosDB/cosmosdb-agent-kit
+npx skills add AzureCosmosDB/cosmosdb-agent-kit
 ```

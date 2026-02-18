@@ -22,7 +22,8 @@ const SECTIONS = [
     { prefix: 'index-', name: 'Indexing Strategies', number: 5, impact: 'MEDIUM-HIGH' },
     { prefix: 'throughput-', name: 'Throughput & Scaling', number: 6, impact: 'MEDIUM' },
     { prefix: 'global-', name: 'Global Distribution', number: 7, impact: 'MEDIUM' },
-    { prefix: 'monitoring-', name: 'Monitoring & Diagnostics', number: 8, impact: 'LOW-MEDIUM' }
+    { prefix: 'monitoring-', name: 'Monitoring & Diagnostics', number: 8, impact: 'LOW-MEDIUM' },
+    { prefix: 'pattern-', name: 'Design Patterns', number: 9, impact: 'HIGH' }
 ];
 
 async function compileRules() {
