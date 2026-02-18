@@ -113,10 +113,63 @@ new Collection<CompositePath>
 }
 ```
 
+### Multi-Tenant Composite Index Patterns
+
+In multi-tenant designs using type discriminators and hierarchical partition keys, composite indexes are **critical** for queries that filter by entity type and sort by common fields:
+
+```json
+// Multi-tenant SaaS: tasks by status, sorted by date
+{
+    "compositeIndexes": [
+        [
+            { "path": "/type", "order": "ascending" },
+            { "path": "/status", "order": "ascending" },
+            { "path": "/createdAt", "order": "descending" }
+        ],
+        [
+            { "path": "/type", "order": "ascending" },
+            { "path": "/assigneeId", "order": "ascending" },
+            { "path": "/dueDate", "order": "ascending" }
+        ],
+        [
+            { "path": "/type", "order": "ascending" },
+            { "path": "/priority", "order": "descending" },
+            { "path": "/createdAt", "order": "descending" }
+        ]
+    ]
+}
+```
+
+```java
+// Java: Composite indexes with IndexingPolicy
+IndexingPolicy policy = new IndexingPolicy();
+
+// Type + Status + Date (for: WHERE type='task' AND status='open' ORDER BY createdAt DESC)
+List<CompositePath> statusSort = Arrays.asList(
+    new CompositePath().setPath("/type").setOrder(CompositePathSortOrder.ASCENDING),
+    new CompositePath().setPath("/status").setOrder(CompositePathSortOrder.ASCENDING),
+    new CompositePath().setPath("/createdAt").setOrder(CompositePathSortOrder.DESCENDING)
+);
+
+// Type + Assignee + DueDate (for: WHERE type='task' AND assigneeId=@id ORDER BY dueDate)
+List<CompositePath> assigneeSort = Arrays.asList(
+    new CompositePath().setPath("/type").setOrder(CompositePathSortOrder.ASCENDING),
+    new CompositePath().setPath("/assigneeId").setOrder(CompositePathSortOrder.ASCENDING),
+    new CompositePath().setPath("/dueDate").setOrder(CompositePathSortOrder.ASCENDING)
+);
+
+policy.setCompositeIndexes(Arrays.asList(statusSort, assigneeSort));
+```
+
+**Why type discriminators need composite indexes:**
+When a single container holds multiple entity types (tenant, user, project, task), queries always filter by `type`. Without a composite index on `(type, sortField)`, the query engine cannot efficiently sort within a single entity type. This is especially costly in containers with millions of mixed-type documents.
+
 Rules:
 - Composite index order must match ORDER BY exactly
 - First path can be equality filter
 - Include both ASC/DESC variants for flexibility
 - Maximum 8 paths per composite index
+- **Always** define composite indexes when using type discriminators in shared containers
+- Include `/type` as the first path in multi-tenant composite indexes
 
 Reference: [Composite indexes](https://learn.microsoft.com/azure/cosmos-db/index-policy#composite-indexes)

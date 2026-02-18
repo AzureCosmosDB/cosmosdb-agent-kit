@@ -870,6 +870,126 @@ After completing the iteration successfully, user provided GitHub samples showin
 
 ---
 
+#### 2026-02-18: Iteration 001 - Multi-Tenant SaaS Scenario (Java / Spring Boot 3)
+
+- **Scenario**: multitenant-saas
+- **Iteration**: 001-java
+- **Result**: ✅ SUCCESSFUL - All endpoints functional, tenant isolation verified, HPK working correctly
+- **Score**: 7/10
+- **Key Achievement**: Skills feedback loop validated — HPK multi-tenant design from iteration-001-dotnet replicated correctly. Java-specific `@PostConstruct`/`@Bean` circular dependency anti-pattern identified and fixed. All 13 endpoints tested successfully against emulator.
+
+**New Rules Created** ⭐:
+
+1. **sdk-java-cosmos-config.md** (HIGH)
+   - Documents `@PostConstruct` + `@Bean` circular dependency anti-pattern in Spring Boot
+   - Correct pattern: dependent `@Bean` methods with parameter injection chain
+   - Includes HPK container initialization example
+   - Includes `SmartInitializingSingleton` alternative for post-init logic
+
+**Rules Strengthened** 📝:
+
+1. **index-composite.md** — STRENGTHENED (HIGH)
+   - Added "Multi-Tenant Composite Index Patterns" section
+   - Added composite indexes for type discriminator queries: `(type, status, createdAt)`, `(type, assigneeId, dueDate)`, `(type, priority, createdAt)`
+   - Added Java `IndexingPolicy` code example
+   - Added explanation of why type discriminators require composite indexes
+   - Added rule: "Always define composite indexes when using type discriminators in shared containers"
+
+2. **query-pagination.md** — STRENGTHENED (MEDIUM)
+   - Added "Unbounded Query Anti-Pattern" section
+   - Added Java anti-pattern example: returning all results without pagination
+   - Added rule of thumb: "If a query can return more than 100 items, it must use pagination"
+   - Documents cascading failure risk from excessive RU consumption
+
+3. **sdk-etag-concurrency.md** — STRENGTHENED (MEDIUM)
+   - Added "Always use" guidance for denormalized data updates
+   - Added "Critical: ETags for Denormalized Data Updates" section
+   - Added Java anti-pattern: concurrent denormalized count updates without ETag
+   - Added Java correct pattern: ETag-protected count update with retry
+   - Documents why denormalized fields are highest-risk for lost updates
+
+**Issues Encountered & Resolved**:
+
+1. **Circular Dependency in CosmosConfig** — ❌ RUNTIME ERROR → FIXED
+   - Problem: `@PostConstruct` method called `cosmosClient()` @Bean method, causing Spring circular dependency
+   - Solution: Removed `@PostConstruct`, moved database/container initialization into dependent `@Bean` methods: `cosmosClient()` → `cosmosDatabase(CosmosClient)` → `cosmosContainer(CosmosDatabase)`
+   - Status: ✅ Fixed. Potential new rule candidate.
+
+2. **Emulator SSL Certificate** — ⚠️ EXPECTED FRICTION → RESOLVED
+   - Problem: Cosmos DB emulator uses self-signed cert, Java SDK needs it in truststore
+   - Solution: Exported cert from Windows cert store, copied JDK cacerts locally, imported cert, ran with `-Djavax.net.ssl.trustStore=cacerts`
+   - Status: ✅ Resolved using approach from Rule 4.6 / gaming-leaderboard iteration-002. `sdk-emulator-ssl.md` update recommended in prior iteration still applies.
+
+3. **No Custom Indexing Policy** — ⚠️ DESIGN GAP (NOT FIXED)
+   - Problem: Default "index everything" policy used; no composite indexes defined
+   - Impact: Excessive write RU consumption; sorted queries inefficient at scale
+   - Status: ⚠️ Not fixed. Documented as primary scoring gap (Indexing: 3/10).
+
+**Comparison with Iteration 001 (.NET)**:
+
+| Aspect | Iter-001 (.NET) | Iter-001 (Java) | Delta |
+|--------|----------------|----------------|-------|
+| HPK design | ✅ /tenantId, /projectId | ✅ /tenantId, /type, /projectId | ✅ Added /type level |
+| Build success | ❌ Newtonsoft.Json issue | ❌ CircularDependency | ⟷ Different issues |
+| Endpoint testing | ❌ Packaging prevented | ✅ All 13 endpoints tested | ✅ Improved |
+| Tenant isolation | ⚠️ Not verified | ✅ Explicitly verified | ✅ Improved |
+| Indexing | ❌ Not defined | ❌ Not defined | ⟷ Same gap |
+| Schema versioning | ✅ Applied | ✅ Applied | ⟷ Same |
+| Packaging | ❌ Wrong structure | TBD | TBD |
+
+**Test Results**:
+- ✅ POST /api/tenants — Tenant creation with type discriminator
+- ✅ GET /api/tenants/{tenantId} — Tenant retrieval by HPK
+- ✅ POST /api/tenants/{tenantId}/users — User creation with tenant isolation
+- ✅ GET /api/tenants/{tenantId}/users — User listing (single-partition query)
+- ✅ POST /api/tenants/{tenantId}/projects — Project creation with self-referencing projectId
+- ✅ GET /api/tenants/{tenantId}/projects/{projectId} — Project with denormalized counts
+- ✅ POST /api/tenants/{tenantId}/projects/{projectId}/tasks — Task creation with count update
+- ✅ GET /api/tenants/{tenantId}/projects/{projectId}/tasks — Task listing by project
+- ✅ PUT /api/tenants/{tenantId}/projects/{projectId}/tasks/{taskId} — Status update with count refresh
+- ✅ POST /api/tenants/{tenantId}/projects/{projectId}/tasks/{taskId}/comments — Embedded comment
+- ✅ GET /api/tenants/{tenantId}/tasks?assigneeId=X — Cross-project assignee query
+- ✅ GET /api/tenants/{tenantId}/tasks?status=open — Status-based query
+- ✅ GET /api/tenants/{tenantId}/analytics — Tenant analytics from denormalized counts
+- ✅ Tenant isolation: tenant-beta sees 0 items from tenant-acme
+
+**Best Practices Applied Successfully**:
+1. ✅ **Hierarchical Partition Keys** — 3-level HPK (/tenantId, /type, /projectId) — Rule 2.3
+2. ✅ **Type Discriminators** — Single container, 4 entity types — Rule 1.9
+3. ✅ **Denormalized Reads** — Task counts on projects, names on tasks — Rule 1.2
+4. ✅ **Embedded Documents** — Comments bounded at 20 per task — Rule 1.3, 1.7
+5. ✅ **Schema Versioning** — schemaVersion field on BaseEntity — Rule 1.8
+6. ✅ **Singleton CosmosClient** — Spring @Bean singleton — Rule 4.16
+7. ✅ **Gateway for Emulator** — Auto-detect based on endpoint — Rule 4.6
+8. ✅ **contentResponseOnWriteEnabled** — Java SDK optimization — Rule 4.9
+9. ✅ **Parameterized Queries** — SqlParameter on all queries — Rule 3.5
+10. ✅ **Projections** — Field selection on list queries — Rule 3.6
+
+**Best Practices NOT Applied**:
+- ❌ Custom indexing policy / composite indexes (Rules 5.1, 5.2)
+- ❌ Pagination with continuation tokens (Rule 3.4)
+- ❌ ETag concurrency on updates (Rule 4.7)
+- ❌ Preferred regions / availability strategy (Rules 4.8, 4.12)
+- ❌ SDK diagnostics logging (Rule 4.5)
+- ❌ Async API (Rule 4.1)
+
+**Lessons Learned**:
+1. **Indexing is consistently the weakest area** — Both .NET and Java iterations missed custom indexing, suggesting the skill rules need stronger emphasis
+2. **`@PostConstruct` + `@Bean` is a Java Spring trap** — Not Cosmos-specific but commonly hit when initializing Cosmos DB resources
+3. **HPK design improved over .NET iteration** — Adding /type as middle level provides better partition isolation for mixed entity queries
+4. **Emulator SSL is well-understood now** — Third iteration dealing with emulator SSL, process is documented and repeatable
+5. **Denormalized count maintenance works end-to-end** — Pattern of updating parent counts after child CRUD is effective but needs concurrency protection
+
+**FILES MODIFIED**:
+- ✅ `skills/cosmosdb-best-practices/rules/sdk-java-cosmos-config.md` — NEW (HIGH)
+- ✅ `skills/cosmosdb-best-practices/rules/index-composite.md` — STRENGTHENED (multi-tenant composite index patterns)
+- ✅ `skills/cosmosdb-best-practices/rules/query-pagination.md` — STRENGTHENED (unbounded query anti-pattern)
+- ✅ `skills/cosmosdb-best-practices/rules/sdk-etag-concurrency.md` — STRENGTHENED (denormalized data guidance)
+- ✅ `skills/cosmosdb-best-practices/AGENTS.md` — Recompiled (62 total rules, up from 61)
+- ✅ `testing/scenarios/multitenant-saas/iterations/iteration-001-java/ITERATION.md` — NEW
+
+---
+
 ## Release History
 
 ### v1.0.0 (Initial Release)

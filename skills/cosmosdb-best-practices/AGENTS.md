@@ -53,13 +53,14 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 4.7 [Use ETags for optimistic concurrency on read-modify-write operations](#47-use-etags-for-optimistic-concurrency-on-read-modify-write-operations)
    - 4.8 [Configure Excluded Regions for Dynamic Failover](#48-configure-excluded-regions-for-dynamic-failover)
    - 4.9 [Enable content response on write operations in Java SDK](#49-enable-content-response-on-write-operations-in-java-sdk)
-   - 4.10 [Spring Boot and Java version compatibility for Cosmos DB SDK](#410-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
-   - 4.11 [Configure local development environment to avoid cloud connection conflicts](#411-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
-   - 4.12 [Explicitly reference Newtonsoft.Json package](#412-explicitly-reference-newtonsoft-json-package)
-   - 4.13 [Configure Preferred Regions for Availability](#413-configure-preferred-regions-for-availability)
-   - 4.14 [Handle 429 Errors with Retry-After](#414-handle-429-errors-with-retry-after)
-   - 4.15 [Use consistent enum serialization between Cosmos SDK and application layer](#415-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
-   - 4.16 [Reuse CosmosClient as Singleton](#416-reuse-cosmosclient-as-singleton)
+   - 4.10 [Use dependent @Bean methods for Cosmos DB initialization in Spring Boot](#410-use-dependent-bean-methods-for-cosmos-db-initialization-in-spring-boot)
+   - 4.11 [Spring Boot and Java version compatibility for Cosmos DB SDK](#411-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
+   - 4.12 [Configure local development environment to avoid cloud connection conflicts](#412-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
+   - 4.13 [Explicitly reference Newtonsoft.Json package](#413-explicitly-reference-newtonsoft-json-package)
+   - 4.14 [Configure Preferred Regions for Availability](#414-configure-preferred-regions-for-availability)
+   - 4.15 [Handle 429 Errors with Retry-After](#415-handle-429-errors-with-retry-after)
+   - 4.16 [Use consistent enum serialization between Cosmos SDK and application layer](#416-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
+   - 4.17 [Reuse CosmosClient as Singleton](#417-reuse-cosmosclient-as-singleton)
 5. [Indexing Strategies](#5-indexing-strategies) — **MEDIUM-HIGH**
    - 5.1 [Use Composite Indexes for ORDER BY](#51-use-composite-indexes-for-order-by)
    - 5.2 [Exclude Unused Index Paths](#52-exclude-unused-index-paths)
@@ -1787,6 +1788,47 @@ public async IAsyncEnumerable<Product> GetAllProducts()
 }
 ```
 
+### ⚠️ Unbounded Query Anti-Pattern
+
+**Fetching all results without any pagination is even worse than OFFSET/LIMIT.** This is commonly seen when developers skip pagination entirely, assuming result sets are small. At scale, unbounded queries cause:
+
+- **Excessive RU consumption** — reading thousands of documents in one call
+- **Timeouts** — queries exceeding the 5-second execution limit
+- **Memory pressure** — loading all results into memory
+- **Cascading failures** — high RU consumption triggers 429 throttling for other operations
+
+```java
+// ❌ Anti-pattern: No pagination — returns ALL matching documents
+public List<Task> getTasksByProject(String tenantId, String projectId) {
+    String query = "SELECT * FROM c WHERE c.tenantId = @tenantId " +
+                   "AND c.type = 'task' AND c.projectId = @projectId";
+    SqlQuerySpec spec = new SqlQuerySpec(query,
+        Arrays.asList(new SqlParameter("@tenantId", tenantId),
+                      new SqlParameter("@projectId", projectId)));
+    // Returns ALL tasks — at 500 tasks/project this is wasteful,
+    // at 50,000 tasks/project this causes timeouts
+    return container.queryItems(spec, new CosmosQueryRequestOptions(), Task.class)
+        .stream().collect(Collectors.toList());
+}
+
+// ✅ Correct: Return paginated results with continuation token
+public PagedResult<Task> getTasksByProject(
+        String tenantId, String projectId,
+        int pageSize, String continuationToken) {
+    String query = "SELECT * FROM c WHERE c.tenantId = @tenantId " +
+                   "AND c.type = 'task' AND c.projectId = @projectId " +
+                   "ORDER BY c.createdAt DESC";
+    CosmosQueryRequestOptions options = new CosmosQueryRequestOptions();
+    options.setMaxBufferedItemCount(pageSize);
+    // Use iterableByPage for continuation token support
+    CosmosPagedIterable<Task> results = container.queryItems(
+        new SqlQuerySpec(query, params), options, Task.class);
+    // Process first page only, return continuation token for next page
+}
+```
+
+**Rule of thumb:** If a query can return more than 100 items, it **must** use pagination.
+
 Reference: [Pagination in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/query/pagination)
 
 ### 3.5 Use Parameterized Queries
@@ -2960,8 +3002,57 @@ container.upsert_item(
 **When to use ETags:**
 - **Always use** for read-modify-write patterns (counters, aggregates, status updates)
 - **Always use** when multiple users/services can modify the same document
+- **Always use** when updating denormalized data (see below)
 - **Skip** for append-only operations (new document creation with unique IDs)
 - **Skip** for idempotent overwrites where last-writer-wins is acceptable
+
+### ⚠️ Critical: ETags for Denormalized Data Updates
+
+Denormalized fields (e.g., task counts on a project, user names on related documents) are especially vulnerable to lost updates. When multiple operations update the same parent document's counters concurrently, **ETag checks are mandatory**:
+
+```java
+// ❌ Anti-pattern: Updating denormalized counts without ETag
+public void updateProjectTaskCounts(String tenantId, String projectId) {
+    // Two tasks created simultaneously — both read count=5
+    CosmosItemResponse<Project> response = container.readItem(
+        projectId, partitionKey, Project.class);
+    Project project = response.getItem();
+    
+    project.setTaskCountTotal(countTasksInProject(tenantId, projectId)); // = 7
+    container.upsertItem(project, partitionKey, null);
+    // Second concurrent call also sets count to 7, missing the other's task!
+}
+
+// ✅ Correct: ETag-protected denormalized count update with retry
+public void updateProjectTaskCounts(String tenantId, String projectId) {
+    for (int attempt = 0; attempt < 3; attempt++) {
+        try {
+            CosmosItemResponse<Project> response = container.readItem(
+                projectId, partitionKey, Project.class);
+            Project project = response.getItem();
+            String etag = response.getETag();
+
+            // Re-count from source of truth
+            project.setTaskCountTotal(countTasksInProject(tenantId, projectId));
+            project.setTaskCountOpen(countTasksByStatus(tenantId, projectId, "open"));
+
+            CosmosItemRequestOptions options = new CosmosItemRequestOptions();
+            options.setIfMatchETag(etag);  // Fail if another update landed
+            container.upsertItem(project, partitionKey, options);
+            return;
+        } catch (CosmosException ex) {
+            if (ex.getStatusCode() == 412 && attempt < 2) continue; // Retry
+            throw ex;
+        }
+    }
+}
+```
+
+**Why denormalized data is high-risk:**
+- Multiple child operations (create task, delete task, update status) all touch the same parent
+- Without ETag checks, concurrent operations silently overwrite each other's count updates
+- The resulting counts become permanently incorrect until manually recalculated
+- This is the most common source of data inconsistency in Cosmos DB applications
 
 **Key Points:**
 - Every Cosmos DB document has a system-managed `_etag` property that changes on every write
@@ -3228,7 +3319,172 @@ Enabling content response does NOT increase RU cost - the document is already fe
 
 Reference: [Azure Cosmos DB Java SDK best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-java)
 
-### 4.10 Spring Boot and Java version compatibility for Cosmos DB SDK
+### 4.10 Use dependent @Bean methods for Cosmos DB initialization in Spring Boot
+
+**Impact: HIGH** (prevents circular dependency and startup failures)
+
+## Use Dependent @Bean Methods for Cosmos DB Initialization in Spring Boot
+
+When configuring `CosmosClient`, `CosmosDatabase`, and `CosmosContainer` beans in a Spring Boot `@Configuration` class, use dependent `@Bean` methods with parameter injection instead of `@PostConstruct`. Calling a `@Bean` method from `@PostConstruct` in the same class creates a circular dependency that crashes the application on startup.
+
+**Incorrect (@PostConstruct calling @Bean — circular dependency):**
+
+```java
+// ❌ Anti-pattern: @PostConstruct + @Bean in same class causes circular dependency
+@Configuration
+public class CosmosConfig {
+
+    @Value("${azure.cosmos.endpoint}")
+    private String endpoint;
+
+    @Value("${azure.cosmos.key}")
+    private String key;
+
+    @Bean
+    public CosmosClient cosmosClient() {
+        return new CosmosClientBuilder()
+            .endpoint(endpoint)
+            .key(key)
+            .consistencyLevel(ConsistencyLevel.SESSION)
+            .buildClient();
+    }
+
+    @PostConstruct  // ❌ This calls cosmosClient() which is a @Bean — circular!
+    public void initializeDatabase() {
+        CosmosClient client = cosmosClient(); // Triggers proxy interception loop
+        client.createDatabaseIfNotExists("mydb");
+        CosmosDatabase db = client.getDatabase("mydb");
+        db.createContainerIfNotExists(
+            new CosmosContainerProperties("items", "/partitionKey"),
+            ThroughputProperties.createAutoscaledThroughput(4000));
+    }
+
+    @Bean
+    public CosmosDatabase cosmosDatabase() {
+        return cosmosClient().getDatabase("mydb");
+    }
+
+    @Bean
+    public CosmosContainer cosmosContainer() {
+        return cosmosDatabase().getContainer("items");
+    }
+}
+// Runtime error: BeanCurrentlyInCreationException — circular dependency detected
+```
+
+**Correct (dependent @Bean chain with parameter injection):**
+
+```java
+// ✅ Correct: Use @Bean dependency injection chain — initialization in bean methods
+@Configuration
+public class CosmosConfig {
+
+    @Value("${azure.cosmos.endpoint}")
+    private String endpoint;
+
+    @Value("${azure.cosmos.key}")
+    private String key;
+
+    @Value("${azure.cosmos.database}")
+    private String databaseName;
+
+    @Value("${azure.cosmos.container}")
+    private String containerName;
+
+    @Bean(destroyMethod = "close")
+    public CosmosClient cosmosClient() {
+        DirectConnectionConfig directConfig = DirectConnectionConfig.getDefaultConfig();
+        GatewayConnectionConfig gatewayConfig = GatewayConnectionConfig.getDefaultConfig();
+
+        // Use Gateway for emulator, Direct for production
+        CosmosClientBuilder builder = new CosmosClientBuilder()
+            .endpoint(endpoint)
+            .key(key)
+            .consistencyLevel(ConsistencyLevel.SESSION)
+            .contentResponseOnWriteEnabled(true);
+
+        if (endpoint.contains("localhost") || endpoint.contains("127.0.0.1")) {
+            builder.gatewayMode(gatewayConfig);
+        } else {
+            builder.directMode(directConfig);
+        }
+
+        return builder.buildClient();
+    }
+
+    @Bean  // ✅ Spring injects cosmosClient from the bean above
+    public CosmosDatabase cosmosDatabase(CosmosClient cosmosClient) {
+        // Database initialization happens here — no @PostConstruct needed
+        cosmosClient.createDatabaseIfNotExists(databaseName);
+        return cosmosClient.getDatabase(databaseName);
+    }
+
+    @Bean  // ✅ Spring injects cosmosDatabase from the bean above
+    public CosmosContainer cosmosContainer(CosmosDatabase cosmosDatabase) {
+        CosmosContainerProperties props = new CosmosContainerProperties(
+            containerName, "/partitionKey");
+
+        cosmosDatabase.createContainerIfNotExists(
+            props,
+            ThroughputProperties.createAutoscaledThroughput(4000));
+
+        return cosmosDatabase.getContainer(containerName);
+    }
+}
+```
+
+**Why this works:**
+- Spring resolves the dependency graph: `cosmosClient()` → `cosmosDatabase(CosmosClient)` → `cosmosContainer(CosmosDatabase)`
+- Database and container creation happens naturally during bean initialization
+- No circular reference because each method receives its dependency as a parameter
+- `destroyMethod = "close"` ensures `CosmosClient` is properly shut down
+
+**With Hierarchical Partition Keys:**
+
+```java
+@Bean
+public CosmosContainer cosmosContainer(CosmosDatabase cosmosDatabase) {
+    // Hierarchical partition key definition
+    List<String> partitionKeyPaths = Arrays.asList(
+        "/tenantId", "/type", "/projectId");
+
+    CosmosContainerProperties props = new CosmosContainerProperties(
+        containerName,
+        partitionKeyPaths,
+        PartitionKeyDefinitionVersion.V2,
+        PartitionKind.MULTI_HASH);
+
+    cosmosDatabase.createContainerIfNotExists(
+        props,
+        ThroughputProperties.createAutoscaledThroughput(4000));
+
+    return cosmosDatabase.getContainer(containerName);
+}
+```
+
+**Alternative: `SmartInitializingSingleton` for post-init logic:**
+
+```java
+// If you need to run logic AFTER all beans are created
+@Bean
+public SmartInitializingSingleton cosmosInitializer(CosmosContainer container) {
+    return () -> {
+        // Seed data, verify connectivity, warm up, etc.
+        logger.info("Cosmos container ready: {}", container.getId());
+    };
+}
+```
+
+**Key Points:**
+- Never call `@Bean` methods from `@PostConstruct` in the same `@Configuration` class
+- Use parameter injection in `@Bean` methods to express initialization order
+- Always set `destroyMethod = "close"` on `CosmosClient` bean
+- Keep `CosmosClient` as a singleton `@Bean` (Rule 4.16)
+- Set `contentResponseOnWriteEnabled(true)` in the builder (Rule 4.9)
+
+Reference: [Spring Framework @Bean documentation](https://docs.spring.io/spring-framework/reference/core/beans/java/bean-annotation.html)
+
+### 4.11 Spring Boot and Java version compatibility for Cosmos DB SDK
 
 **Impact: CRITICAL** (Prevents build failures due to version incompatibility between Spring Boot and Java)
 
@@ -3359,7 +3615,7 @@ export PATH=$JAVA_HOME/bin:$PATH
 - [Spring Boot 2.7.x System Requirements](https://docs.spring.io/spring-boot/docs/2.7.x/reference/html/getting-started.html#getting-started-system-requirements)
 - [Azure Cosmos DB Java SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-java-v4)
 
-### 4.11 Configure local development environment to avoid cloud connection conflicts
+### 4.12 Configure local development environment to avoid cloud connection conflicts
 
 **Impact: MEDIUM** (prevents accidental connections to production instead of emulator)
 
@@ -3530,7 +3786,7 @@ azure:
 
 Reference: [Azure Cosmos DB Emulator](https://learn.microsoft.com/azure/cosmos-db/emulator)
 
-### 4.12 Explicitly reference Newtonsoft.Json package
+### 4.13 Explicitly reference Newtonsoft.Json package
 
 **Impact: MEDIUM** (Prevents build failures and security vulnerabilities from missing or outdated Newtonsoft.Json dependency)
 
@@ -3632,7 +3888,7 @@ Solution:
 
 Reference: [Managing Newtonsoft.Json Dependencies](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-dotnet-sdk-v3?tabs=trace-net-core#managing-newtonsoftjson-dependencies)
 
-### 4.13 Configure Preferred Regions for Availability
+### 4.14 Configure Preferred Regions for Availability
 
 **Impact: HIGH** (enables automatic failover, reduces latency)
 
@@ -3728,7 +3984,7 @@ Best practices:
 
 Reference: [Configure preferred regions](https://learn.microsoft.com/azure/cosmos-db/nosql/tutorial-global-distribution)
 
-### 4.14 Handle 429 Errors with Retry-After
+### 4.15 Handle 429 Errors with Retry-After
 
 **Impact: HIGH** (prevents cascading failures)
 
@@ -3845,7 +4101,7 @@ await Task.WhenAll(tasks);
 
 Reference: [Handle rate limiting](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-request-rate-too-large)
 
-### 4.15 Use consistent enum serialization between Cosmos SDK and application layer
+### 4.16 Use consistent enum serialization between Cosmos SDK and application layer
 
 **Impact: critical** (undefined)
 
@@ -3942,7 +4198,7 @@ public class Order
 - Point reads work but filtered queries don't
 - API returns different enum format than stored in Cosmos DB
 
-### 4.16 Reuse CosmosClient as Singleton
+### 4.17 Reuse CosmosClient as Singleton
 
 **Impact: CRITICAL** (prevents connection exhaustion)
 
@@ -4181,11 +4437,64 @@ new Collection<CompositePath>
 }
 ```
 
+### Multi-Tenant Composite Index Patterns
+
+In multi-tenant designs using type discriminators and hierarchical partition keys, composite indexes are **critical** for queries that filter by entity type and sort by common fields:
+
+```json
+// Multi-tenant SaaS: tasks by status, sorted by date
+{
+    "compositeIndexes": [
+        [
+            { "path": "/type", "order": "ascending" },
+            { "path": "/status", "order": "ascending" },
+            { "path": "/createdAt", "order": "descending" }
+        ],
+        [
+            { "path": "/type", "order": "ascending" },
+            { "path": "/assigneeId", "order": "ascending" },
+            { "path": "/dueDate", "order": "ascending" }
+        ],
+        [
+            { "path": "/type", "order": "ascending" },
+            { "path": "/priority", "order": "descending" },
+            { "path": "/createdAt", "order": "descending" }
+        ]
+    ]
+}
+```
+
+```java
+// Java: Composite indexes with IndexingPolicy
+IndexingPolicy policy = new IndexingPolicy();
+
+// Type + Status + Date (for: WHERE type='task' AND status='open' ORDER BY createdAt DESC)
+List<CompositePath> statusSort = Arrays.asList(
+    new CompositePath().setPath("/type").setOrder(CompositePathSortOrder.ASCENDING),
+    new CompositePath().setPath("/status").setOrder(CompositePathSortOrder.ASCENDING),
+    new CompositePath().setPath("/createdAt").setOrder(CompositePathSortOrder.DESCENDING)
+);
+
+// Type + Assignee + DueDate (for: WHERE type='task' AND assigneeId=@id ORDER BY dueDate)
+List<CompositePath> assigneeSort = Arrays.asList(
+    new CompositePath().setPath("/type").setOrder(CompositePathSortOrder.ASCENDING),
+    new CompositePath().setPath("/assigneeId").setOrder(CompositePathSortOrder.ASCENDING),
+    new CompositePath().setPath("/dueDate").setOrder(CompositePathSortOrder.ASCENDING)
+);
+
+policy.setCompositeIndexes(Arrays.asList(statusSort, assigneeSort));
+```
+
+**Why type discriminators need composite indexes:**
+When a single container holds multiple entity types (tenant, user, project, task), queries always filter by `type`. Without a composite index on `(type, sortField)`, the query engine cannot efficiently sort within a single entity type. This is especially costly in containers with millions of mixed-type documents.
+
 Rules:
 - Composite index order must match ORDER BY exactly
 - First path can be equality filter
 - Include both ASC/DESC variants for flexibility
 - Maximum 8 paths per composite index
+- **Always** define composite indexes when using type discriminators in shared containers
+- Include `/type` as the first path in multi-tenant composite indexes
 
 Reference: [Composite indexes](https://learn.microsoft.com/azure/cosmos-db/index-policy#composite-indexes)
 

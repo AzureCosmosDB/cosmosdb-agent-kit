@@ -128,4 +128,45 @@ public async IAsyncEnumerable<Product> GetAllProducts()
 }
 ```
 
+### ⚠️ Unbounded Query Anti-Pattern
+
+**Fetching all results without any pagination is even worse than OFFSET/LIMIT.** This is commonly seen when developers skip pagination entirely, assuming result sets are small. At scale, unbounded queries cause:
+
+- **Excessive RU consumption** — reading thousands of documents in one call
+- **Timeouts** — queries exceeding the 5-second execution limit
+- **Memory pressure** — loading all results into memory
+- **Cascading failures** — high RU consumption triggers 429 throttling for other operations
+
+```java
+// ❌ Anti-pattern: No pagination — returns ALL matching documents
+public List<Task> getTasksByProject(String tenantId, String projectId) {
+    String query = "SELECT * FROM c WHERE c.tenantId = @tenantId " +
+                   "AND c.type = 'task' AND c.projectId = @projectId";
+    SqlQuerySpec spec = new SqlQuerySpec(query,
+        Arrays.asList(new SqlParameter("@tenantId", tenantId),
+                      new SqlParameter("@projectId", projectId)));
+    // Returns ALL tasks — at 500 tasks/project this is wasteful,
+    // at 50,000 tasks/project this causes timeouts
+    return container.queryItems(spec, new CosmosQueryRequestOptions(), Task.class)
+        .stream().collect(Collectors.toList());
+}
+
+// ✅ Correct: Return paginated results with continuation token
+public PagedResult<Task> getTasksByProject(
+        String tenantId, String projectId,
+        int pageSize, String continuationToken) {
+    String query = "SELECT * FROM c WHERE c.tenantId = @tenantId " +
+                   "AND c.type = 'task' AND c.projectId = @projectId " +
+                   "ORDER BY c.createdAt DESC";
+    CosmosQueryRequestOptions options = new CosmosQueryRequestOptions();
+    options.setMaxBufferedItemCount(pageSize);
+    // Use iterableByPage for continuation token support
+    CosmosPagedIterable<Task> results = container.queryItems(
+        new SqlQuerySpec(query, params), options, Task.class);
+    // Process first page only, return continuation token for next page
+}
+```
+
+**Rule of thumb:** If a query can return more than 100 items, it **must** use pagination.
+
 Reference: [Pagination in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/query/pagination)

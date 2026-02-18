@@ -129,8 +129,57 @@ container.upsert_item(
 **When to use ETags:**
 - **Always use** for read-modify-write patterns (counters, aggregates, status updates)
 - **Always use** when multiple users/services can modify the same document
+- **Always use** when updating denormalized data (see below)
 - **Skip** for append-only operations (new document creation with unique IDs)
 - **Skip** for idempotent overwrites where last-writer-wins is acceptable
+
+### ⚠️ Critical: ETags for Denormalized Data Updates
+
+Denormalized fields (e.g., task counts on a project, user names on related documents) are especially vulnerable to lost updates. When multiple operations update the same parent document's counters concurrently, **ETag checks are mandatory**:
+
+```java
+// ❌ Anti-pattern: Updating denormalized counts without ETag
+public void updateProjectTaskCounts(String tenantId, String projectId) {
+    // Two tasks created simultaneously — both read count=5
+    CosmosItemResponse<Project> response = container.readItem(
+        projectId, partitionKey, Project.class);
+    Project project = response.getItem();
+    
+    project.setTaskCountTotal(countTasksInProject(tenantId, projectId)); // = 7
+    container.upsertItem(project, partitionKey, null);
+    // Second concurrent call also sets count to 7, missing the other's task!
+}
+
+// ✅ Correct: ETag-protected denormalized count update with retry
+public void updateProjectTaskCounts(String tenantId, String projectId) {
+    for (int attempt = 0; attempt < 3; attempt++) {
+        try {
+            CosmosItemResponse<Project> response = container.readItem(
+                projectId, partitionKey, Project.class);
+            Project project = response.getItem();
+            String etag = response.getETag();
+
+            // Re-count from source of truth
+            project.setTaskCountTotal(countTasksInProject(tenantId, projectId));
+            project.setTaskCountOpen(countTasksByStatus(tenantId, projectId, "open"));
+
+            CosmosItemRequestOptions options = new CosmosItemRequestOptions();
+            options.setIfMatchETag(etag);  // Fail if another update landed
+            container.upsertItem(project, partitionKey, options);
+            return;
+        } catch (CosmosException ex) {
+            if (ex.getStatusCode() == 412 && attempt < 2) continue; // Retry
+            throw ex;
+        }
+    }
+}
+```
+
+**Why denormalized data is high-risk:**
+- Multiple child operations (create task, delete task, update status) all touch the same parent
+- Without ETag checks, concurrent operations silently overwrite each other's count updates
+- The resulting counts become permanently incorrect until manually recalculated
+- This is the most common source of data inconsistency in Cosmos DB applications
 
 **Key Points:**
 - Every Cosmos DB document has a system-managed `_etag` property that changes on every write
