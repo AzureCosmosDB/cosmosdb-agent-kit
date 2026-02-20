@@ -1051,25 +1051,19 @@ Monitor for hot partitions:
 - Look for partitions consistently at 100%
 - Use Azure Monitor alerts for throttling
 
-**Partition Limits :**
-   - Physical partition throughput limit: **10,000 RU/s** per physical partition
-   - Logical partition size limit: **20 GB** per logical partition
-   - Physical partition size: **50 GB** per physical partition
+**Partition Limits (Cosmos DB for NoSQL) :**
+   - Physical partition throughput limit: **10,000 RU/s** per physical partition  
+     (based on Azure Cosmos DB for NoSQL service limits as of January 2026 — verify against current [service quotas and limits](https://learn.microsoft.com/azure/cosmos-db/nosql/concepts-limits))
+   - Logical partition size limit: **20 GB** per logical partition  
+     (current logical-partition storage limit for Azure Cosmos DB for NoSQL — confirm in the [limits documentation](https://learn.microsoft.com/azure/cosmos-db/nosql/concepts-limits#resource-limits))
+   - Physical partition size: **50 GB** per physical partition  
+     (typical physical-partition capacity used by the service — subject to change; always re-check the official [limits article](https://learn.microsoft.com/azure/cosmos-db/nosql/concepts-limits))
 
-**Physical Partition Count Formula:**
-   ```
-   Physical Partitions = Total Data Size ÷ 50 GB
-   ```
+> **Service limits can change.** Always treat the numbers above as **documentation snapshots**, not guarantees; re-validate them against the latest Azure Cosmos DB limits before relying on them in production automation or planning.
 
-**Cross-Partition RU overhead Cost Estimation Formula:**
-   ```
-   Cross-partition query overhead ≈ 2.5 RU × number of physical partitions scanned
-   ```
-   - At 100+ physical partitions, cross-partition queries become extremely expensive
-
-**Popularity Skew Warning:** Even high-cardinality keys (like `user_id`) can create hot partitions when specific values get dramatically more traffic (e.g., a viral user during peak moments).
-
-Reference: [Design for partition hot-spotting](https://learn.microsoft.com/azure/cosmos-db/nosql/modeling-data#design-for-partition-key-hot-spots)
+**Physical Partition Count Formula (capacity planning aid):**
+   ```text
+   Physical Partitions ≈ Total Data Size ÷ 50 GB
 
 ### 2.3 Use Hierarchical Partition Keys for Flexibility
 
