@@ -238,6 +238,30 @@ Denormalize when:
 - Denormalized data changes infrequently
 - Query patterns benefit from co-located data
 
+*Additional strategies to consider for denormalization*:
+**Short-Circuit Denormalization** :
+   - Definition: Duplicate *only specific fields* (not the full related document) to avoid a cross-partition lookup
+   - When to use:
+     - The duplicated property is mostly immutable (e.g., product name) or the app can tolerate staleness
+     - The property is small (a string, not an object)
+     - The access pattern would otherwise require a cross-partition read
+   - Example: Copy `customerName` into Order doc to avoid looking up the Customer doc
+
+**Workload-Driven Cost Comparison Template for Denormalization Strategy** :
+   ```
+   Option 1 — Denormalized:
+     Read cost:  [read_RPS] × [RU_per_read] = X RU/s
+     Write cost: [write_RPS] × [RU_per_write] + [update_propagation_cost] = Y RU/s
+     Total: X + Y RU/s
+
+   Option 2 — Normalized:
+     Read cost:  [read_RPS] × ([RU_per_read] + [RU_for_lookup]) = X' RU/s
+     Write cost: [write_RPS] × [RU_per_write] = Y' RU/s
+     Total: X' + Y' RU/s
+
+   Decision: Choose option with lower total RU/s when workload profile details available
+   ```
+
 Reference: [Denormalization patterns](https://learn.microsoft.com/azure/cosmos-db/nosql/modeling-data#denormalization)
 
 ### 1.3 Embed Related Data Retrieved Together
@@ -288,6 +312,18 @@ Embed when:
 - Data is read together frequently
 - Embedded data changes infrequently
 - Embedded data is bounded in size
+
+
+*Consider following **Aggregate Decision Framework** for embedding vs referencing:*
+1. **Access Correlation Thresholds** 
+   - \>90% accessed together → Strong single-document aggregate candidate (embed)
+   - 50–90% accessed together → Multi-document container aggregate candidate (same container, separate docs, shared partition key)
+   - <50% accessed together → Separate containers
+
+2. **Constraint Checks** :
+   - Size: Will combined size exceed 1MB? → Force multi-document or separate containers for child documents
+   - Updates: Different update frequencies? → Consider multi-document
+   - Atomicity: Need transactional updates? → Favor same partition with small batched updates or distributed transactional outbox pattern
 
 Reference: [Data modeling in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/modeling-data)
 
@@ -732,6 +768,9 @@ Reference: [Schema evolution in Cosmos DB](https://learn.microsoft.com/azure/cos
 
 ## Use Type Discriminators for Polymorphic Data
 
+Consider parent/child or different entities colocation in Cosmos DB in single container when:
+- similar entities write/read together and share natural or business key (partition Key), require simple transactional boundary and do not exceed Cosmos DB Partition Key limits.
+
 When storing multiple entity types in the same container, include a type discriminator field for efficient filtering and deserialization.
 
 **Incorrect (no type discrimination):**
@@ -808,6 +847,20 @@ Benefits:
 - Efficient filtering with indexed `type` field
 - Clear deserialization logic
 - Self-documenting data structure
+
+**"When NOT to Use Multi-Entity Containers"** :
+   - Independent throughput requirements → Use separate containers
+   - Different scaling patterns → Use separate containers
+   - Different indexing needs → Use separate containers
+   - Distinct change feed processing requirements → Use separate containers
+   - Low access correlation (<20%) → Use separate containers
+
+**Single-Container Anti-Patterns** :
+   - "Everything container" → Complex filtering → Difficult analytics
+   - One throughput allocation for all entity types
+   - One change feed with mixed events requiring filtering
+   - Difficult to maintain and onboard new developers
+
 
 Reference: [Model data in Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/modeling-data)
 
@@ -997,6 +1050,24 @@ Monitor for hot partitions:
 - Check Metrics → Normalized RU Consumption
 - Look for partitions consistently at 100%
 - Use Azure Monitor alerts for throttling
+
+**Partition Limits :**
+   - Physical partition throughput limit: **10,000 RU/s** per physical partition
+   - Logical partition size limit: **20 GB** per logical partition
+   - Physical partition size: **50 GB** per physical partition
+
+**Physical Partition Count Formula:**
+   ```
+   Physical Partitions = Total Data Size ÷ 50 GB
+   ```
+
+**Cross-Partition RU overhead Cost Estimation Formula:**
+   ```
+   Cross-partition query overhead ≈ 2.5 RU × number of physical partitions scanned
+   ```
+   - At 100+ physical partitions, cross-partition queries become extremely expensive
+
+**Popularity Skew Warning:** Even high-cardinality keys (like `user_id`) can create hot partitions when specific values get dramatically more traffic (e.g., a viral user during peak moments).
 
 Reference: [Design for partition hot-spotting](https://learn.microsoft.com/azure/cosmos-db/nosql/modeling-data#design-for-partition-key-hot-spots)
 
@@ -1415,6 +1486,20 @@ public class Order
     public string PartitionKey => $"{CustomerId}_{OrderDate:yyyy}";
 }
 ```
+
+**"Evaluate Hierarchical Partition Keys (HPK)" when considering Synthetic Partiton keys**:
+
+   When suggesting synthetic partition keys as part of design - evaluate **Hierarchical Partition Keys (HPK)** for alternative efficient multi-level query boundaries without without synthetic key complexity. 
+   *(HPK supports prefix-based efficient where cross-partition queries that synthetic keys cannot.)*
+
+** Synthetic Key vs Hierarchical PK - Comparison table:**
+
+   | Feature | Synthetic Key | Hierarchical PK |
+   |---------|--------------|-----------------|
+   | Query boundaries | Manual `STARTSWITH()` | Native prefix queries |
+   | Key construction | Application-level string concat | Cosmos DB native |
+   | Prefix queries | Inefficient (cross-partition) | Efficient (targeted) |
+   | Availability | All tiers | Dedicated tier only |
 
 Reference: [Synthetic partition keys](https://learn.microsoft.com/azure/cosmos-db/nosql/synthetic-partition-keys)
 
@@ -6912,9 +6997,9 @@ Reference: [Monitor throttling](https://learn.microsoft.com/azure/cosmos-db/moni
 
 **Impact: HIGH** (eliminates cross-partition query overhead for admin/analytics scenarios)
 
-## Use Change Feed for Materialized Views
+## Use Change Feed for Materialized Views or Global Secondary Index
 
-When your application requires frequent cross-partition queries (e.g., admin dashboards, analytics), consider using Change Feed to maintain materialized views in a separate container optimized for those query patterns.
+When your application requires frequent cross-partition queries (e.g., admin dashboards, analytics, frequent lookups by secondary non-PK attributes), consider using Change Feed to maintain materialized views in a separate container optimized for those query patterns or consider using new Global Secondary Index (GSI).
 
 **Problem: Cross-partition queries are expensive**
 
@@ -7099,8 +7184,11 @@ var query = ordersByStatusContainer.GetItemQueryIterator<OrderStatusView>(
 - Updates are eventually consistent (typically <1 second delay)
 - Use lease container to track processor progress (enables resume after failures)
 - Consider Azure Functions with Cosmos DB trigger for serverless implementation
+- Consider Global Secondary Index (GSI) implementation as alternative for automatic sync between containers with different partition keys. 
 
-Reference: [Change feed in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/change-feed)
+Reference(s): 
+[Change feed in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/change-feed)
+[Global Secondary Indexes (GSI) in Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/global-secondary-indexes)
 
 ### 9.2 Use count-based or cached rank approaches instead of full partition scans for ranking
 
