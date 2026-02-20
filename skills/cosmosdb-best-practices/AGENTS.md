@@ -1051,19 +1051,25 @@ Monitor for hot partitions:
 - Look for partitions consistently at 100%
 - Use Azure Monitor alerts for throttling
 
-**Partition Limits (Cosmos DB for NoSQL) :**
-   - Physical partition throughput limit: **10,000 RU/s** per physical partition  
-     (based on Azure Cosmos DB for NoSQL service limits as of January 2026 — verify against current [service quotas and limits](https://learn.microsoft.com/azure/cosmos-db/nosql/concepts-limits))
-   - Logical partition size limit: **20 GB** per logical partition  
-     (current logical-partition storage limit for Azure Cosmos DB for NoSQL — confirm in the [limits documentation](https://learn.microsoft.com/azure/cosmos-db/nosql/concepts-limits#resource-limits))
-   - Physical partition size: **50 GB** per physical partition  
-     (typical physical-partition capacity used by the service — subject to change; always re-check the official [limits article](https://learn.microsoft.com/azure/cosmos-db/nosql/concepts-limits))
+**Partition Limits :**
+   - Physical partition throughput limit: **10,000 RU/s** per physical partition
+   - Logical partition size limit: **20 GB** per logical partition
+   - Physical partition size: **50 GB** per physical partition
 
-> **Service limits can change.** Always treat the numbers above as **documentation snapshots**, not guarantees; re-validate them against the latest Azure Cosmos DB limits before relying on them in production automation or planning.
+**Physical Partition Count Formula:**
+   ```
+   Physical Partitions = Total Data Size ÷ 50 GB
+   ```
 
-**Physical Partition Count Formula (capacity planning aid):**
-   ```text
-   Physical Partitions ≈ Total Data Size ÷ 50 GB
+**Cross-Partition RU overhead Cost Estimation Formula:**
+   ```
+   Cross-partition query overhead ≈ 2.5 RU × number of physical partitions scanned
+   ```
+   - At 100+ physical partitions, cross-partition queries become extremely expensive
+
+**Popularity Skew Warning:** Even high-cardinality keys (like `user_id`) can create hot partitions when specific values get dramatically more traffic (e.g., a viral user during peak moments).
+
+Reference: [Design for partition hot-spotting](https://learn.microsoft.com/azure/cosmos-db/nosql/modeling-data#design-for-partition-key-hot-spots)
 
 ### 2.3 Use Hierarchical Partition Keys for Flexibility
 
@@ -1483,8 +1489,8 @@ public class Order
 
 **"Evaluate Hierarchical Partition Keys (HPK)" when considering Synthetic Partition keys**:
 
-   When suggesting synthetic partition keys as part of design - evaluate **Hierarchical Partition Keys (HPK)** for alternative efficient multi-level query boundaries without synthetic key complexity. 
-   *(HPK supports prefix-based efficient where cross-partition queries that synthetic keys cannot.)*
+   When suggesting synthetic partition keys as part of design, evaluate **Hierarchical Partition Keys (HPK)** as an alternative that provides efficient multi-level query boundaries without synthetic key complexity. 
+   *(HPK natively supports efficient prefix-based cross-partition queries that synthetic keys cannot.)*
 
 ** Synthetic Key vs Hierarchical PK - Comparison table:**
 
@@ -1495,7 +1501,9 @@ public class Order
    | Prefix queries | Inefficient (cross-partition) | Efficient (targeted) |
    | Availability | All tiers | Dedicated tier only |
 
-Reference: [Synthetic partition keys](https://learn.microsoft.com/azure/cosmos-db/nosql/synthetic-partition-keys)
+References:
+- [Synthetic partition keys](https://learn.microsoft.com/azure/cosmos-db/nosql/synthetic-partition-keys)
+- [Hierarchical partition keys (HPK)](https://learn.microsoft.com/azure/cosmos-db/nosql/hierarchical-partition-keys)
 
 ---
 
@@ -6993,7 +7001,7 @@ Reference: [Monitor throttling](https://learn.microsoft.com/azure/cosmos-db/moni
 
 ## Use Change Feed for Materialized Views or Global Secondary Index
 
-When your application requires frequent cross-partition queries (e.g., admin dashboards, analytics, frequent lookups by secondary non-PK attributes), consider using Change Feed to maintain materialized views in a separate container optimized for those query patterns or consider using new Global Secondary Index (GSI).
+When your application requires frequent cross-partition queries (e.g., admin dashboards, analytics, frequent lookups by secondary non-PK attributes), you have two main options: use Change Feed to maintain materialized views in a separate container optimized for those query patterns, or use the new Global Secondary Index (GSI).
 
 **Problem: Cross-partition queries are expensive**
 
