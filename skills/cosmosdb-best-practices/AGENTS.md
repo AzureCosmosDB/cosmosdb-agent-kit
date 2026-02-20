@@ -768,8 +768,8 @@ Reference: [Schema evolution in Cosmos DB](https://learn.microsoft.com/azure/cos
 
 ## Use Type Discriminators for Polymorphic Data
 
-Consider parent/child or different entities colocation in Cosmos DB in single container when:
-- similar entities write/read together and share natural or business key (partition Key), require simple transactional boundary and do not exceed Cosmos DB Partition Key limits.
+Use a single Cosmos DB container to co-locate related parent/child or different entity types when:
+- similar entities are written and read together, share a natural or business partition key, require a simple transactional boundary, and do not exceed Cosmos DB partition key limits.
 
 When storing multiple entity types in the same container, include a type discriminator field for efficient filtering and deserialization.
 
@@ -1051,25 +1051,17 @@ Monitor for hot partitions:
 - Look for partitions consistently at 100%
 - Use Azure Monitor alerts for throttling
 
-**Partition Limits :**
-   - Physical partition throughput limit: **10,000 RU/s** per physical partition
-   - Logical partition size limit: **20 GB** per logical partition
-   - Physical partition size: **50 GB** per physical partition
+**Partition Limits (as of current Azure Cosmos DB documentation):**
+   - Physical partition throughput limit: **10,000 RU/s** per physical partition  
+     See [Azure Cosmos DB partitioning – physical partitions](https://learn.microsoft.com/azure/cosmos-db/partitioning-overview#physical-partitions).
+   - Logical partition size limit: **20 GB** per logical partition  
+     See [Azure Cosmos DB partitioning – logical partitions](https://learn.microsoft.com/azure/cosmos-db/partitioning-overview#logical-partitions).
+   - Physical partition size: **50 GB** per physical partition  
+     See [Azure Cosmos DB partitioning – physical partitions](https://learn.microsoft.com/azure/cosmos-db/partitioning-overview#physical-partitions).
 
-**Physical Partition Count Formula:**
-   ```
-   Physical Partitions = Total Data Size ÷ 50 GB
-   ```
+   > These limits can evolve over time and may vary by region/offer. Always confirm against the latest Azure Cosmos DB documentation for your account.
 
-**Cross-Partition RU overhead Cost Estimation Formula:**
-   ```
-   Cross-partition query overhead ≈ 2.5 RU × number of physical partitions scanned
-   ```
-   - At 100+ physical partitions, cross-partition queries become extremely expensive
-
-**Popularity Skew Warning:** Even high-cardinality keys (like `user_id`) can create hot partitions when specific values get dramatically more traffic (e.g., a viral user during peak moments).
-
-Reference: [Design for partition hot-spotting](https://learn.microsoft.com/azure/cosmos-db/nosql/modeling-data#design-for-partition-key-hot-spots)
+**Popularity Skew Warning for Hot Partitions:** Even high-cardinality keys (like `user_id`) can create hot partitions when specific values get dramatically more traffic (e.g., a viral user during peak moments).
 
 ### 2.3 Use Hierarchical Partition Keys for Flexibility
 
