@@ -7,7 +7,7 @@ tags: pattern, change-feed, materialized-views, cross-partition, query-optimizat
 
 ## Use Change Feed for Materialized Views or Global Secondary Index
 
-When your application requires frequent cross-partition queries (e.g., admin dashboards, analytics, frequent lookups by secondary non-PK attributes), consider using Change Feed to maintain materialized views in a separate container optimized for those query patterns or consider using new Global Secondary Index (GSI).
+When your application requires frequent cross-partition queries (e.g., admin dashboards, analytics, frequent lookups by secondary non-PK attributes), you have two main options: use Change Feed to maintain materialized views in a separate container optimized for those query patterns, or use the new Global Secondary Index (GSI).
 
 **Problem: Cross-partition queries are expensive**
 
