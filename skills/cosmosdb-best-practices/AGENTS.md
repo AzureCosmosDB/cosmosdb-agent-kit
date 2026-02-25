@@ -23,11 +23,13 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 1.2 [Denormalize for Read-Heavy Workloads](#12-denormalize-for-read-heavy-workloads)
    - 1.3 [Embed Related Data Retrieved Together](#13-embed-related-data-retrieved-together)
    - 1.4 [Follow ID Value Length and Character Constraints](#14-follow-id-value-length-and-character-constraints)
-   - 1.5 [Stay Within 128-Level Nesting Depth Limit](#15-stay-within-128-level-nesting-depth-limit)
-   - 1.6 [Understand IEEE 754 Numeric Precision Limits](#16-understand-ieee-754-numeric-precision-limits)
-   - 1.7 [Reference Data When Items Grow Large](#17-reference-data-when-items-grow-large)
-   - 1.8 [Version Your Document Schemas](#18-version-your-document-schemas)
-   - 1.9 [Use Type Discriminators for Polymorphic Data](#19-use-type-discriminators-for-polymorphic-data)
+   - 1.5 [Handle JSON serialization correctly for Cosmos DB documents](#15-handle-json-serialization-correctly-for-cosmos-db-documents)
+   - 1.6 [Stay Within 128-Level Nesting Depth Limit](#16-stay-within-128-level-nesting-depth-limit)
+   - 1.7 [Understand IEEE 754 Numeric Precision Limits](#17-understand-ieee-754-numeric-precision-limits)
+   - 1.8 [Reference Data When Items Grow Large](#18-reference-data-when-items-grow-large)
+   - 1.9 [Use ID references with transient hydration for document relationships](#19-use-id-references-with-transient-hydration-for-document-relationships)
+   - 1.10 [Version Your Document Schemas](#110-version-your-document-schemas)
+   - 1.11 [Use Type Discriminators for Polymorphic Data](#111-use-type-discriminators-for-polymorphic-data)
 2. [Partition Key Design](#2-partition-key-design) — **CRITICAL**
    - 2.1 [Plan for 20GB Logical Partition Limit](#21-plan-for-20gb-logical-partition-limit)
    - 2.2 [Distribute Writes to Avoid Hot Partitions](#22-distribute-writes-to-avoid-hot-partitions)
@@ -61,6 +63,8 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 4.15 [Handle 429 Errors with Retry-After](#415-handle-429-errors-with-retry-after)
    - 4.16 [Use consistent enum serialization between Cosmos SDK and application layer](#416-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
    - 4.17 [Reuse CosmosClient as Singleton](#417-reuse-cosmosclient-as-singleton)
+   - 4.18 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#418-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
+   - 4.19 [Use CosmosRepository correctly and handle Iterable return types](#419-use-cosmosrepository-correctly-and-handle-iterable-return-types)
 5. [Indexing Strategies](#5-indexing-strategies) — **MEDIUM-HIGH**
    - 5.1 [Use Composite Indexes for ORDER BY](#51-use-composite-indexes-for-order-by)
    - 5.2 [Exclude Unused Index Paths](#52-exclude-unused-index-paths)
@@ -89,6 +93,7 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
 9. [Design Patterns](#9-design-patterns) — **HIGH**
    - 9.1 [Use Change Feed for cross-partition query optimization with materialized views](#91-use-change-feed-for-cross-partition-query-optimization-with-materialized-views)
    - 9.2 [Use count-based or cached rank approaches instead of full partition scans for ranking](#92-use-count-based-or-cached-rank-approaches-instead-of-full-partition-scans-for-ranking)
+   - 9.3 [Use a service layer to hydrate document references before rendering](#93-use-a-service-layer-to-hydrate-document-references-before-rendering)
 
 ---
 
@@ -414,7 +419,147 @@ Key constraints:
 
 Reference: [Azure Cosmos DB service quotas - Per-item limits](https://learn.microsoft.com/azure/cosmos-db/concepts-limits#per-item-limits)
 
-### 1.5 Stay Within 128-Level Nesting Depth Limit
+### 1.5 Handle JSON serialization correctly for Cosmos DB documents
+
+**Impact: HIGH** (prevents data loss, null constructor errors, and serialization failures)
+
+## Handle JSON Serialization Correctly for Cosmos DB
+
+Cosmos DB stores documents as JSON. Every field on an entity that must be persisted needs to be serializable. Incorrect use of `@JsonIgnore`, missing constructors, or incompatible field types (like `BigDecimal` on JDK 17+) cause silent data loss or runtime failures.
+
+**Incorrect (common serialization mistakes):**
+
+```java
+@Container(containerName = "users")
+public class User {
+
+    @Id
+    private String id;
+
+    @PartitionKey
+    private String partitionKey = "user";
+
+    private String login;
+
+    @JsonIgnore  // ❌ WRONG: Password will NOT be saved to Cosmos DB
+    private String password;
+
+    @JsonIgnore  // ❌ WRONG: Authorities will NOT be saved to Cosmos DB
+    private Set<String> authorities = new HashSet<>();
+
+    private BigDecimal accountBalance;  // ❌ Fails on JDK 17+ with reflection errors
+}
+```
+
+**Correct (proper serialization for Cosmos DB):**
+
+```java
+@Container(containerName = "users")
+public class User {
+
+    @Id
+    private String id;
+
+    @PartitionKey
+    private String partitionKey = "user";
+
+    private String login;
+
+    // ✅ No @JsonIgnore — field is persisted to Cosmos DB
+    private String password;
+
+    // ✅ Use @JsonProperty for explicit field naming, NOT @JsonIgnore
+    @JsonProperty("authorities")
+    private Set<String> authorities = new HashSet<>();
+
+    // ✅ Use Double instead of BigDecimal for JDK 17+ compatibility
+    private Double accountBalance;
+}
+```
+
+**Rule 1: Never `@JsonIgnore` persisted fields**
+
+`@JsonIgnore` prevents a field from being written to Cosmos DB. This is the #1 cause of "Cannot pass null or empty values to constructor" errors after reading a document back:
+
+```java
+// ❌ Data loss: field is not stored in Cosmos
+@JsonIgnore
+private String password;
+
+// ✅ Field is stored in Cosmos
+private String password;
+
+// ✅ Rename in JSON but still store
+@JsonProperty("pwd")
+private String password;
+```
+
+**Only use `@JsonIgnore` on transient/computed fields** that should NOT be stored in Cosmos DB (e.g., hydrated relationship objects — see `model-relationship-references`).
+
+**Rule 2: BigDecimal fails on JDK 17+**
+
+Java 17+ module system restricts reflection access to `BigDecimal` internal fields during Jackson serialization:
+
+```
+Unable to make field private final java.math.BigInteger
+java.math.BigDecimal.intVal accessible
+```
+
+**Solutions (in order of preference):**
+
+1. **Replace with `Double`** — sufficient for most use cases:
+   ```java
+   private Double amount; // Instead of BigDecimal
+   ```
+
+2. **Replace with `String`** — for high-precision requirements:
+   ```java
+   private String amount; // Store "1500.00"
+
+   public BigDecimal getAmountAsBigDecimal() {
+       return new BigDecimal(amount);
+   }
+   ```
+
+3. **Add JVM argument** — if BigDecimal must be kept:
+   ```
+   --add-opens java.base/java.math=ALL-UNNAMED
+   ```
+
+**Rule 3: Provide a default constructor**
+
+Cosmos DB deserialization requires a no-arg constructor. If you add parameterized constructors, always keep the default:
+
+```java
+@Container(containerName = "items")
+public class Item {
+    // ✅ Default constructor required for deserialization
+    public Item() {}
+
+    public Item(String name, Double price) {
+        this.name = name;
+        this.price = price;
+    }
+}
+```
+
+**Rule 4: Store complex objects as simple types**
+
+For complex Cosmos DB compatibility, prefer simple types over JPA entity references:
+
+```java
+// ❌ Complex nested entity — may cause serialization issues
+private Set<Authority> authorities;
+
+// ✅ Simple string set — reliable serialization
+private Set<String> authorities;
+```
+
+Convert between simple and complex types in the service layer, not in the entity.
+
+Reference: [Jackson annotations guide](https://github.com/FasterXML/jackson-annotations/wiki/Jackson-Annotations)
+
+### 1.6 Stay Within 128-Level Nesting Depth Limit
 
 **Impact: MEDIUM** (prevents document rejection on deeply nested structures)
 
@@ -513,7 +658,7 @@ Key points:
 
 Reference: [Azure Cosmos DB service quotas - Per-item limits](https://learn.microsoft.com/azure/cosmos-db/concepts-limits#per-item-limits)
 
-### 1.6 Understand IEEE 754 Numeric Precision Limits
+### 1.7 Understand IEEE 754 Numeric Precision Limits
 
 **Impact: MEDIUM** (prevents silent data loss on large or precise numbers)
 
@@ -611,7 +756,7 @@ Key points:
 
 Reference: [Azure Cosmos DB service quotas - Per-item limits](https://learn.microsoft.com/azure/cosmos-db/concepts-limits#per-item-limits)
 
-### 1.7 Reference Data When Items Grow Large
+### 1.8 Reference Data When Items Grow Large
 
 **Impact: CRITICAL** (prevents hitting 2MB limit)
 
@@ -678,7 +823,100 @@ Use references when:
 
 Reference: [Model document data](https://learn.microsoft.com/azure/cosmos-db/nosql/modeling-data#referencing-data)
 
-### 1.8 Version Your Document Schemas
+### 1.9 Use ID references with transient hydration for document relationships
+
+**Impact: HIGH** (enables correct relationship handling without JOINs while preserving UI/API object access)
+
+## Use ID References with Transient Hydration for Document Relationships
+
+Cosmos DB has no cross-document JOINs. When entities need to reference each other, store relationship IDs as persistent fields and use transient (`@JsonIgnore`) properties for hydrated object access. A service layer populates the transient properties before rendering.
+
+This pattern goes beyond basic referencing (see `model-reference-large`) by providing a **complete strategy for applications that need both document storage efficiency and runtime object graphs** (e.g., web apps with templates, REST APIs returning nested objects).
+
+**Incorrect (JPA relationship annotations — no Cosmos equivalent):**
+
+```java
+@Entity
+public class Vet {
+    @Id
+    private Integer id;
+
+    @ManyToMany
+    @JoinTable(name = "vet_specialties")
+    private List<Specialty> specialties;  // JPA manages this relationship
+}
+```
+
+**Also incorrect (embedding unbounded relationships directly):**
+
+```java
+@Container(containerName = "vets")
+public class Vet {
+    @Id
+    private String id;
+
+    // ❌ Stores full Specialty objects — grows unbounded, duplicates data
+    private List<Specialty> specialties;
+}
+```
+
+**Correct (ID references + transient hydration):**
+
+```java
+@Container(containerName = "vets")
+public class Vet {
+
+    @Id
+    @GeneratedValue
+    private String id;
+
+    @PartitionKey
+    private String partitionKey = "vet";
+
+    private String firstName;
+    private String lastName;
+
+    // ✅ Persisted to Cosmos DB — stores only IDs
+    private List<String> specialtyIds = new ArrayList<>();
+
+    // ✅ Transient — NOT stored in Cosmos DB, populated by service layer
+    @JsonIgnore
+    private List<Specialty> specialties = new ArrayList<>();
+
+    // Both getters needed
+    public List<String> getSpecialtyIds() { return specialtyIds; }
+    public List<Specialty> getSpecialties() { return specialties; }
+
+    // Count methods should use the transient list when populated,
+    // fall back to ID list
+    public int getNrOfSpecialties() {
+        return specialties.isEmpty() ? specialtyIds.size() : specialties.size();
+    }
+}
+```
+
+**When to use this pattern:**
+
+| Scenario | Approach |
+|----------|----------|
+| Related data always read together, bounded size | **Embed** (see `model-embed-related`) |
+| Related data read independently, unbounded | **ID reference** (this pattern) |
+| UI/template needs object access to related data | **ID reference + transient hydration** (this pattern) |
+| REST API returns nested objects | **ID reference + transient hydration** (this pattern) |
+| Related data rarely accessed after write | **ID reference only** (no transient needed) |
+
+**The transient hydration flow:**
+
+1. **Entity stores** `List<String> specialtyIds` (persisted)
+2. **Service layer** reads the entity, then looks up each ID to get full objects
+3. **Service populates** `List<Specialty> specialties` (transient)
+4. **Controller/template** accesses `vet.getSpecialties()` as if it were a normal object graph
+
+**Important:** `@JsonIgnore` is correct here because transient properties should NOT be stored in Cosmos DB — they are populated on read by the service layer. This is the one legitimate use of `@JsonIgnore` (see `model-json-serialization` for when NOT to use it).
+
+Reference: [Data modeling in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/modeling-data)
+
+### 1.10 Version Your Document Schemas
 
 **Impact: MEDIUM** (enables safe schema evolution)
 
@@ -762,7 +1000,7 @@ Always increment version when:
 
 Reference: [Schema evolution in Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/modeling-data)
 
-### 1.9 Use Type Discriminators for Polymorphic Data
+### 1.11 Use Type Discriminators for Polymorphic Data
 
 **Impact: MEDIUM** (enables efficient single-container design)
 
@@ -4398,6 +4636,190 @@ public class CosmosDbHostedService : IHostedService
 
 Reference: [CosmosClient best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-dotnet)
 
+### 4.18 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
+
+**Impact: CRITICAL** (prevents startup failures and data access errors in Spring Data Cosmos applications)
+
+## Annotate Entities for Spring Data Cosmos
+
+Spring Data Cosmos requires specific annotations on entity classes. JPA annotations (`@Entity`, `@Table`, `@Column`, `@JoinColumn`) are not recognized. Every entity must have `@Container`, a `String` ID with `@Id` and `@GeneratedValue`, and a `@PartitionKey` field.
+
+**Incorrect (JPA annotations — not recognized by Cosmos):**
+
+```java
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "owners")
+public class Owner {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @Column(name = "first_name")
+    private String firstName;
+
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "owner")
+    private List<Pet> pets;
+}
+```
+
+**Correct (Spring Data Cosmos annotations):**
+
+```java
+import com.azure.spring.data.cosmos.core.mapping.Container;
+import com.azure.spring.data.cosmos.core.mapping.PartitionKey;
+import com.azure.spring.data.cosmos.core.mapping.GeneratedValue;
+import org.springframework.data.annotation.Id;
+
+@Container(containerName = "owners")
+public class Owner {
+
+    @Id
+    @GeneratedValue
+    private String id;
+
+    @PartitionKey
+    private String partitionKey;
+
+    private String firstName;
+    private List<String> petIds = new ArrayList<>(); // Store IDs, not entity references
+
+    public Owner() {
+        this.partitionKey = "owner"; // Set partition key in constructor
+    }
+}
+```
+
+**Key annotation mappings:**
+
+| JPA Annotation | Spring Data Cosmos Equivalent | Notes |
+|----------------|-------------------------------|-------|
+| `@Entity` | `@Container(containerName = "...")` | Container name should be plural |
+| `@Table(name = "...")` | `@Container(containerName = "...")` | Same annotation handles both |
+| `@Id` + `@GeneratedValue(strategy = ...)` | `@Id` + `@GeneratedValue` | Must use `org.springframework.data.annotation.Id` |
+| `@Column` | *(remove)* | All fields are stored automatically |
+| `@JoinColumn` | *(remove)* | No joins in document databases |
+| `@OneToMany`, `@ManyToOne`, `@ManyToMany` | *(remove)* | Use embedded data or ID references |
+| *(none)* | `@PartitionKey` | **Required** — must be added |
+
+**Critical requirements:**
+
+1. **IDs must be `String` type** — Cosmos DB uses string IDs natively. `Integer`/`Long` IDs cause type conversion failures:
+   ```java
+   // Wrong: Integer IDs don't work with CosmosRepository<Entity, String>
+   private Integer id;
+
+   // Correct: Always use String IDs
+   @Id
+   @GeneratedValue
+   private String id;
+   ```
+
+2. **Every entity needs a `@PartitionKey`** — without it, queries cannot be routed efficiently:
+   ```java
+   @PartitionKey
+   private String partitionKey;
+   ```
+
+3. **Remove ALL `jakarta.persistence.*` imports** — they cause compilation errors after removing JPA dependencies
+
+4. **Remove relationship annotations** — `@OneToMany`, `@ManyToOne`, `@ManyToMany`, `@JoinColumn` have no Cosmos equivalent. Use ID references or embedded data instead (see `model-embed-related` and `model-relationship-references` rules).
+
+Reference: [Spring Data Azure Cosmos DB annotations](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-spring-data)
+
+### 4.19 Use CosmosRepository correctly and handle Iterable return types
+
+**Impact: HIGH** (prevents ClassCastException and query failures in Spring Data Cosmos repositories)
+
+## Use CosmosRepository Correctly
+
+`CosmosRepository` differs from `JpaRepository` in return types, pagination support, and query method conventions. Common pitfalls include casting `Iterable` to `List` directly and using JPA-style pagination.
+
+**Incorrect (JPA repository patterns that fail with Cosmos):**
+
+```java
+// JpaRepository extends PagingAndSortingRepository — Cosmos does not
+public interface OwnerRepository extends JpaRepository<Owner, Integer> {
+    Page<Owner> findByLastNameStartingWith(String lastName, Pageable pageable);
+    List<PetType> findPetTypes();
+}
+```
+
+**Correct (CosmosRepository patterns):**
+
+```java
+import com.azure.spring.data.cosmos.repository.CosmosRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface OwnerRepository extends CosmosRepository<Owner, String> {
+    List<Owner> findByLastNameStartingWith(String lastName); // No Pageable
+    List<PetType> findAllByOrderByName(); // Renamed, no pagination
+}
+```
+
+**Critical: Iterable-to-List conversion**
+
+Cosmos repositories return `Iterable`, not `List`. Direct casting causes `ClassCastException`:
+
+```java
+// WRONG — ClassCastException: BlockingIterable cannot be cast to java.util.List
+default List<Entity> findAllSorted() {
+    return (List<Entity>) this.findAll();
+}
+
+// CORRECT — Use StreamSupport to convert
+import java.util.stream.StreamSupport;
+import java.util.stream.Collectors;
+
+default List<Entity> findAllSorted() {
+    return StreamSupport.stream(this.findAll().spliterator(), false)
+            .collect(Collectors.toList());
+}
+```
+
+**Query method conversion patterns:**
+
+| JPA Pattern | CosmosRepository Pattern | Notes |
+|-------------|-------------------------|-------|
+| `Page<E> findByX(String x, Pageable p)` | `List<E> findByX(String x)` | Remove pagination parameter |
+| `findPetTypes()` | `findAllByOrderByName()` | Use Spring Data naming conventions |
+| `@Query("SELECT p FROM Pet p WHERE ...")` | `@Query("SELECT * FROM c WHERE ...")` | Use Cosmos SQL syntax |
+| `findById(Integer id)` | `findById(String id)` | IDs are always `String` |
+| `extends JpaRepository<E, Integer>` | `extends CosmosRepository<E, String>` | Entity type + String ID |
+
+**Custom query annotations:**
+
+```java
+// JPA JPQL — does not work with Cosmos
+@Query("SELECT p FROM Pet p WHERE p.owner.id = :ownerId")
+List<Pet> findByOwnerId(@Param("ownerId") Integer ownerId);
+
+// Cosmos SQL — correct syntax
+@Query("SELECT * FROM c WHERE c.ownerId = @ownerId")
+List<Pet> findByOwnerId(@Param("ownerId") String ownerId);
+```
+
+**Method signature conflicts after ID type changes:**
+
+When converting IDs from `Integer` to `String`, methods that previously had different signatures may conflict:
+
+```java
+// CONFLICT: Both methods now have same signature (String parameter)
+Pet getPet(String name);    // by name
+Pet getPet(String id);      // by ID — same signature!
+
+// SOLUTION: Rename to be explicit
+Pet getPetByName(String name);
+Pet getPetById(String id);
+```
+
+**Update all callers** — controllers, tests, formatters, and other services must reference the renamed methods.
+
+Reference: [Spring Data Azure Cosmos DB repository](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-spring-data#define-a-repository)
+
 ---
 
 ## 5. Indexing Strategies
@@ -7342,6 +7764,136 @@ public class ScoreBucket
 - For "nearby players ±10", combine a COUNT query with a TOP 21 query centered on the player's score
 
 Reference: [Cosmos DB query optimization](https://learn.microsoft.com/azure/cosmos-db/nosql/query/getting-started)
+
+### 9.3 Use a service layer to hydrate document references before rendering
+
+**Impact: HIGH** (bridges document storage with frameworks expecting object graphs, prevents empty/null relationship data)
+
+## Use a Service Layer to Hydrate Document References
+
+When using ID-based references between Cosmos DB documents (see `model-relationship-references`), create a service layer that populates transient relationship properties before returning entities to controllers, templates, or API responses. Never return repository results directly to the presentation layer without hydrating relationships.
+
+**Incorrect (controller accesses repository directly — empty relationships):**
+
+```java
+@Controller
+public class VetController {
+
+    @Autowired
+    private VetRepository vetRepository;
+
+    @GetMapping("/vets")
+    public String listVets(Model model) {
+        // ❌ Returns vets with specialtyIds populated but specialties list empty
+        List<Vet> vets = StreamSupport
+            .stream(vetRepository.findAll().spliterator(), false)
+            .collect(Collectors.toList());
+        model.addAttribute("vets", vets);
+        return "vets/vetList";
+        // Template calls vet.getSpecialties() → empty list!
+    }
+}
+```
+
+**Correct (service layer hydrates relationships):**
+
+```java
+@Service
+public class VetService {
+
+    private final VetRepository vetRepository;
+    private final SpecialtyRepository specialtyRepository;
+
+    public VetService(VetRepository vetRepository,
+                      SpecialtyRepository specialtyRepository) {
+        this.vetRepository = vetRepository;
+        this.specialtyRepository = specialtyRepository;
+    }
+
+    public List<Vet> findAll() {
+        List<Vet> vets = StreamSupport
+            .stream(vetRepository.findAll().spliterator(), false)
+            .collect(Collectors.toList());
+        vets.forEach(this::populateRelationships);
+        return vets;
+    }
+
+    public Optional<Vet> findById(String id) {
+        return vetRepository.findById(id)
+            .map(vet -> {
+                populateRelationships(vet);
+                return vet;
+            });
+    }
+
+    private void populateRelationships(Vet vet) {
+        if (vet.getSpecialtyIds() != null && !vet.getSpecialtyIds().isEmpty()) {
+            List<Specialty> specialties = vet.getSpecialtyIds()
+                .stream()
+                .map(specialtyRepository::findById)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toList());
+            vet.setSpecialties(specialties);
+        }
+    }
+}
+```
+
+**Controller uses the service:**
+
+```java
+@Controller
+public class VetController {
+
+    @Autowired
+    private VetService vetService;  // ✅ Service, not repository
+
+    @GetMapping("/vets")
+    public String listVets(Model model) {
+        List<Vet> vets = vetService.findAll();
+        model.addAttribute("vets", vets);  // ✅ Relationships are populated
+        return "vets/vetList";
+    }
+}
+```
+
+**When this pattern is required:**
+
+- **Template engines** (Thymeleaf, JSP, Freemarker) that access `entity.relatedObjects`
+- **REST APIs** that return nested JSON with related objects
+- **Any presentation layer** that expects an object graph from the persistence layer
+
+**Without this pattern** you will see:
+- Empty lists where related objects should appear
+- `Property or field 'specialties' cannot be found` errors in Thymeleaf
+- `EL1008E` Spring Expression Language errors
+- Null/empty data in API responses where relationships should appear
+
+**Key rules:**
+
+1. **Every controller method that returns entities for rendering must use the service layer** — never call repositories directly
+2. **Populate ALL transient properties** used by templates or API serializers
+3. **Service methods returning collections** must hydrate each entity in the list
+4. **Service methods returning single entities** must hydrate before returning
+
+**Performance consideration:** This pattern causes N+1 queries (one per reference ID). For large collections, consider batch lookups:
+
+```java
+// Batch lookup instead of N individual findById calls
+private void populateRelationships(Vet vet) {
+    if (vet.getSpecialtyIds() != null && !vet.getSpecialtyIds().isEmpty()) {
+        // Use a single query with IN clause
+        List<Specialty> specialties = specialtyRepository
+            .findAllById(vet.getSpecialtyIds());
+        vet.setSpecialties(specialties);
+    }
+}
+```
+
+For truly high-volume scenarios, consider denormalizing the data instead (see `model-denormalize-reads`) or using Change Feed to maintain materialized views (see `pattern-change-feed-materialized-views`).
+
+Reference: [Data modeling in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/modeling-data)
 
 ---
 

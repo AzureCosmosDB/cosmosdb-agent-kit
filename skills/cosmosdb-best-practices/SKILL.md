@@ -14,7 +14,7 @@ metadata:
 
 # Azure Cosmos DB Best Practices
 
-Comprehensive performance optimization guide for Azure Cosmos DB applications, containing 45+ rules across 8 categories, prioritized by impact to guide automated refactoring and code generation.
+Comprehensive performance optimization guide for Azure Cosmos DB applications, containing 60+ rules across 9 categories, prioritized by impact to guide automated refactoring and code generation.
 
 ## When to Apply
 
@@ -53,6 +53,8 @@ Reference these guidelines when:
 - `model-denormalize-reads` - Denormalize for read-heavy workloads
 - `model-schema-versioning` - Version your document schemas
 - `model-type-discriminator` - Use type discriminators for polymorphic data
+- `model-json-serialization` - Handle JSON serialization correctly for Cosmos DB documents
+- `model-relationship-references` - Use ID references with transient hydration for document relationships
 
 ### 2. Partition Key Design (CRITICAL)
 
@@ -89,6 +91,8 @@ Reference these guidelines when:
 - `sdk-java-content-response` - Enable content response on write operations (Java)
 - `sdk-java-spring-boot-versions` - Match Java version to Spring Boot requirements
 - `sdk-local-dev-config` - Configure local development to avoid cloud conflicts
+- `sdk-spring-data-annotations` - Annotate entities for Spring Data Cosmos
+- `sdk-spring-data-repository` - Use CosmosRepository correctly and handle Iterable return types
 
 ### 5. Indexing Strategies (MEDIUM-HIGH)
 
@@ -126,6 +130,8 @@ Reference these guidelines when:
 ### 9. Design Patterns (HIGH)
 
 - `pattern-change-feed-materialized-views` - Use Change Feed for cross-partition query optimization
+- `pattern-efficient-ranking` - Use count-based or cached approaches for efficient ranking
+- `pattern-service-layer-relationships` - Use a service layer to hydrate document references
 
 ## How to Use
 
