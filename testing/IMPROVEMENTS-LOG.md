@@ -18,6 +18,95 @@ Each improvement entry should include:
 
 ## Improvements
 
+#### 2026-03-02: Iteration 003 - Gaming Leaderboard Scenario (Python / FastAPI)
+
+- **Scenario**: gaming-leaderboard
+- **Iteration**: 003-python
+- **Result**: ✅ SUCCESSFUL - All endpoints functional, all tests passed
+- **Score**: 9/10
+- **Key Achievement**: Highest score yet. Skills feedback loop validated — COUNT-based ranking (Rule 9.2) and ETag concurrency (Rule 4.7) from iteration-001 applied correctly from the start. Found and fixed a bug in the skill's own Python ETag example.
+
+**Rules Fixed** 🔧:
+
+1. **sdk-etag-concurrency.md** — FIXED Python example (HIGH)
+   - The existing Python code example used `match_condition=etag` (passing the ETag string value)
+   - Python SDK requires `match_condition=MatchConditions.IfNotModified` from `azure.core`
+   - The string approach raises `TypeError: Invalid match condition`
+   - Added explicit warning about the `MatchConditions` enum requirement
+   - Added proper import: `from azure.core import MatchConditions`
+
+**Issues Encountered & Resolved**:
+
+1. **Python SDK ETag API Incorrect in Skill** — 🐛 BUG IN SKILL → FIXED
+   - Problem: Rule 4.7's Python example used `match_condition=etag` (string), but SDK requires `MatchConditions.IfNotModified` enum
+   - Impact: Any agent following the Python ETag example would get a runtime TypeError
+   - Solution: Fixed the example in `sdk-etag-concurrency.md` with correct import and enum usage
+   - Status: ✅ Fixed and recompiled
+
+2. **Pydantic Model Consistency** — ⚠️ CODE QUALITY (not skill issue)
+   - Problem: Response model field names didn't match constructor arguments in main.py
+   - Impact: 500 errors on API responses
+   - Root cause: Agent-generated models and routes had naming inconsistencies
+   - Status: ✅ Fixed during development
+
+3. **OFFSET/LIMIT Usage** — ⚠️ MINOR
+   - Problem: Some queries use `OFFSET 0 LIMIT @limit` for bounded results
+   - Impact: Minimal — always single-partition, small limits (≤100)
+   - Status: ⚠️ Acceptable for this use case but noted
+
+**Test Results**:
+- ✅ POST /scores — Score submission with ETag concurrency, 4 leaderboard entries
+- ✅ GET /leaderboards/global?period=all-time — Correct rank order
+- ✅ GET /leaderboards/global?period=weekly — Weekly partition key
+- ✅ GET /leaderboards/regional/US?period=all-time — Country-filtered
+- ✅ GET /players/{id}/rank — COUNT-based ranking + nearby ±10
+- ✅ GET /players/{id} — Player profile with aggregated stats
+- ✅ 404 for non-existent players
+- ✅ 404 for non-existent player rank
+- ✅ Higher score correctly re-ranks player (Alice 1500→3000, moved to #1)
+
+**Best Practices Applied Successfully**:
+1. ✅ **Materialized Views** (Rule 9.1) — Leaderboard container as denormalized view
+2. ✅ **COUNT-based Ranking** (Rule 9.2) — From iteration-001 feedback, applied from start
+3. ✅ **ETag Concurrency** (Rule 4.7) — With retry loop, from iteration-001 feedback
+4. ✅ **Synthetic Partition Keys** (Rule 2.7) — `"global_2026-W10"`, `"US_all-time"`
+5. ✅ **Composite Index** (Rule 5.1) — `(bestScore DESC, lastUpdatedAt ASC)`
+6. ✅ **Exclude Unused Index Paths** (Rule 5.2) — Custom policies on all 3 containers
+7. ✅ **Singleton CosmosClient** (Rule 4.17) — Created once in lifespan
+8. ✅ **Parameterized Queries** (Rule 3.5) — All queries use parameters
+9. ✅ **Field Projections** (Rule 3.6) — Specific fields, not SELECT *
+10. ✅ **Single-Partition Queries** (Rule 3.1) — All queries target one partition
+11. ✅ **Type Discriminators** (Rule 1.11) — "player", "score", "leaderboardEntry"
+12. ✅ **Schema Versioning** (Rule 1.10) — `schemaVersion: 1` on all documents
+13. ✅ **Denormalized Reads** (Rule 1.2) — Player info embedded in leaderboard entries
+14. ✅ **load_dotenv(override=True)** (Rule 4.12) — Correct local dev config
+15. ✅ **SSL Disabled for Emulator** (Rule 4.6) — Conditional on endpoint detection
+
+**Best Practices NOT Applied**:
+- ❌ Preferred regions, availability strategy, circuit breaker (production only)
+- ❌ Rich diagnostics logging (Python SDK has limited diagnostics compared to .NET/Java)
+- ❌ Throughput configuration (autoscale/provisioned)
+
+**Score Improvement Trend**:
+| Iteration | Language | Score | Key Issues |
+|-----------|----------|-------|------------|
+| 001 | .NET | 7/10 | O(N) ranking, missing ETag |
+| 002 | Java | 7/10 | OFFSET/LIMIT, API build errors |
+| 003 | Python | 9/10 | Only skill bug (fixed), model consistency |
+
+**Lessons Learned**:
+1. **Skills feedback loop works** — Rules from iter-001 (ranking, ETag) applied correctly in iter-003
+2. **Python SDK has different API surface** — `MatchConditions` enum vs string/option patterns in .NET/Java
+3. **Skill examples must be tested** — The Python ETag example was wrong since rule creation
+4. **Score trend confirms improvement** — 7/10 → 7/10 → 9/10 shows skill refinement over iterations
+
+**FILES MODIFIED**:
+- 🔧 `skills/cosmosdb-best-practices/rules/sdk-etag-concurrency.md` — FIXED Python example
+- 🔧 `skills/cosmosdb-best-practices/AGENTS.md` — Recompiled (67 total rules)
+- ✅ `testing/scenarios/gaming-leaderboard/iterations/iteration-003-python/ITERATION.md` — NEW
+
+---
+
 #### 2026-02-17: Iteration 001 - Gaming Leaderboard Scenario (.NET / ASP.NET Core)
 
 - **Scenario**: gaming-leaderboard
