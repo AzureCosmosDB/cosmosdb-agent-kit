@@ -112,19 +112,31 @@ try {
 **Python equivalent:**
 
 ```python
-# Python SDK: Use ETag with match_condition
+# Python SDK: Use ETag with MatchConditions from azure.core
+from azure.core import MatchConditions
+from azure.cosmos.exceptions import CosmosHttpResponseError
+
 response = container.read_item(item=player_id, partition_key=player_id)
 etag = response.get('_etag')
 
-# Modify response...
+# Modify response dict...
 
-container.upsert_item(
-    body=response,
-    match_condition=etag,      # If-Match header
-    etag=etag
-)
-# Raises CosmosHttpResponseError with status_code=412 on conflict
+try:
+    container.upsert_item(
+        body=response,
+        etag=etag,
+        match_condition=MatchConditions.IfNotModified  # NOT a string, must be enum
+    )
+except CosmosHttpResponseError as e:
+    if e.status_code == 412:
+        # Retry: document was modified concurrently
+        pass
 ```
+
+> **⚠️ Python SDK Pitfall**: `match_condition` must be `MatchConditions.IfNotModified`
+> from `azure.core`, not a string like `"IfMatch"`. Passing a string raises
+> `TypeError: Invalid match condition`. The `MatchConditions` enum values are:
+> `IfNotModified`, `IfModified`, `IfPresent`, `IfMissing`.
 
 **When to use ETags:**
 - **Always use** for read-modify-write patterns (counters, aggregates, status updates)
