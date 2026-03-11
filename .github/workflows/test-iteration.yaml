@@ -432,8 +432,72 @@ jobs:
               });
             }
 
-      - name: Post evaluation instructions
-        if: always() && github.event_name == 'pull_request' && (steps.tests.outputs.exit_code != '0' || steps.start_app.outcome != 'success')
+      - name: Request Copilot fix startup failure
+        if: always() && github.event_name == 'pull_request' && steps.start_app.outcome != 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const scenario = process.env.SCENARIO;
+            const iteration = process.env.ITERATION;
+            const iterationDir = process.env.ITERATION_DIR;
+
+            // Read startup error from test-report.json
+            let errorMessage = 'Application failed to start. No output captured.';
+            try {
+              const report = JSON.parse(fs.readFileSync('test-report.json', 'utf8'));
+              if (report.failures && report.failures.length > 0) {
+                errorMessage = report.failures[0].message;
+              }
+            } catch (e) {}
+
+            // Loop protection: count existing fix-request comments
+            const fixMarker = '<!-- copilot-fix-request -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const fixAttempts = comments.filter(c => c.body.includes(fixMarker)).length;
+            const maxAttempts = 3;
+
+            if (fixAttempts >= maxAttempts) {
+              const body = fixMarker + '\n' +
+                `## ⚠️ Max auto-fix attempts reached (${maxAttempts})\n\n` +
+                `The application still fails to start after ${maxAttempts} automated fix attempts.\n` +
+                `Manual intervention is needed. Check the test results comment above for error details.\n`;
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+              return;
+            }
+
+            const body = fixMarker + '\n' +
+              `@copilot The application failed to start in CI (attempt ${fixAttempts + 1}/${maxAttempts}). ` +
+              `Fix the code and push to this branch.\n\n` +
+              `**Error details:**\n` +
+              '```\n' + errorMessage + '\n```\n\n' +
+              `**Instructions:**\n` +
+              `1. Read the full error output in the test results comment above\n` +
+              `2. Read your generated code in \`${iterationDir}/\`\n` +
+              `3. Fix the issue (e.g., missing dependency in requirements.txt, import error, config issue)\n` +
+              `4. Make sure the application can start and respond to HTTP requests\n` +
+              `5. Commit and push the fix to this branch\n`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Request Copilot evaluate test failures
+        if: always() && github.event_name == 'pull_request' && steps.start_app.outcome == 'success' && steps.tests.outputs.exit_code != '0'
         uses: actions/github-script@v7
         with:
           script: |
@@ -452,42 +516,52 @@ jobs:
               failureSummary = 'Test results could not be parsed.';
             }
 
-            const marker = '<!-- evaluation-instructions -->';
-            const body = marker + '\n' +
-              `## 🔍 Evaluation Needed\n\n` +
-              `**${failureSummary}**\n\n` +
-              `To evaluate these results and create rules, comment on this PR:\n\n` +
-              '```\n' +
-              `@copilot Evaluate the test failures above. Follow the instructions in testing-v2/EVALUATE.md.\n` +
-              `Read the API contract at testing-v2/scenarios/${scenario}/api-contract.yaml.\n` +
-              `Read the existing rules in skills/cosmosdb-best-practices/rules/.\n` +
-              `Classify each failure, create new rules if needed, update IMPROVEMENTS-LOG.md,\n` +
-              `and run npm run build. Commit all changes to this PR branch.\n` +
-              '```\n\n' +
-              `Or copy the message above and post it as a new comment to trigger Copilot.\n`;
-
+            // Loop protection: count existing evaluation comments
+            const evalMarker = '<!-- copilot-eval-request -->';
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
             });
 
-            const existing = comments.find(c => c.body.includes(marker));
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
+            const evalAttempts = comments.filter(c => c.body.includes(evalMarker)).length;
+            const maxAttempts = 2;
+
+            if (evalAttempts >= maxAttempts) {
+              const body = evalMarker + '\n' +
+                `## ⚠️ Max evaluation attempts reached (${maxAttempts})\n\n` +
+                `**${failureSummary}**\n\n` +
+                `Automated evaluation has been attempted ${maxAttempts} times.\n` +
+                `Manual review is needed. Check the test results comment above for failure details.\n`;
+
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
                 body,
               });
+              return;
             }
+
+            const body = evalMarker + '\n' +
+              `@copilot **${failureSummary}** Evaluate the test failures and fix the code. ` +
+              `Follow the instructions in testing-v2/EVALUATE.md.\n\n` +
+              `**Instructions:**\n` +
+              `1. Read the test results comment above for specific failures\n` +
+              `2. Read the API contract at \`testing-v2/scenarios/${scenario}/api-contract.yaml\`\n` +
+              `3. Read the existing rules in \`skills/cosmosdb-best-practices/rules/\`\n` +
+              `4. Classify each failure (contract violation, missing rule, unclear rule, SDK quirk)\n` +
+              `5. Fix contract violations directly in the generated code\n` +
+              `6. Create new rules if needed, update \`testing-v2/IMPROVEMENTS-LOG.md\`\n` +
+              `7. Run \`npm run build\` to regenerate AGENTS.md\n` +
+              `8. Commit all changes to this PR branch\n`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
 
       - name: Upload test artifacts
         if: always()
