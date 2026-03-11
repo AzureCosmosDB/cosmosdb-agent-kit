@@ -170,6 +170,33 @@ jobs:
         run: ${{ steps.config.outputs.build_cmd }}
 
       # ------------------------------------------------------------------
+      # Verify imports resolve before starting the app
+      # ------------------------------------------------------------------
+      - name: Verify Python imports
+        if: steps.config.outputs.language == 'python'
+        working-directory: ${{ env.ITERATION_DIR }}
+        run: |
+          # Find the main module from the run command (e.g., "uvicorn main:app" → "main")
+          RUN_CMD="${{ steps.config.outputs.run_cmd }}"
+          # Extract module name: handles "uvicorn main:app" and "python main.py"
+          MODULE=$(echo "$RUN_CMD" | grep -oP '(?:uvicorn\s+)(\w+)' | awk '{print $2}' || true)
+          if [ -z "$MODULE" ]; then
+            MODULE=$(echo "$RUN_CMD" | grep -oP '(?:python[3]?\s+)(\w+)' | awk '{print $2}' || true)
+          fi
+          if [ -z "$MODULE" ]; then
+            echo "Could not detect main module from run command: $RUN_CMD"
+            echo "Skipping import verification"
+            exit 0
+          fi
+
+          echo "Verifying imports for module: ${MODULE}"
+          python -c "import importlib; importlib.import_module('${MODULE}')" 2>&1 || {
+            echo "::error::Import verification failed — a dependency is likely missing from requirements.txt"
+            exit 1
+          }
+          echo "All imports resolved successfully"
+
+      # ------------------------------------------------------------------
       # Start the app and run tests
       # ------------------------------------------------------------------
       - name: Start application

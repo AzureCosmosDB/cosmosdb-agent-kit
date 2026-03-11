@@ -60,11 +60,12 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 4.12 [Configure local development environment to avoid cloud connection conflicts](#412-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
    - 4.13 [Explicitly reference Newtonsoft.Json package](#413-explicitly-reference-newtonsoft-json-package)
    - 4.14 [Configure Preferred Regions for Availability](#414-configure-preferred-regions-for-availability)
-   - 4.15 [Handle 429 Errors with Retry-After](#415-handle-429-errors-with-retry-after)
-   - 4.16 [Use consistent enum serialization between Cosmos SDK and application layer](#416-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
-   - 4.17 [Reuse CosmosClient as Singleton](#417-reuse-cosmosclient-as-singleton)
-   - 4.18 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#418-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
-   - 4.19 [Use CosmosRepository correctly and handle Iterable return types](#419-use-cosmosrepository-correctly-and-handle-iterable-return-types)
+   - 4.15 [Include aiohttp When Using Python Async SDK](#415-include-aiohttp-when-using-python-async-sdk)
+   - 4.16 [Handle 429 Errors with Retry-After](#416-handle-429-errors-with-retry-after)
+   - 4.17 [Use consistent enum serialization between Cosmos SDK and application layer](#417-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
+   - 4.18 [Reuse CosmosClient as Singleton](#418-reuse-cosmosclient-as-singleton)
+   - 4.19 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#419-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
+   - 4.20 [Use CosmosRepository correctly and handle Iterable return types](#420-use-cosmosrepository-correctly-and-handle-iterable-return-types)
 5. [Indexing Strategies](#5-indexing-strategies) — **MEDIUM-HIGH**
    - 5.1 [Use Composite Indexes for ORDER BY](#51-use-composite-indexes-for-order-by)
    - 5.2 [Exclude Unused Index Paths](#52-exclude-unused-index-paths)
@@ -4313,7 +4314,55 @@ Best practices:
 
 Reference: [Configure preferred regions](https://learn.microsoft.com/azure/cosmos-db/nosql/tutorial-global-distribution)
 
-### 4.15 Handle 429 Errors with Retry-After
+### 4.15 Include aiohttp When Using Python Async SDK
+
+**Impact: HIGH** (prevents application startup failure)
+
+## Include aiohttp When Using Python Async SDK
+
+When using the Azure Cosmos DB Python SDK's async client (`azure.cosmos.aio`), you **must** explicitly install `aiohttp` as a dependency. The `azure-cosmos` package does not automatically install `aiohttp` — it is an optional dependency required only for async operations.
+
+**Incorrect (missing aiohttp — application will crash on startup):**
+
+```txt
+# requirements.txt
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+azure-cosmos>=4.6.0
+```
+
+```python
+# main.py — this import will fail at runtime without aiohttp
+from azure.cosmos.aio import CosmosClient
+```
+
+Error: `ModuleNotFoundError: No module named 'aiohttp'`
+
+**Correct (aiohttp explicitly listed):**
+
+```txt
+# requirements.txt
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+azure-cosmos>=4.6.0
+aiohttp>=3.9.0
+```
+
+```python
+# main.py — works correctly with aiohttp installed
+from azure.cosmos.aio import CosmosClient
+```
+
+**Alternative — use the sync client if async is not needed:**
+
+```python
+# No aiohttp required for synchronous usage
+from azure.cosmos import CosmosClient
+```
+
+Reference: [Azure Cosmos DB Python SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-python)
+
+### 4.16 Handle 429 Errors with Retry-After
 
 **Impact: HIGH** (prevents cascading failures)
 
@@ -4430,7 +4479,7 @@ await Task.WhenAll(tasks);
 
 Reference: [Handle rate limiting](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-request-rate-too-large)
 
-### 4.16 Use consistent enum serialization between Cosmos SDK and application layer
+### 4.17 Use consistent enum serialization between Cosmos SDK and application layer
 
 **Impact: critical** (undefined)
 
@@ -4527,7 +4576,7 @@ public class Order
 - Point reads work but filtered queries don't
 - API returns different enum format than stored in Cosmos DB
 
-### 4.17 Reuse CosmosClient as Singleton
+### 4.18 Reuse CosmosClient as Singleton
 
 **Impact: CRITICAL** (prevents connection exhaustion)
 
@@ -4648,7 +4697,7 @@ public class CosmosDbHostedService : IHostedService
 
 Reference: [CosmosClient best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-dotnet)
 
-### 4.18 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
+### 4.19 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
 
 **Impact: CRITICAL** (prevents startup failures and data access errors in Spring Data Cosmos applications)
 
@@ -4741,7 +4790,7 @@ public class Owner {
 
 Reference: [Spring Data Azure Cosmos DB annotations](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-spring-data)
 
-### 4.19 Use CosmosRepository correctly and handle Iterable return types
+### 4.20 Use CosmosRepository correctly and handle Iterable return types
 
 **Impact: HIGH** (prevents ClassCastException and query failures in Spring Data Cosmos repositories)
 

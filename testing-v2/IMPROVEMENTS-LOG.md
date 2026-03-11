@@ -18,6 +18,17 @@ Each improvement entry should include:
 
 ## Improvements
 
+#### 2026-03-11: New Rule — Python Async SDK Missing aiohttp Dependency
+
+- **Scenario**: gaming-leaderboard
+- **Iteration**: iteration-001-python (testing-v2 framework, PR #2)
+- **Issue**: Copilot generated code using `from azure.cosmos.aio import CosmosClient` but did not include `aiohttp` in `requirements.txt`. The `azure-cosmos` package does not automatically install `aiohttp` — it's an optional dependency for async operations. This caused `ModuleNotFoundError: No module named 'aiohttp'` at startup, preventing the app from running and all tests from executing.
+- **Improvement**: Created new rule `sdk-python-async-deps.md` (Rule 4.15) — "Include aiohttp When Using Python Async SDK". Shows correct and incorrect requirements.txt examples, with the exact error message reproduced.
+- **Files Modified**:
+  - `skills/cosmosdb-best-practices/rules/sdk-python-async-deps.md` (NEW)
+  - `skills/cosmosdb-best-practices/AGENTS.md` (recompiled)
+- **Also**: Added "Step 8: Verify dependencies" to issue template instructions, and a Python import verification step to the CI workflow, to catch missing dependencies before startup.
+
 #### 2026-03-02: Iteration 003 - Gaming Leaderboard Scenario (Python / FastAPI)
 
 - **Scenario**: gaming-leaderboard

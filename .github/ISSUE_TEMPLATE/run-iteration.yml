@@ -116,7 +116,19 @@ body:
         - Listen on the configured port
         - Expose a `/health` endpoint that returns 200
 
-        ### Step 8: Open a PR
+        ### Step 8: Verify dependencies
+
+        Before opening the PR, verify your code will actually start:
+        - For **Python**: Make sure every `import` and `from ... import` in your code
+          has a corresponding package in `requirements.txt`. In particular:
+          - If you use `from azure.cosmos.aio import CosmosClient` (async SDK),
+            you MUST include `aiohttp>=3.9.0` in requirements.txt
+          - If you use `uvicorn`, include `uvicorn[standard]`
+        - For **Node.js**: Make sure every `require()` or `import` has a package in `package.json`
+        - For **Java**: Make sure all Maven/Gradle dependencies are declared
+        - For **.NET**: Make sure all NuGet packages are referenced in the .csproj
+
+        ### Step 9: Open a PR
 
         Open a PR with the generated code. The PR title should be:
         `test: <SCENARIO> iteration <NNN> (<LANGUAGE>)`
