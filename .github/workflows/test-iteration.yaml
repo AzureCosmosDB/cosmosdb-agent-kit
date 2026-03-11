@@ -173,10 +173,11 @@ jobs:
       # Start the app and run tests
       # ------------------------------------------------------------------
       - name: Start application
+        id: start_app
         working-directory: ${{ env.ITERATION_DIR }}
         run: |
-          # Start app in background
-          ${{ steps.config.outputs.run_cmd }} &
+          # Start app in background, capture output for diagnostics
+          ${{ steps.config.outputs.run_cmd }} > app-output.log 2>&1 &
           APP_PID=$!
           echo "APP_PID=${APP_PID}" >> "$GITHUB_ENV"
 
@@ -187,18 +188,29 @@ jobs:
               echo "App is ready (attempt $i)"
               exit 0
             fi
+            # Check if process is still alive
+            if ! kill -0 $APP_PID 2>/dev/null; then
+              echo "::error::App process exited prematurely"
+              echo "--- Application output ---"
+              cat app-output.log || true
+              exit 1
+            fi
             sleep 2
           done
 
           echo "::error::App did not start within 120 seconds"
+          echo "--- Application output ---"
+          cat app-output.log || true
           kill $APP_PID 2>/dev/null || true
           exit 1
 
       - name: Setup test environment
+        if: steps.start_app.outcome == 'success'
         run: |
           pip install -r testing-v2/harness/requirements.txt
 
       - name: Run tests
+        if: steps.start_app.outcome == 'success'
         id: tests
         env:
           APP_ALREADY_RUNNING: "1"
@@ -238,8 +250,67 @@ jobs:
         run: |
           cat > generate_report.py << 'PYTHON_SCRIPT'
           import xml.etree.ElementTree as ET
-          import os, json
+          import os, json, sys
 
+          scenario = os.environ["SCENARIO"]
+          iteration = os.environ["ITERATION"]
+          iteration_dir = os.environ.get("ITERATION_DIR", "")
+
+          # If test-results.xml doesn't exist, the app likely failed to start
+          if not os.path.exists("test-results.xml"):
+              # Try to read application startup logs
+              app_log = ""
+              log_path = os.path.join(iteration_dir, "app-output.log") if iteration_dir else ""
+              if log_path and os.path.exists(log_path):
+                  with open(log_path) as f:
+                      app_log = f.read()[-3000:]
+
+              lines = [
+                  f"## 🧪 Test Results: {scenario} / {iteration}",
+                  "",
+                  "**Pass rate: N/A** — application failed to start, no tests ran",
+                  "",
+                  "### ❌ Application Failed to Start",
+                  "",
+                  "The application did not start successfully, so no tests could run.",
+                  "This typically means a missing dependency, import error, or configuration issue.",
+                  "",
+              ]
+
+              if app_log:
+                  lines.extend([
+                      "<details>",
+                      "<summary>Application startup output (last 3000 chars)</summary>",
+                      "",
+                      "```",
+                      app_log,
+                      "```",
+                      "",
+                      "</details>",
+                      "",
+                  ])
+
+              report_md = "\n".join(lines)
+              with open("test-report.md", "w") as f:
+                  f.write(report_md)
+
+              report_json = {
+                  "scenario": scenario,
+                  "iteration": iteration,
+                  "summary": {
+                      "total": 0, "passed": 0, "failed": 0,
+                      "errors": 1, "skipped": 0, "pass_rate": 0,
+                  },
+                  "failures": [{"test": "startup", "message": "Application failed to start. " + (app_log[-300:] if app_log else "No output captured.")}],
+                  "startup_failed": True,
+              }
+              with open("test-report.json", "w") as f:
+                  json.dump(report_json, f, indent=2)
+
+              print(report_md)
+              sys.exit(0)
+
+          # Normal path: parse test results
           tree = ET.parse("test-results.xml")
           root = tree.getroot()
 
@@ -250,9 +321,6 @@ jobs:
           skipped = int(suite.get("skipped", 0))
           passed = total - failures - errors - skipped
           pass_rate = round(passed / total * 100, 1) if total > 0 else 0
-
-          scenario = os.environ["SCENARIO"]
-          iteration = os.environ["ITERATION"]
 
           # Build markdown report
           lines = [
@@ -365,7 +433,7 @@ jobs:
             }
 
       - name: Post evaluation instructions
-        if: always() && github.event_name == 'pull_request' && steps.tests.outputs.exit_code != '0'
+        if: always() && github.event_name == 'pull_request' && (steps.tests.outputs.exit_code != '0' || steps.start_app.outcome != 'success')
         uses: actions/github-script@v7
         with:
           script: |
@@ -433,8 +501,12 @@ jobs:
             test-output.txt
 
       - name: Fail if tests failed
-        if: steps.tests.outputs.exit_code != '0'
+        if: steps.tests.outputs.exit_code != '0' || steps.start_app.outcome != 'success'
         run: |
-          echo "Tests failed. See the PR comment for details."
+          if [ "${{ steps.start_app.outcome }}" != "success" ]; then
+            echo "Application failed to start. See the PR comment for details."
+          else
+            echo "Tests failed. See the PR comment for details."
+          fi
           echo "Evaluation instructions have been posted on the PR."
           exit 1
