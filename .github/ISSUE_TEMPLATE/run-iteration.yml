@@ -1,0 +1,124 @@
+name: "🧪 Run Test Iteration"
+description: "Assign this issue to Copilot to generate a Cosmos DB app and test it against the scenario contract."
+labels: ["testing", "iteration"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Run a Test Iteration
+
+        Fill in the scenario and language below, then **assign this issue to Copilot**.
+        Copilot will read the scenario, load the Cosmos DB skills, generate the code,
+        and open a PR. CI will automatically test it.
+
+  - type: dropdown
+    id: scenario
+    attributes:
+      label: Scenario
+      description: Which scenario should be tested?
+      options:
+        - gaming-leaderboard
+        - ecommerce-order-api
+        - ai-chat-rag
+        - iot-device-telemetry
+        - multitenant-saas
+    validations:
+      required: true
+
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      description: Which language/framework should the agent use?
+      options:
+        - python
+        - dotnet
+        - java
+        - nodejs
+        - go
+        - rust
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
+      description: Any extra instructions for the agent (optional).
+      placeholder: "e.g., Focus on partition key optimization, use hierarchical partition keys"
+    validations:
+      required: false
+
+  - type: textarea
+    id: agent-instructions
+    attributes:
+      label: Agent Instructions
+      description: >-
+        These instructions tell the coding agent what to do.
+        Do not modify unless you know what you're doing.
+      value: |
+        ## Instructions for Copilot
+
+        You are generating a Cosmos DB application for a test iteration. Follow these steps exactly.
+
+        ### Step 1: Load the Cosmos DB skills
+
+        Read this file FIRST — it contains all best practice rules you must apply:
+        ```
+        skills/cosmosdb-best-practices/AGENTS.md
+        ```
+
+        ### Step 2: Determine the scenario and language
+
+        Look at the **Scenario** and **Language** fields selected above in this issue.
+
+        ### Step 3: Read the scenario
+
+        Read the scenario file:
+        ```
+        testing-v2/scenarios/<SCENARIO>/SCENARIO.md
+        ```
+        Replace `<SCENARIO>` with the scenario selected above (e.g., `gaming-leaderboard`).
+
+        ### Step 4: Read the API contract
+
+        Read the contract file:
+        ```
+        testing-v2/scenarios/<SCENARIO>/api-contract.yaml
+        ```
+        Your code MUST implement every endpoint defined here with the exact paths, field names, and status codes.
+
+        ### Step 5: Determine the iteration number
+
+        Look at existing directories in `testing-v2/scenarios/<SCENARIO>/iterations/`.
+        Find the highest iteration number for this language and increment by 1.
+        If no iterations exist for this language, use `001`.
+
+        Name the iteration directory: `iteration-<NNN>-<LANGUAGE>`
+        Example: `iteration-001-python`, `iteration-002-dotnet`
+
+        ### Step 6: Generate the code
+
+        Find the prompt for the selected language in SCENARIO.md and follow it.
+        Put ALL generated files in:
+        ```
+        testing-v2/scenarios/<SCENARIO>/iterations/iteration-<NNN>-<LANGUAGE>/
+        ```
+
+        ### Step 7: Create iteration-config.yaml
+
+        Create `iteration-config.yaml` in the iteration folder. Use the template at:
+        ```
+        testing-v2/scenarios/_iteration-config-template.yaml
+        ```
+        The app MUST:
+        - Read `COSMOS_ENDPOINT` and `COSMOS_KEY` from environment variables
+        - Listen on the configured port
+        - Expose a `/health` endpoint that returns 200
+
+        ### Step 8: Open a PR
+
+        Open a PR with the generated code. The PR title should be:
+        `test: <SCENARIO> iteration <NNN> (<LANGUAGE>)`
+
+        CI will automatically run the test suite and post results as a PR comment.

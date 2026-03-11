@@ -1,0 +1,130 @@
+name: "🆕 Create New Scenario"
+description: "Assign this issue to Copilot to generate a new test scenario with API contract, tests, and prompts."
+labels: ["testing", "scenario"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Create a New Test Scenario
+
+        Describe the scenario you want, then **assign this issue to Copilot**.
+        Copilot will follow the recipe in `testing-v2/CREATE-SCENARIO.md` to generate
+        all the required files: API contract, test suite, SCENARIO.md with prompts,
+        and directory structure.
+
+  - type: input
+    id: scenario-name
+    attributes:
+      label: Scenario Name
+      description: >-
+        A short kebab-case name for the scenario directory
+        (e.g., "healthcare-appointments", "social-media-feed", "inventory-management").
+      placeholder: "e.g., healthcare-appointments"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Scenario Description
+      description: >-
+        Describe what the application should do. Be specific about the domain,
+        the main entities, and the key operations. The more detail you provide,
+        the better the generated contract and tests will be.
+      placeholder: |
+        Build a REST API for a healthcare appointment booking system.
+        Patients can search for available providers, book appointments,
+        cancel or reschedule, and view their appointment history.
+        Providers have schedules with available time slots.
+    validations:
+      required: true
+
+  - type: textarea
+    id: entities
+    attributes:
+      label: Entities
+      description: >-
+        List the main data entities and their key fields.
+        One entity per line with fields in parentheses.
+      placeholder: |
+        Patient (patientId, name, email, dateOfBirth)
+        Provider (providerId, name, specialty, location)
+        Appointment (appointmentId, patientId, providerId, dateTime, status, notes)
+        TimeSlot (slotId, providerId, dateTime, duration, available)
+    validations:
+      required: true
+
+  - type: textarea
+    id: endpoints
+    attributes:
+      label: API Endpoints
+      description: >-
+        List the endpoints the API should expose.
+        Format: METHOD /path — description
+      placeholder: |
+        POST /api/patients — Create a patient
+        GET /api/patients/{patientId} — Get patient profile
+        GET /api/providers?specialty=X — Search providers by specialty
+        GET /api/providers/{providerId}/slots?date=YYYY-MM-DD — Get available slots
+        POST /api/appointments — Book an appointment
+        GET /api/appointments/{appointmentId} — Get appointment details
+        PATCH /api/appointments/{appointmentId} — Update appointment (cancel/reschedule)
+        GET /api/patients/{patientId}/appointments — Patient appointment history
+    validations:
+      required: true
+
+  - type: textarea
+    id: scale
+    attributes:
+      label: Expected Scale (optional)
+      description: >-
+        Describe the expected data volume and query patterns.
+        This helps generate appropriate partition key and indexing recommendations.
+      placeholder: |
+        ~100,000 patients
+        ~5,000 providers
+        ~50,000 appointments per day
+        High read volume on provider search and slot availability
+    validations:
+      required: false
+
+  - type: textarea
+    id: agent-instructions
+    attributes:
+      label: Agent Instructions
+      description: >-
+        These instructions tell the coding agent what to do.
+        Do not modify unless you know what you're doing.
+      value: |
+        ## Instructions for Copilot
+
+        You are creating a new test scenario for the Cosmos DB Agent Kit testing framework.
+        Follow the recipe in `testing-v2/CREATE-SCENARIO.md` exactly.
+
+        ### Step 1: Read the recipe
+
+        Read this file — it contains detailed step-by-step instructions:
+        ```
+        testing-v2/CREATE-SCENARIO.md
+        ```
+
+        ### Step 2: Read the reference scenario
+
+        Study this existing scenario as a format reference:
+        ```
+        testing-v2/scenarios/gaming-leaderboard/api-contract.yaml
+        testing-v2/scenarios/gaming-leaderboard/tests/conftest.py
+        testing-v2/scenarios/gaming-leaderboard/tests/test_api_contract.py
+        testing-v2/scenarios/gaming-leaderboard/tests/test_data_integrity.py
+        testing-v2/scenarios/gaming-leaderboard/SCENARIO.md
+        ```
+
+        ### Step 3: Generate the scenario
+
+        Use the **Scenario Name**, **Description**, **Entities**, **Endpoints**, and
+        **Expected Scale** from this issue. Follow the CREATE-SCENARIO.md recipe to produce
+        all required files.
+
+        ### Step 4: Open a PR
+
+        Open a PR with all generated files. Title: `feat: add <scenario-name> test scenario`

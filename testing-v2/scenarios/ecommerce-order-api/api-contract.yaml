@@ -1,0 +1,260 @@
+# E-Commerce Order API Contract
+# ===============================
+# This file defines the FIXED API interface that all iterations must implement.
+# Tests are written against this contract. Do NOT modify between iterations.
+#
+# The agent's generated code MUST conform to these exact paths, methods,
+# request/response schemas, and status codes.
+
+name: ecommerce-order-api
+version: "1.0"
+
+# The app must expose this health endpoint for readiness detection
+health:
+  path: /health
+  method: GET
+  response:
+    status: 200
+
+endpoints:
+
+  # ----------------------------------------------------------
+  # Order Management
+  # ----------------------------------------------------------
+
+  create_order:
+    method: POST
+    path: /api/orders
+    description: Create a new order with items
+    request:
+      body:
+        required:
+          - customerId
+          - items
+        properties:
+          customerId:
+            type: string
+            description: The customer placing the order
+          items:
+            type: array
+            description: Order line items (at least one)
+            items:
+              required:
+                - productId
+                - productName
+                - quantity
+                - unitPrice
+              properties:
+                productId:
+                  type: string
+                productName:
+                  type: string
+                quantity:
+                  type: integer
+                  description: Must be >= 1
+                unitPrice:
+                  type: number
+                  description: Price per unit
+          shippingAddress:
+            type: string
+            description: Optional shipping address
+    response:
+      status: 201
+      body:
+        required:
+          - orderId
+          - customerId
+          - status
+          - items
+          - total
+          - createdAt
+        properties:
+          orderId:
+            type: string
+            description: Unique order identifier
+          customerId:
+            type: string
+          status:
+            type: string
+            description: Should be "pending" for new orders
+          items:
+            type: array
+          total:
+            type: number
+            description: Sum of (quantity * unitPrice) for all items
+          createdAt:
+            type: string
+            description: ISO 8601 timestamp
+
+  get_order:
+    method: GET
+    path: /api/orders/{orderId}
+    description: Get a specific order by ID
+    parameters:
+      orderId:
+        in: path
+        type: string
+        required: true
+    response:
+      status: 200
+      body:
+        required:
+          - orderId
+          - customerId
+          - status
+          - items
+          - total
+          - createdAt
+        properties:
+          orderId:
+            type: string
+          customerId:
+            type: string
+          status:
+            type: string
+          items:
+            type: array
+          total:
+            type: number
+          createdAt:
+            type: string
+    errors:
+      - status: 404
+        description: Order not found
+
+  # ----------------------------------------------------------
+  # Customer Orders
+  # ----------------------------------------------------------
+
+  get_customer_orders:
+    method: GET
+    path: /api/customers/{customerId}/orders
+    description: Get all orders for a customer (order history)
+    parameters:
+      customerId:
+        in: path
+        type: string
+        required: true
+    response:
+      status: 200
+      body:
+        type: array
+        items:
+          required:
+            - orderId
+            - customerId
+            - status
+            - total
+            - createdAt
+          properties:
+            orderId:
+              type: string
+            customerId:
+              type: string
+            status:
+              type: string
+            total:
+              type: number
+            createdAt:
+              type: string
+
+  # ----------------------------------------------------------
+  # Admin Queries
+  # ----------------------------------------------------------
+
+  query_orders_by_status:
+    method: GET
+    path: /api/orders
+    description: Query orders by status (admin)
+    parameters:
+      status:
+        in: query
+        type: string
+        required: true
+        enum: [pending, shipped, delivered, cancelled]
+    response:
+      status: 200
+      body:
+        type: array
+        items:
+          required:
+            - orderId
+            - customerId
+            - status
+            - total
+            - createdAt
+          properties:
+            orderId:
+              type: string
+            customerId:
+              type: string
+            status:
+              type: string
+            total:
+              type: number
+            createdAt:
+              type: string
+
+  query_orders_by_date_range:
+    method: GET
+    path: /api/orders
+    description: Query orders within a date range (admin)
+    parameters:
+      startDate:
+        in: query
+        type: string
+        required: true
+        description: ISO 8601 date (e.g. 2024-01-01)
+      endDate:
+        in: query
+        type: string
+        required: true
+        description: ISO 8601 date (e.g. 2024-12-31)
+    response:
+      status: 200
+      body:
+        type: array
+        items:
+          required:
+            - orderId
+            - customerId
+            - status
+            - total
+            - createdAt
+
+  # ----------------------------------------------------------
+  # Order Status Update
+  # ----------------------------------------------------------
+
+  update_order_status:
+    method: PATCH
+    path: /api/orders/{orderId}/status
+    description: Update the status of an order
+    parameters:
+      orderId:
+        in: path
+        type: string
+        required: true
+    request:
+      body:
+        required:
+          - status
+        properties:
+          status:
+            type: string
+            enum: [pending, shipped, delivered, cancelled]
+    response:
+      status: 200
+      body:
+        required:
+          - orderId
+          - status
+        properties:
+          orderId:
+            type: string
+          status:
+            type: string
+            description: The updated status
+    errors:
+      - status: 404
+        description: Order not found

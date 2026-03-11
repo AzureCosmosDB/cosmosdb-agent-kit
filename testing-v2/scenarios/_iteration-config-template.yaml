@@ -1,0 +1,50 @@
+# Iteration Config Template
+# ==========================
+# The agent MUST create this file in their iteration folder.
+# The CI workflow and test harness read it to build, start, and test the app.
+#
+# Copy this template to:
+#   testing-v2/scenarios/<scenario>/iterations/<iteration-NNN-language>/iteration-config.yaml
+#
+# All paths are relative to the iteration directory.
+
+# Language used for this iteration
+language: python  # python | dotnet | java | nodejs | go | rust
+
+# Cosmos DB database name the app will create/use
+database: gaming-leaderboard-db
+
+# Port the application listens on
+port: 8080
+
+# Health endpoint path (used to detect when the app is ready)
+health: /health
+
+# Build command (run before starting the app)
+# Examples:
+#   python:  pip install -r requirements.txt
+#   dotnet:  dotnet build
+#   java:    mvn package -DskipTests
+#   nodejs:  npm install
+#   go:      go build -o app .
+#   rust:    cargo build --release
+build: pip install -r requirements.txt
+
+# Run command (starts the application)
+# The app MUST:
+#   1. Listen on the port specified above
+#   2. Expose the health endpoint specified above
+#   3. Read COSMOS_ENDPOINT and COSMOS_KEY from environment variables
+#
+# Examples:
+#   python:  python app.py
+#   dotnet:  dotnet run --urls http://localhost:8080
+#   java:    java -jar target/app.jar --server.port=8080
+#   nodejs:  node server.js
+#   go:      ./app
+#   rust:    ./target/release/app
+run: python app.py
+
+# Environment variables (optional, in addition to COSMOS_ENDPOINT and COSMOS_KEY)
+# env:
+#   SOME_VAR: some-value

@@ -1,0 +1,6 @@
+pytest>=8.0
+requests>=2.31
+azure-cosmos>=4.7
+pyyaml>=6.0
+pytest-html>=4.0
+pytest-timeout>=2.2

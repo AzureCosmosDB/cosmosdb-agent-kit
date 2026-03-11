@@ -1,0 +1,440 @@
+# =============================================================================
+# Test Iteration Workflow
+# =============================================================================
+# Runs automated tests against a generated application in a PR.
+#
+# Trigger: Any PR that adds/modifies files under testing-v2/scenarios/*/iterations/
+#
+# What it does:
+#   1. Detects which scenario and iteration changed
+#   2. Starts the Cosmos DB Linux emulator
+#   3. Reads iteration-config.yaml for build/run instructions
+#   4. Builds and starts the application
+#   5. Runs the scenario's pytest suite against it
+#   6. Posts results as a PR comment
+# =============================================================================
+
+name: Test Iteration
+
+on:
+  pull_request:
+    paths:
+      - 'testing-v2/scenarios/*/iterations/**'
+
+jobs:
+  detect-iteration:
+    name: Detect changed iteration
+    runs-on: ubuntu-latest
+    outputs:
+      scenario: ${{ steps.detect.outputs.scenario }}
+      iteration: ${{ steps.detect.outputs.iteration }}
+      iteration_dir: ${{ steps.detect.outputs.iteration_dir }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect scenario and iteration from changed files
+        id: detect
+        run: |
+          # Find iteration directories with changes
+          CHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} \
+            | grep '^testing-v2/scenarios/.*/iterations/' \
+            | head -1)
+
+          if [ -z "$CHANGED" ]; then
+            echo "No iteration files changed"
+            exit 1
+          fi
+
+          # Extract scenario and iteration from path
+          # Path format: testing-v2/scenarios/{scenario}/iterations/{iteration}/...
+          SCENARIO=$(echo "$CHANGED" | cut -d'/' -f3)
+          ITERATION=$(echo "$CHANGED" | cut -d'/' -f5)
+          ITERATION_DIR="testing-v2/scenarios/${SCENARIO}/iterations/${ITERATION}"
+
+          echo "scenario=${SCENARIO}" >> "$GITHUB_OUTPUT"
+          echo "iteration=${ITERATION}" >> "$GITHUB_OUTPUT"
+          echo "iteration_dir=${ITERATION_DIR}" >> "$GITHUB_OUTPUT"
+
+          echo "Detected: scenario=${SCENARIO}, iteration=${ITERATION}"
+
+  test-iteration:
+    name: "Test: ${{ needs.detect-iteration.outputs.scenario }} / ${{ needs.detect-iteration.outputs.iteration }}"
+    needs: detect-iteration
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      cosmosdb:
+        image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
+        ports:
+          - 8081:8081
+          - 10250-10255:10250-10255
+        env:
+          AZURE_COSMOS_EMULATOR_PARTITION_COUNT: 10
+          AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE: false
+          AZURE_COSMOS_EMULATOR_IP_ADDRESS_OVERRIDE: 127.0.0.1
+
+    env:
+      COSMOS_ENDPOINT: "https://localhost:8081"
+      COSMOS_KEY: "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
+      ITERATION_DIR: ${{ needs.detect-iteration.outputs.iteration_dir }}
+      SCENARIO: ${{ needs.detect-iteration.outputs.scenario }}
+      ITERATION: ${{ needs.detect-iteration.outputs.iteration }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for Cosmos DB emulator
+        run: |
+          echo "Waiting for Cosmos DB emulator to start..."
+          for i in $(seq 1 60); do
+            if curl -sk https://localhost:8081/_explorer/emulator.pem > /dev/null 2>&1; then
+              echo "Emulator is ready (attempt $i)"
+              break
+            fi
+            echo "Attempt $i/60 - waiting..."
+            sleep 3
+          done
+
+          # Download and trust the emulator certificate
+          curl -sk https://localhost:8081/_explorer/emulator.pem > ~/emulatorcert.crt
+          sudo cp ~/emulatorcert.crt /usr/local/share/ca-certificates/
+          sudo update-ca-certificates
+
+      # ------------------------------------------------------------------
+      # Language-specific setup
+      # ------------------------------------------------------------------
+      - name: Read iteration config
+        id: config
+        run: |
+          CONFIG="${ITERATION_DIR}/iteration-config.yaml"
+          if [ ! -f "$CONFIG" ]; then
+            echo "::error::iteration-config.yaml not found at ${CONFIG}"
+            exit 1
+          fi
+
+          LANGUAGE=$(python3 -c "import yaml; print(yaml.safe_load(open('$CONFIG'))['language'])")
+          PORT=$(python3 -c "import yaml; print(yaml.safe_load(open('$CONFIG')).get('port', 8080))")
+          BUILD_CMD=$(python3 -c "import yaml; print(yaml.safe_load(open('$CONFIG')).get('build', ''))")
+          RUN_CMD=$(python3 -c "import yaml; print(yaml.safe_load(open('$CONFIG'))['run'])")
+          HEALTH=$(python3 -c "import yaml; print(yaml.safe_load(open('$CONFIG')).get('health', '/health'))")
+          DB_NAME=$(python3 -c "import yaml; print(yaml.safe_load(open('$CONFIG')).get('database', 'test-db'))")
+
+          echo "language=${LANGUAGE}" >> "$GITHUB_OUTPUT"
+          echo "port=${PORT}" >> "$GITHUB_OUTPUT"
+          echo "build_cmd=${BUILD_CMD}" >> "$GITHUB_OUTPUT"
+          echo "run_cmd=${RUN_CMD}" >> "$GITHUB_OUTPUT"
+          echo "health=${HEALTH}" >> "$GITHUB_OUTPUT"
+          echo "db_name=${DB_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Python
+        if: steps.config.outputs.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup .NET
+        if: steps.config.outputs.language == 'dotnet'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup Java
+        if: steps.config.outputs.language == 'java'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      - name: Setup Node.js
+        if: steps.config.outputs.language == 'nodejs'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Go
+        if: steps.config.outputs.language == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      # ------------------------------------------------------------------
+      # Build the iteration app
+      # ------------------------------------------------------------------
+      - name: Build application
+        if: steps.config.outputs.build_cmd != ''
+        working-directory: ${{ env.ITERATION_DIR }}
+        run: ${{ steps.config.outputs.build_cmd }}
+
+      # ------------------------------------------------------------------
+      # Start the app and run tests
+      # ------------------------------------------------------------------
+      - name: Start application
+        working-directory: ${{ env.ITERATION_DIR }}
+        run: |
+          # Start app in background
+          ${{ steps.config.outputs.run_cmd }} &
+          APP_PID=$!
+          echo "APP_PID=${APP_PID}" >> "$GITHUB_ENV"
+
+          # Wait for health endpoint
+          echo "Waiting for app on port ${{ steps.config.outputs.port }}..."
+          for i in $(seq 1 60); do
+            if curl -s http://localhost:${{ steps.config.outputs.port }}${{ steps.config.outputs.health }} > /dev/null 2>&1; then
+              echo "App is ready (attempt $i)"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "::error::App did not start within 120 seconds"
+          kill $APP_PID 2>/dev/null || true
+          exit 1
+
+      - name: Setup test environment
+        run: |
+          pip install -r testing-v2/harness/requirements.txt
+
+      - name: Run tests
+        id: tests
+        env:
+          APP_ALREADY_RUNNING: "1"
+        run: |
+          SCENARIO="${{ env.SCENARIO }}"
+          TEST_DIR="testing-v2/scenarios/${SCENARIO}/tests"
+
+          if [ ! -d "$TEST_DIR" ]; then
+            echo "::error::No tests found at ${TEST_DIR}"
+            exit 1
+          fi
+
+          # Run pytest with structured output
+          python -m pytest "${TEST_DIR}" \
+            --tb=short \
+            --no-header \
+            -v \
+            --junitxml=test-results.xml \
+            --timeout=30 \
+            2>&1 | tee test-output.txt
+
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "exit_code=${EXIT_CODE}" >> "$GITHUB_OUTPUT"
+
+          exit 0  # Don't fail the step — we report results in the next step
+
+      - name: Stop application
+        if: always()
+        run: kill $APP_PID 2>/dev/null || true
+
+      # ------------------------------------------------------------------
+      # Report results
+      # ------------------------------------------------------------------
+      - name: Generate test report
+        if: always()
+        id: report
+        run: |
+          cat > generate_report.py << 'PYTHON_SCRIPT'
+          import xml.etree.ElementTree as ET
+          import os, json
+
+          tree = ET.parse("test-results.xml")
+          root = tree.getroot()
+
+          suite = root.find(".//testsuite") or root
+          total = int(suite.get("tests", 0))
+          failures = int(suite.get("failures", 0))
+          errors = int(suite.get("errors", 0))
+          skipped = int(suite.get("skipped", 0))
+          passed = total - failures - errors - skipped
+          pass_rate = round(passed / total * 100, 1) if total > 0 else 0
+
+          scenario = os.environ["SCENARIO"]
+          iteration = os.environ["ITERATION"]
+
+          # Build markdown report
+          lines = [
+              f"## 🧪 Test Results: {scenario} / {iteration}",
+              "",
+              f"**Pass rate: {pass_rate}%** ({passed}/{total} tests passed)",
+              "",
+              "| Status | Count |",
+              "|--------|-------|",
+              f"| ✅ Passed | {passed} |",
+              f"| ❌ Failed | {failures} |",
+              f"| 💥 Errors | {errors} |",
+              f"| ⏭️ Skipped | {skipped} |",
+              "",
+          ]
+
+          # List failures for evaluation
+          failure_details = []
+          for tc in root.iter("testcase"):
+              failure = tc.find("failure")
+              error = tc.find("error")
+              if failure is not None or error is not None:
+                  name = tc.get("name", "unknown")
+                  classname = tc.get("classname", "")
+                  msg = (failure if failure is not None else error).get("message", "")[:300]
+                  failure_details.append({"test": f"{classname}::{name}", "message": msg})
+
+          if failure_details:
+              lines.append("### Failures Requiring Evaluation")
+              lines.append("")
+              lines.append("These failures indicate areas where the generated code does not")
+              lines.append("conform to the API contract or Cosmos DB best practices.")
+              lines.append("Each failure should be analyzed to determine if:")
+              lines.append("- A **new rule/skill** should be added to the agent kit")
+              lines.append("- An **existing rule** needs to be updated or clarified")
+              lines.append("- The **generated code** has a bug that the agent should fix")
+              lines.append("")
+              for f in failure_details:
+                  lines.append(f"- **{f['test']}**")
+                  lines.append(f"  > {f['message']}")
+                  lines.append("")
+
+          if pass_rate == 100:
+              lines.append("### ✅ All tests passed!")
+              lines.append("")
+              lines.append("The generated application fully conforms to the API contract.")
+              lines.append("Review the code for Cosmos DB best practices and merge if satisfactory.")
+
+          report_md = "\n".join(lines)
+
+          # Write for PR comment
+          with open("test-report.md", "w") as f:
+              f.write(report_md)
+
+          # Write structured JSON for downstream evaluation
+          report_json = {
+              "scenario": scenario,
+              "iteration": iteration,
+              "summary": {
+                  "total": total,
+                  "passed": passed,
+                  "failed": failures,
+                  "errors": errors,
+                  "skipped": skipped,
+                  "pass_rate": pass_rate,
+              },
+              "failures": failure_details,
+          }
+          with open("test-report.json", "w") as f:
+              json.dump(report_json, f, indent=2)
+
+          print(report_md)
+          PYTHON_SCRIPT
+
+          python generate_report.py
+
+      - name: Comment test results on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('test-report.md', 'utf8');
+
+            // Find and update existing comment, or create new one
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const marker = '<!-- test-iteration-results -->';
+            const body = marker + '\n' + report;
+            const existing = comments.find(c => c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Post evaluation instructions
+        if: always() && github.event_name == 'pull_request' && steps.tests.outputs.exit_code != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const scenario = process.env.SCENARIO;
+            const iteration = process.env.ITERATION;
+
+            // Read the structured test report for context
+            let failureSummary = '';
+            try {
+              const report = JSON.parse(fs.readFileSync('test-report.json', 'utf8'));
+              const failCount = report.summary.failed + report.summary.errors;
+              const total = report.summary.total;
+              failureSummary = `${failCount} of ${total} tests failed.`;
+            } catch (e) {
+              failureSummary = 'Test results could not be parsed.';
+            }
+
+            const marker = '<!-- evaluation-instructions -->';
+            const body = marker + '\n' +
+              `## 🔍 Evaluation Needed\n\n` +
+              `**${failureSummary}**\n\n` +
+              `To evaluate these results and create rules, comment on this PR:\n\n` +
+              '```\n' +
+              `@copilot Evaluate the test failures above. Follow the instructions in testing-v2/EVALUATE.md.\n` +
+              `Read the API contract at testing-v2/scenarios/${scenario}/api-contract.yaml.\n` +
+              `Read the existing rules in skills/cosmosdb-best-practices/rules/.\n` +
+              `Classify each failure, create new rules if needed, update IMPROVEMENTS-LOG.md,\n` +
+              `and run npm run build. Commit all changes to this PR branch.\n` +
+              '```\n\n' +
+              `Or copy the message above and post it as a new comment to trigger Copilot.\n`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ env.SCENARIO }}-${{ env.ITERATION }}
+          path: |
+            test-results.xml
+            test-report.json
+            test-report.md
+            test-output.txt
+
+      - name: Fail if tests failed
+        if: steps.tests.outputs.exit_code != '0'
+        run: |
+          echo "Tests failed. See the PR comment for details."
+          echo "Evaluation instructions have been posted on the PR."
+          exit 1
