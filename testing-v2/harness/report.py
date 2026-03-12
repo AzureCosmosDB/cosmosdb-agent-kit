@@ -173,11 +173,11 @@ def _cli_main():
                 app_err = err_path.read_text(errors="replace")[-3000:]
 
         lines = [
-            f"## 🧪 Test Results: {scenario} / {iteration}",
+            f"## [Test] Test Results: {scenario} / {iteration}",
             "",
-            "**Pass rate: N/A** — application failed to start, no tests ran",
+            "**Pass rate: N/A** -- application failed to start, no tests ran",
             "",
-            "### ❌ Application Failed to Start",
+            "### [FAIL] Application Failed to Start",
             "",
             "The application did not start successfully, so no tests could run.",
             "This typically means a missing dependency, import error, or configuration issue.",
@@ -211,7 +211,7 @@ def _cli_main():
             ])
 
         report_md = "\n".join(lines)
-        Path("test-report.md").write_text(report_md)
+        Path("test-report.md").write_text(report_md, encoding="utf-8")
 
         report_json = {
             "scenario": scenario,
@@ -227,7 +227,7 @@ def _cli_main():
             }],
             "startup_failed": True,
         }
-        Path("test-report.json").write_text(json.dumps(report_json, indent=2))
+        Path("test-report.json").write_text(json.dumps(report_json, indent=2), encoding="utf-8")
 
         print(report_md)
         return
@@ -245,16 +245,16 @@ def _cli_main():
     pass_rate = round(passed / total * 100, 1) if total > 0 else 0
 
     lines = [
-        f"## 🧪 Test Results: {scenario} / {iteration}",
+        f"## [Test] Test Results: {scenario} / {iteration}",
         "",
         f"**Pass rate: {pass_rate}%** ({passed}/{total} tests passed)",
         "",
         "| Status | Count |",
         "|--------|-------|",
-        f"| ✅ Passed | {passed} |",
-        f"| ❌ Failed | {failures} |",
-        f"| 💥 Errors | {errors} |",
-        f"| ⏭️ Skipped | {skipped} |",
+        f"| [PASS] Passed | {passed} |",
+        f"| [FAIL] Failed | {failures} |",
+        f"| [ERR] Errors | {errors} |",
+        f"| [SKIP] Skipped | {skipped} |",
         "",
     ]
 
@@ -284,13 +284,13 @@ def _cli_main():
             lines.append("")
 
     if pass_rate == 100:
-        lines.append("### ✅ All tests passed!")
+        lines.append("### [PASS] All tests passed!")
         lines.append("")
         lines.append("The generated application fully conforms to the API contract.")
         lines.append("Review the code for Cosmos DB best practices and merge if satisfactory.")
 
     report_md = "\n".join(lines)
-    Path("test-report.md").write_text(report_md)
+    Path("test-report.md").write_text(report_md, encoding="utf-8")
 
     report_json = {
         "scenario": scenario,
@@ -305,7 +305,7 @@ def _cli_main():
         },
         "failures": failure_details,
     }
-    Path("test-report.json").write_text(json.dumps(report_json, indent=2))
+    Path("test-report.json").write_text(json.dumps(report_json, indent=2), encoding="utf-8")
 
     print(report_md)
 

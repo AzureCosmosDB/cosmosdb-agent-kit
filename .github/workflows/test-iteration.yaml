@@ -134,28 +134,41 @@ jobs:
       # Start Azure Cosmos DB Windows Emulator
       # ------------------------------------------------------------------
       - name: Start Azure Cosmos DB Emulator
+        id: start_emulator
         shell: pwsh
         run: |
           Write-Host "Launching Azure Cosmos DB Emulator"
           Import-Module "$env:ProgramFiles\Azure Cosmos DB Emulator\PSModules\Microsoft.Azure.CosmosDB.Emulator"
           Start-CosmosDbEmulator -NoUI -Key "$env:COSMOS_KEY"
 
-          # Wait until the emulator HTTP endpoint is actually ready
-          Write-Host "Waiting for emulator to be ready..."
+          # Poll emulator status using /getstatus exit codes (1=starting, 2=running, 3=stopped)
+          # Pattern from: azure-sdk-for-java/eng/common/scripts/Cosmos-Emulator.ps1
+          $emulatorExe = "$env:ProgramFiles\Azure Cosmos DB Emulator\Microsoft.Azure.Cosmos.Emulator.exe"
+          $timeoutSeconds = 600
+          $pollInterval = 5
+          $maxAttempts = [math]::Ceiling($timeoutSeconds / $pollInterval)
+          Write-Host "Waiting up to $timeoutSeconds seconds for emulator to be ready..."
           $ready = $false
-          for ($i = 1; $i -le 60; $i++) {
-            try {
-              $resp = Invoke-WebRequest -Uri "https://localhost:8081/" -SkipCertificateCheck -TimeoutSec 2 -ErrorAction SilentlyContinue
-              if ($resp.StatusCode -eq 200) {
-                Write-Host "Emulator is ready (attempt $i)"
+          for ($i = 1; $i -le $maxAttempts; $i++) {
+            $process = Start-Process $emulatorExe -ArgumentList "/getstatus" -PassThru -Wait
+            switch ($process.ExitCode) {
+              2 {
+                Write-Host "Emulator is running (attempt $i, exit code 2)"
                 $ready = $true
                 break
               }
-            } catch {}
-            Start-Sleep -Seconds 3
+              3 {
+                Write-Host "Emulator has stopped unexpectedly (exit code 3) -- will retry"
+              }
+              default {
+                Write-Host "Emulator still starting (attempt $i, exit code $($process.ExitCode))"
+              }
+            }
+            if ($ready) { break }
+            Start-Sleep -Seconds $pollInterval
           }
           if (-not $ready) {
-            Write-Error "Cosmos DB Emulator did not become ready within 180 seconds"
+            Write-Error "Cosmos DB Emulator did not become ready within $timeoutSeconds seconds"
             exit 1
           }
 
@@ -292,7 +305,7 @@ jobs:
           Write-Host "Verifying imports for module: $module"
           python -c "import importlib; importlib.import_module('$module')"
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "Import verification failed — a dependency is likely missing from requirements.txt"
+            Write-Error "Import verification failed -- a dependency is likely missing from requirements.txt"
             exit 1
           }
           Write-Host "All imports resolved successfully"
@@ -402,7 +415,7 @@ jobs:
           $exitCode = $LASTEXITCODE
           "exit_code=$exitCode" >> $env:GITHUB_OUTPUT
 
-          exit 0  # Don't fail the step — we report results in the next step
+          exit 0  # Don't fail the step -- we report results in the next step
 
       - name: Stop application
         if: always()
@@ -459,7 +472,7 @@ jobs:
             }
 
       - name: Request Copilot fix startup failure
-        if: always() && steps.start_app.outcome != 'success'
+        if: always() && (steps.start_app.outcome != 'success' || steps.start_emulator.outcome != 'success')
         uses: actions/github-script@v7
         with:
           script: |
@@ -468,20 +481,7 @@ jobs:
             const iteration = process.env.ITERATION;
             const iterationDir = process.env.ITERATION_DIR;
             const prNumber = parseInt(process.env.PR_NUMBER);
-
-            // Read app logs directly — these are the actual startup errors
-            const path = require('path');
-            const stdoutPath = path.join(iterationDir, 'app-output.log');
-            const stderrPath = path.join(iterationDir, 'app-error.log');
-
-            let appStdout = '';
-            let appStderr = '';
-            try { appStdout = fs.readFileSync(stdoutPath, 'utf8'); } catch (e) {}
-            try { appStderr = fs.readFileSync(stderrPath, 'utf8'); } catch (e) {}
-
-            // Prefer stderr (where Python tracebacks go), fall back to stdout
-            const stderrTail = appStderr.slice(-3000) || '(empty)';
-            const stdoutTail = appStdout.slice(-1500) || '(empty)';
+            const emulatorOutcome = '${{ steps.start_emulator.outcome }}';
 
             // Loop protection: count existing fix-request comments
             const fixMarker = '<!-- copilot-fix-request -->';
@@ -494,9 +494,39 @@ jobs:
             const fixAttempts = comments.filter(c => c.body.includes(fixMarker)).length;
             const maxAttempts = 3;
 
+            // Emulator failure -- infrastructure issue, not a code bug
+            if (emulatorOutcome !== 'success') {
+              const body = fixMarker + '\n' +
+                `## [WARN] Cosmos DB Emulator failed to start\n\n` +
+                `The Azure Cosmos DB Emulator did not start successfully (outcome: \`${emulatorOutcome}\`).\n` +
+                `This is a **CI infrastructure issue**, not an application code bug.\n\n` +
+                `**Action:** Re-run the workflow. If this persists, check the emulator start step logs.\n`;
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+              return;
+            }
+
+            // Read app logs -- these are the actual startup errors
+            const path = require('path');
+            const stdoutPath = path.join(iterationDir, 'app-output.log');
+            const stderrPath = path.join(iterationDir, 'app-error.log');
+
+            let appStdout = '';
+            let appStderr = '';
+            try { appStdout = fs.readFileSync(stdoutPath, 'utf8'); } catch (e) {}
+            try { appStderr = fs.readFileSync(stderrPath, 'utf8'); } catch (e) {}
+
+            const stderrTail = appStderr.slice(-3000) || '(empty)';
+            const stdoutTail = appStdout.slice(-1500) || '(empty)';
+
             if (fixAttempts >= maxAttempts) {
               const body = fixMarker + '\n' +
-                `## ⚠️ Max auto-fix attempts reached (${maxAttempts})\n\n` +
+                `## [WARN] Max auto-fix attempts reached (${maxAttempts})\n\n` +
                 `The application still fails to start after ${maxAttempts} automated fix attempts.\n` +
                 `Manual intervention is needed.\n\n` +
                 `**Last stderr output:**\n` +
@@ -514,7 +544,7 @@ jobs:
             const body = fixMarker + '\n' +
               `@copilot The application failed to start in CI (attempt ${fixAttempts + 1}/${maxAttempts}). ` +
               `Fix the code and push to this branch.\n\n` +
-              `**stderr (last lines — look for tracebacks, import errors, connection failures):**\n` +
+              `**stderr (last lines -- look for tracebacks, import errors, connection failures):**\n` +
               '```\n' + stderrTail + '\n```\n\n' +
               `**stdout (last lines):**\n` +
               '```\n' + stdoutTail + '\n```\n\n' +
@@ -524,7 +554,7 @@ jobs:
               `- Cosmos DB connection failure (check SSL certs, endpoint URL, key)\n` +
               `- Port already in use or wrong port configuration\n\n` +
               `**Instructions:**\n` +
-              `1. Read the stderr output above carefully — it contains the actual error\n` +
+              `1. Read the stderr output above carefully -- it contains the actual error\n` +
               `2. Read your generated code in \`${iterationDir}/\`\n` +
               `3. Fix the root cause of the startup failure\n` +
               `4. Make sure the application can start and respond to HTTP requests\n` +
@@ -571,7 +601,7 @@ jobs:
 
             if (evalAttempts >= maxAttempts) {
               const body = evalMarker + '\n' +
-                `## ⚠️ Max evaluation attempts reached (${maxAttempts})\n\n` +
+                `## [WARN] Max evaluation attempts reached (${maxAttempts})\n\n` +
                 `**${failureSummary}**\n\n` +
                 `Automated evaluation has been attempted ${maxAttempts} times.\n` +
                 `Manual review is needed. Check the test results comment above for failure details.\n`;
@@ -619,10 +649,12 @@ jobs:
             ${{ env.ITERATION_DIR }}/app-error.log
 
       - name: Fail if tests failed
-        if: steps.tests.outputs.exit_code != '0' || steps.start_app.outcome != 'success'
+        if: steps.tests.outputs.exit_code != '0' || steps.start_app.outcome != 'success' || steps.start_emulator.outcome != 'success'
         shell: pwsh
         run: |
-          if ("${{ steps.start_app.outcome }}" -ne "success") {
+          if ("${{ steps.start_emulator.outcome }}" -ne "success") {
+            Write-Host "Cosmos DB Emulator failed to start. See the PR comment for details."
+          } elseif ("${{ steps.start_app.outcome }}" -ne "success") {
             Write-Host "Application failed to start. See the PR comment for details."
           } else {
             Write-Host "Tests failed. See the PR comment for details."
