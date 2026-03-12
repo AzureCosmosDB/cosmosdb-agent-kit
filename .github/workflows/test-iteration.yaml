@@ -122,6 +122,8 @@ jobs:
       SCENARIO: ${{ needs.detect-iteration.outputs.scenario }}
       ITERATION: ${{ needs.detect-iteration.outputs.iteration }}
       PR_NUMBER: ${{ needs.detect-iteration.outputs.pr_number }}
+      PYTHONUNBUFFERED: "1"
+      PYTHONIOENCODING: "utf-8"
 
     steps:
       - uses: actions/checkout@v4
@@ -137,7 +139,39 @@ jobs:
           Write-Host "Launching Azure Cosmos DB Emulator"
           Import-Module "$env:ProgramFiles\Azure Cosmos DB Emulator\PSModules\Microsoft.Azure.CosmosDB.Emulator"
           Start-CosmosDbEmulator -NoUI -Key "$env:COSMOS_KEY"
-          Write-Host "Cosmos DB Emulator is running"
+
+          # Wait until the emulator HTTP endpoint is actually ready
+          Write-Host "Waiting for emulator to be ready..."
+          $ready = $false
+          for ($i = 1; $i -le 60; $i++) {
+            try {
+              $resp = Invoke-WebRequest -Uri "https://localhost:8081/" -SkipCertificateCheck -TimeoutSec 2 -ErrorAction SilentlyContinue
+              if ($resp.StatusCode -eq 200) {
+                Write-Host "Emulator is ready (attempt $i)"
+                $ready = $true
+                break
+              }
+            } catch {}
+            Start-Sleep -Seconds 3
+          }
+          if (-not $ready) {
+            Write-Error "Cosmos DB Emulator did not become ready within 180 seconds"
+            exit 1
+          }
+
+          # Export the emulator's self-signed TLS certificate to PEM
+          $cert = Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.FriendlyName -like '*DocumentDb*' -or $_.Subject -like '*CosmosDB*' -or $_.Subject -like '*localhost*' } | Select-Object -First 1
+          if (-not $cert) {
+            # Fallback: download the PEM from the emulator endpoint
+            $pemPath = Join-Path $env:RUNNER_TEMP "cosmosdb-emulator.pem"
+            Invoke-WebRequest -Uri "https://localhost:8081/_explorer/emulator.pem" -SkipCertificateCheck -OutFile $pemPath
+          } else {
+            $pemPath = Join-Path $env:RUNNER_TEMP "cosmosdb-emulator.pem"
+            $b64 = [Convert]::ToBase64String($cert.RawData, 'InsertLineBreaks')
+            "-----BEGIN CERTIFICATE-----`n$b64`n-----END CERTIFICATE-----" | Set-Content $pemPath -Encoding ascii
+          }
+          Write-Host "Emulator cert exported to $pemPath"
+          "COSMOS_CERT_PATH=$pemPath" >> $env:GITHUB_ENV
 
       # ------------------------------------------------------------------
       # Language-specific setup
@@ -216,6 +250,23 @@ jobs:
         run: ${{ steps.config.outputs.build_cmd }}
 
       # ------------------------------------------------------------------
+      # Trust the Cosmos DB Emulator self-signed certificate
+      # ------------------------------------------------------------------
+      - name: Trust Cosmos DB Emulator cert (Python)
+        if: steps.config.outputs.language == 'python' && env.COSMOS_CERT_PATH != ''
+        shell: pwsh
+        run: |
+          # Append emulator cert to the certifi CA bundle so aiohttp/requests trust it
+          $certifi = python -c "import certifi; print(certifi.where())"
+          $emulatorCert = Get-Content $env:COSMOS_CERT_PATH -Raw
+          Add-Content -Path $certifi -Value "`n$emulatorCert"
+          Write-Host "Appended emulator cert to $certifi"
+
+          # Also set env vars for libraries that check these
+          "SSL_CERT_FILE=$certifi"      >> $env:GITHUB_ENV
+          "REQUESTS_CA_BUNDLE=$certifi" >> $env:GITHUB_ENV
+
+      # ------------------------------------------------------------------
       # Verify imports resolve before starting the app
       # ------------------------------------------------------------------
       - name: Verify Python imports
@@ -254,9 +305,24 @@ jobs:
         working-directory: ${{ env.ITERATION_DIR }}
         shell: pwsh
         run: |
-          # Start app in background, capture output for diagnostics
-          $logFile = Join-Path $PWD "app-output.log"
-          $process = Start-Process -FilePath "cmd" -ArgumentList "/c ${{ steps.config.outputs.run_cmd }} > `"$logFile`" 2>&1" -PassThru -WorkingDirectory $PWD
+          # Parse run command to extract executable and arguments
+          $runCmd = "${{ steps.config.outputs.run_cmd }}"
+          $parts = $runCmd -split '\s+', 2
+          $exe   = $parts[0]
+          $args  = if ($parts.Count -gt 1) { $parts[1] } else { "" }
+
+          $stdoutLog = Join-Path $PWD "app-output.log"
+          $stderrLog = Join-Path $PWD "app-error.log"
+
+          Write-Host "Starting: $exe $args"
+          Write-Host "  stdout -> $stdoutLog"
+          Write-Host "  stderr -> $stderrLog"
+
+          $process = Start-Process -FilePath $exe -ArgumentList $args `
+            -RedirectStandardOutput $stdoutLog `
+            -RedirectStandardError  $stderrLog `
+            -PassThru -WorkingDirectory $PWD -NoNewWindow
+
           "APP_PID=$($process.Id)" >> $env:GITHUB_ENV
 
           # Wait for health endpoint
@@ -274,18 +340,31 @@ jobs:
 
             # Check if process is still alive
             if ($process.HasExited) {
-              Write-Error "App process exited prematurely"
-              Write-Host "--- Application output ---"
-              if (Test-Path $logFile) { Get-Content $logFile }
+              Write-Error "App process exited prematurely with code $($process.ExitCode)"
+              Write-Host "--- stdout (last 80 lines) ---"
+              if (Test-Path $stdoutLog) { Get-Content $stdoutLog -Tail 80 }
+              Write-Host "--- stderr (last 80 lines) ---"
+              if (Test-Path $stderrLog) { Get-Content $stderrLog -Tail 80 }
               exit 1
+            }
+
+            # Show progress every 10 attempts
+            if ($i % 10 -eq 0) {
+              Write-Host "  Still waiting... (attempt $i/60)"
+              if (Test-Path $stderrLog) {
+                $errTail = Get-Content $stderrLog -Tail 5
+                if ($errTail) { Write-Host "  Recent stderr: $($errTail -join ' | ')" }
+              }
             }
             Start-Sleep -Seconds 2
           }
 
           if (-not $ready) {
             Write-Error "App did not start within 120 seconds"
-            Write-Host "--- Application output ---"
-            if (Test-Path $logFile) { Get-Content $logFile }
+            Write-Host "--- stdout (last 80 lines) ---"
+            if (Test-Path $stdoutLog) { Get-Content $stdoutLog -Tail 80 }
+            Write-Host "--- stderr (last 80 lines) ---"
+            if (Test-Path $stderrLog) { Get-Content $stderrLog -Tail 80 }
             Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
             exit 1
           }
@@ -390,14 +469,19 @@ jobs:
             const iterationDir = process.env.ITERATION_DIR;
             const prNumber = parseInt(process.env.PR_NUMBER);
 
-            // Read startup error from test-report.json
-            let errorMessage = 'Application failed to start. No output captured.';
-            try {
-              const report = JSON.parse(fs.readFileSync('test-report.json', 'utf8'));
-              if (report.failures && report.failures.length > 0) {
-                errorMessage = report.failures[0].message;
-              }
-            } catch (e) {}
+            // Read app logs directly — these are the actual startup errors
+            const path = require('path');
+            const stdoutPath = path.join(iterationDir, 'app-output.log');
+            const stderrPath = path.join(iterationDir, 'app-error.log');
+
+            let appStdout = '';
+            let appStderr = '';
+            try { appStdout = fs.readFileSync(stdoutPath, 'utf8'); } catch (e) {}
+            try { appStderr = fs.readFileSync(stderrPath, 'utf8'); } catch (e) {}
+
+            // Prefer stderr (where Python tracebacks go), fall back to stdout
+            const stderrTail = appStderr.slice(-3000) || '(empty)';
+            const stdoutTail = appStdout.slice(-1500) || '(empty)';
 
             // Loop protection: count existing fix-request comments
             const fixMarker = '<!-- copilot-fix-request -->';
@@ -414,7 +498,9 @@ jobs:
               const body = fixMarker + '\n' +
                 `## ⚠️ Max auto-fix attempts reached (${maxAttempts})\n\n` +
                 `The application still fails to start after ${maxAttempts} automated fix attempts.\n` +
-                `Manual intervention is needed. Check the test results comment above for error details.\n`;
+                `Manual intervention is needed.\n\n` +
+                `**Last stderr output:**\n` +
+                '```\n' + stderrTail + '\n```\n';
 
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -428,12 +514,19 @@ jobs:
             const body = fixMarker + '\n' +
               `@copilot The application failed to start in CI (attempt ${fixAttempts + 1}/${maxAttempts}). ` +
               `Fix the code and push to this branch.\n\n` +
-              `**Error details:**\n` +
-              '```\n' + errorMessage + '\n```\n\n' +
+              `**stderr (last lines — look for tracebacks, import errors, connection failures):**\n` +
+              '```\n' + stderrTail + '\n```\n\n' +
+              `**stdout (last lines):**\n` +
+              '```\n' + stdoutTail + '\n```\n\n' +
+              `**Common causes:**\n` +
+              `- Missing dependency in requirements.txt\n` +
+              `- Import error or syntax error in Python code\n` +
+              `- Cosmos DB connection failure (check SSL certs, endpoint URL, key)\n` +
+              `- Port already in use or wrong port configuration\n\n` +
               `**Instructions:**\n` +
-              `1. Read the full error output in the test results comment above\n` +
+              `1. Read the stderr output above carefully — it contains the actual error\n` +
               `2. Read your generated code in \`${iterationDir}/\`\n` +
-              `3. Fix the issue (e.g., missing dependency in requirements.txt, import error, config issue)\n` +
+              `3. Fix the root cause of the startup failure\n` +
               `4. Make sure the application can start and respond to HTTP requests\n` +
               `5. Commit and push the fix to this branch\n`;
 
@@ -522,6 +615,8 @@ jobs:
             test-report.json
             test-report.md
             test-output.txt
+            ${{ env.ITERATION_DIR }}/app-output.log
+            ${{ env.ITERATION_DIR }}/app-error.log
 
       - name: Fail if tests failed
         if: steps.tests.outputs.exit_code != '0' || steps.start_app.outcome != 'success'

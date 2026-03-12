@@ -153,6 +153,9 @@ def _cli_main():
     import os
     import sys
 
+    # Prevent UnicodeEncodeError for emoji on Windows CI runners
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
     scenario = os.environ.get("SCENARIO", "unknown")
     iteration = os.environ.get("ITERATION", "unknown")
     iteration_dir = os.environ.get("ITERATION_DIR", "")
@@ -160,9 +163,14 @@ def _cli_main():
     # If test-results.xml doesn't exist, the app likely failed to start
     if not Path("test-results.xml").exists():
         app_log = ""
-        log_path = Path(iteration_dir) / "app-output.log" if iteration_dir else None
-        if log_path and log_path.exists():
-            app_log = log_path.read_text(errors="replace")[-3000:]
+        app_err = ""
+        if iteration_dir:
+            log_path = Path(iteration_dir) / "app-output.log"
+            err_path = Path(iteration_dir) / "app-error.log"
+            if log_path.exists():
+                app_log = log_path.read_text(errors="replace")[-3000:]
+            if err_path.exists():
+                app_err = err_path.read_text(errors="replace")[-3000:]
 
         lines = [
             f"## 🧪 Test Results: {scenario} / {iteration}",
@@ -179,10 +187,23 @@ def _cli_main():
         if app_log:
             lines.extend([
                 "<details>",
-                "<summary>Application startup output (last 3000 chars)</summary>",
+                "<summary>Application stdout (last 3000 chars)</summary>",
                 "",
                 "```",
                 app_log,
+                "```",
+                "",
+                "</details>",
+                "",
+            ])
+
+        if app_err:
+            lines.extend([
+                "<details>",
+                "<summary>Application stderr (last 3000 chars)</summary>",
+                "",
+                "```",
+                app_err,
                 "```",
                 "",
                 "</details>",
@@ -202,7 +223,7 @@ def _cli_main():
             "failures": [{
                 "test": "startup",
                 "message": "Application failed to start. "
-                           + (app_log[-300:] if app_log else "No output captured."),
+                           + (app_err[-500:] if app_err else (app_log[-500:] if app_log else "No output captured.")),
             }],
             "startup_failed": True,
         }
