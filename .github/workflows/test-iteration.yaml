@@ -3,7 +3,12 @@
 # =============================================================================
 # Runs automated tests against a generated application in a PR.
 #
-# Trigger: Any PR that adds/modifies files under testing-v2/scenarios/*/iterations/
+# Triggers:
+#   - pull_request: Any PR that adds/modifies iteration files (may not fire
+#     for commits pushed by GitHub Apps like Copilot coding agent)
+#   - workflow_dispatch: Manual trigger with a PR number
+#   - repository_dispatch: Auto-triggered by the auto-test-iteration workflow
+#     when Copilot finishes generating code
 #
 # What it does:
 #   1. Detects which scenario and iteration changed
@@ -16,10 +21,24 @@
 
 name: Test Iteration
 
+concurrency:
+  group: test-iteration-pr-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.event.client_payload.pr_number }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     paths:
       - 'testing-v2/scenarios/*/iterations/**'
+
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to test'
+        required: true
+        type: number
+
+  repository_dispatch:
+    types: [test-iteration]
 
 jobs:
   detect-iteration:
@@ -29,21 +48,52 @@ jobs:
       scenario: ${{ steps.detect.outputs.scenario }}
       iteration: ${{ steps.detect.outputs.iteration }}
       iteration_dir: ${{ steps.detect.outputs.iteration_dir }}
+      pr_number: ${{ steps.pr.outputs.number }}
+      head_ref: ${{ steps.pr.outputs.head_ref }}
     steps:
+      - name: Resolve PR context
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "${{ github.event_name }}" in
+            pull_request)
+              echo "number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+              echo "head_ref=${{ github.event.pull_request.head.ref }}" >> "$GITHUB_OUTPUT"
+              ;;
+            workflow_dispatch)
+              PR_NUM="${{ github.event.inputs.pr_number }}"
+              echo "number=${PR_NUM}" >> "$GITHUB_OUTPUT"
+              HEAD_REF=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUM}" --jq '.head.ref')
+              echo "head_ref=${HEAD_REF}" >> "$GITHUB_OUTPUT"
+              ;;
+            repository_dispatch)
+              PR_NUM="${{ github.event.client_payload.pr_number }}"
+              echo "number=${PR_NUM}" >> "$GITHUB_OUTPUT"
+              HEAD_REF=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUM}" --jq '.head.ref')
+              echo "head_ref=${HEAD_REF}" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: ${{ steps.pr.outputs.head_ref }}
 
-      - name: Detect scenario and iteration from changed files
+      - name: Detect scenario and iteration from PR files
         id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # Find iteration directories with changes
-          CHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} \
+          PR_NUM="${{ steps.pr.outputs.number }}"
+
+          # Use GitHub API to list changed files in the PR
+          CHANGED=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUM}/files" \
+            --jq '.[].filename' \
             | grep '^testing-v2/scenarios/.*/iterations/' \
             | head -1)
 
           if [ -z "$CHANGED" ]; then
-            echo "No iteration files changed"
+            echo "No iteration files changed in PR #${PR_NUM}"
             exit 1
           fi
 
@@ -71,9 +121,12 @@ jobs:
       ITERATION_DIR: ${{ needs.detect-iteration.outputs.iteration_dir }}
       SCENARIO: ${{ needs.detect-iteration.outputs.scenario }}
       ITERATION: ${{ needs.detect-iteration.outputs.iteration }}
+      PR_NUMBER: ${{ needs.detect-iteration.outputs.pr_number }}
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.detect-iteration.outputs.head_ref }}
 
       # ------------------------------------------------------------------
       # Start Azure Cosmos DB Windows Emulator
@@ -291,18 +344,19 @@ jobs:
           python testing-v2/harness/report.py
 
       - name: Comment test results on PR
-        if: always() && github.event_name == 'pull_request'
+        if: always()
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
+            const prNumber = parseInt(process.env.PR_NUMBER);
             const report = fs.readFileSync('test-report.md', 'utf8');
 
             // Find and update existing comment, or create new one
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              issue_number: prNumber,
             });
 
             const marker = '<!-- test-iteration-results -->';
@@ -320,13 +374,13 @@ jobs:
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: context.issue.number,
+                issue_number: prNumber,
                 body,
               });
             }
 
       - name: Request Copilot fix startup failure
-        if: always() && github.event_name == 'pull_request' && steps.start_app.outcome != 'success'
+        if: always() && steps.start_app.outcome != 'success'
         uses: actions/github-script@v7
         with:
           script: |
@@ -334,6 +388,7 @@ jobs:
             const scenario = process.env.SCENARIO;
             const iteration = process.env.ITERATION;
             const iterationDir = process.env.ITERATION_DIR;
+            const prNumber = parseInt(process.env.PR_NUMBER);
 
             // Read startup error from test-report.json
             let errorMessage = 'Application failed to start. No output captured.';
@@ -349,7 +404,7 @@ jobs:
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              issue_number: prNumber,
             });
 
             const fixAttempts = comments.filter(c => c.body.includes(fixMarker)).length;
@@ -364,7 +419,7 @@ jobs:
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: context.issue.number,
+                issue_number: prNumber,
                 body,
               });
               return;
@@ -385,18 +440,19 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              issue_number: prNumber,
               body,
             });
 
       - name: Request Copilot evaluate test failures
-        if: always() && github.event_name == 'pull_request' && steps.start_app.outcome == 'success' && steps.tests.outputs.exit_code != '0'
+        if: always() && steps.start_app.outcome == 'success' && steps.tests.outputs.exit_code != '0'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
             const scenario = process.env.SCENARIO;
             const iteration = process.env.ITERATION;
+            const prNumber = parseInt(process.env.PR_NUMBER);
 
             // Read the structured test report for context
             let failureSummary = '';
@@ -414,7 +470,7 @@ jobs:
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              issue_number: prNumber,
             });
 
             const evalAttempts = comments.filter(c => c.body.includes(evalMarker)).length;
@@ -430,7 +486,7 @@ jobs:
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: context.issue.number,
+                issue_number: prNumber,
                 body,
               });
               return;
@@ -452,7 +508,7 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              issue_number: prNumber,
               body,
             });
 

@@ -1,0 +1,36 @@
+# =============================================================================
+# Auto-Trigger Test Iteration
+# =============================================================================
+# Bridges the gap where pull_request events don't fire for commits pushed by
+# GitHub Apps (like Copilot coding agent). Uses pull_request_target which DOES
+# fire for App-pushed commits, and dispatches the test workflow via
+# workflow_dispatch.
+#
+# Security: This workflow only reads the PR number and dispatches another
+# workflow. It does NOT check out or execute any PR code.
+# =============================================================================
+
+name: Auto-Trigger Tests
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, ready_for_review]
+    paths:
+      - 'testing-v2/scenarios/*/iterations/**'
+
+permissions:
+  actions: write
+
+jobs:
+  dispatch:
+    name: Trigger test workflow
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch Test Iteration workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Dispatching test-iteration workflow for PR #${{ github.event.pull_request.number }}"
+          gh workflow run test-iteration.yaml \
+            --repo "${{ github.repository }}" \
+            -f pr_number=${{ github.event.pull_request.number }}
