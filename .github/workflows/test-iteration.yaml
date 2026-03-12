@@ -203,7 +203,7 @@ jobs:
         run: |
           # Start app in background, capture output for diagnostics
           $logFile = Join-Path $PWD "app-output.log"
-          $process = Start-Process -FilePath "cmd" -ArgumentList "/c ${{ steps.config.outputs.run_cmd }} > `"$logFile`" 2>&1" -PassThru -WindowStyle Hidden
+          $process = Start-Process -FilePath "cmd" -ArgumentList "/c ${{ steps.config.outputs.run_cmd }} > `"$logFile`" 2>&1" -PassThru -WorkingDirectory $PWD
           "APP_PID=$($process.Id)" >> $env:GITHUB_ENV
 
           # Wait for health endpoint
