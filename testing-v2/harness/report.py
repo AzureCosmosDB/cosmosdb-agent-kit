@@ -134,3 +134,160 @@ def _extract_failure_message(test: dict) -> str:
             lines = str(longrepr).strip().split("\n")
             return lines[-1] if lines else "Unknown failure"
     return test.get("outcome", "Unknown failure")
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point — used by CI to parse JUnit XML and produce reports
+# ---------------------------------------------------------------------------
+
+def _cli_main():
+    """
+    Parse test-results.xml (JUnit XML) and write test-report.md + test-report.json.
+
+    Expected environment variables:
+        SCENARIO       — scenario name
+        ITERATION      — iteration id
+        ITERATION_DIR  — path to iteration directory (for reading app-output.log)
+    """
+    import xml.etree.ElementTree as ET
+    import os
+    import sys
+
+    scenario = os.environ.get("SCENARIO", "unknown")
+    iteration = os.environ.get("ITERATION", "unknown")
+    iteration_dir = os.environ.get("ITERATION_DIR", "")
+
+    # If test-results.xml doesn't exist, the app likely failed to start
+    if not Path("test-results.xml").exists():
+        app_log = ""
+        log_path = Path(iteration_dir) / "app-output.log" if iteration_dir else None
+        if log_path and log_path.exists():
+            app_log = log_path.read_text(errors="replace")[-3000:]
+
+        lines = [
+            f"## 🧪 Test Results: {scenario} / {iteration}",
+            "",
+            "**Pass rate: N/A** — application failed to start, no tests ran",
+            "",
+            "### ❌ Application Failed to Start",
+            "",
+            "The application did not start successfully, so no tests could run.",
+            "This typically means a missing dependency, import error, or configuration issue.",
+            "",
+        ]
+
+        if app_log:
+            lines.extend([
+                "<details>",
+                "<summary>Application startup output (last 3000 chars)</summary>",
+                "",
+                "```",
+                app_log,
+                "```",
+                "",
+                "</details>",
+                "",
+            ])
+
+        report_md = "\n".join(lines)
+        Path("test-report.md").write_text(report_md)
+
+        report_json = {
+            "scenario": scenario,
+            "iteration": iteration,
+            "summary": {
+                "total": 0, "passed": 0, "failed": 0,
+                "errors": 1, "skipped": 0, "pass_rate": 0,
+            },
+            "failures": [{
+                "test": "startup",
+                "message": "Application failed to start. "
+                           + (app_log[-300:] if app_log else "No output captured."),
+            }],
+            "startup_failed": True,
+        }
+        Path("test-report.json").write_text(json.dumps(report_json, indent=2))
+
+        print(report_md)
+        return
+
+    # Normal path: parse JUnit XML test results
+    tree = ET.parse("test-results.xml")
+    root = tree.getroot()
+
+    suite = root.find(".//testsuite") or root
+    total = int(suite.get("tests", 0))
+    failures = int(suite.get("failures", 0))
+    errors = int(suite.get("errors", 0))
+    skipped = int(suite.get("skipped", 0))
+    passed = total - failures - errors - skipped
+    pass_rate = round(passed / total * 100, 1) if total > 0 else 0
+
+    lines = [
+        f"## 🧪 Test Results: {scenario} / {iteration}",
+        "",
+        f"**Pass rate: {pass_rate}%** ({passed}/{total} tests passed)",
+        "",
+        "| Status | Count |",
+        "|--------|-------|",
+        f"| ✅ Passed | {passed} |",
+        f"| ❌ Failed | {failures} |",
+        f"| 💥 Errors | {errors} |",
+        f"| ⏭️ Skipped | {skipped} |",
+        "",
+    ]
+
+    failure_details = []
+    for tc in root.iter("testcase"):
+        failure = tc.find("failure")
+        error = tc.find("error")
+        if failure is not None or error is not None:
+            name = tc.get("name", "unknown")
+            classname = tc.get("classname", "")
+            msg = (failure if failure is not None else error).get("message", "")[:300]
+            failure_details.append({"test": f"{classname}::{name}", "message": msg})
+
+    if failure_details:
+        lines.append("### Failures Requiring Evaluation")
+        lines.append("")
+        lines.append("These failures indicate areas where the generated code does not")
+        lines.append("conform to the API contract or Cosmos DB best practices.")
+        lines.append("Each failure should be analyzed to determine if:")
+        lines.append("- A **new rule/skill** should be added to the agent kit")
+        lines.append("- An **existing rule** needs to be updated or clarified")
+        lines.append("- The **generated code** has a bug that the agent should fix")
+        lines.append("")
+        for f in failure_details:
+            lines.append(f"- **{f['test']}**")
+            lines.append(f"  > {f['message']}")
+            lines.append("")
+
+    if pass_rate == 100:
+        lines.append("### ✅ All tests passed!")
+        lines.append("")
+        lines.append("The generated application fully conforms to the API contract.")
+        lines.append("Review the code for Cosmos DB best practices and merge if satisfactory.")
+
+    report_md = "\n".join(lines)
+    Path("test-report.md").write_text(report_md)
+
+    report_json = {
+        "scenario": scenario,
+        "iteration": iteration,
+        "summary": {
+            "total": total,
+            "passed": passed,
+            "failed": failures,
+            "errors": errors,
+            "skipped": skipped,
+            "pass_rate": pass_rate,
+        },
+        "failures": failure_details,
+    }
+    Path("test-report.json").write_text(json.dumps(report_json, indent=2))
+
+    print(report_md)
+
+
+if __name__ == "__main__":
+    _cli_main()

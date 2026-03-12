@@ -18,6 +18,21 @@ Each improvement entry should include:
 
 ## Improvements
 
+#### 2026-03-12: New Rules — Parameterized TOP and Composite Index Directions
+
+- **Scenario**: gaming-leaderboard
+- **Iteration**: iteration-001-python (testing-v2 framework, PR #4)
+- **Issue 1**: Copilot generated `SELECT TOP @top ...` with `@top` as a query parameter. Cosmos DB's `TOP` keyword requires a literal integer — parameterized values cause a 400 Bad Request at runtime. All 10 leaderboard endpoint tests returned HTTP 500 due to this.
+- **Issue 2**: Copilot created a composite index with `(/bestScore, descending)` but the rank-neighbor query used `ORDER BY c.bestScore ASC`. Cross-partition `ORDER BY` requires an index with a matching sort direction. All 6 rank endpoint tests returned HTTP 500.
+- **Improvement**: Created two new rules:
+  1. `query-top-literal.md` — "Use Literal Integers for TOP, Never Parameters". Shows that `TOP` does not support `@param` syntax and the value must be interpolated as a validated `int`.
+  2. `index-composite-direction.md` — "Composite Index Directions Must Match ORDER BY". Stresses that every composite index must have directions that exactly match the query's `ORDER BY`, and that both ASC and DESC variants should always be defined.
+- **Files Modified**:
+  - `skills/cosmosdb-best-practices/rules/query-top-literal.md` (NEW)
+  - `skills/cosmosdb-best-practices/rules/index-composite-direction.md` (NEW)
+  - `skills/cosmosdb-best-practices/AGENTS.md` (recompiled)
+- **Pass Rate**: 52.9% (18/34) — 18 passed (health, player CRUD, score submission), 16 failed (leaderboard + rank queries hit the two issues above)
+
 #### 2026-03-11: New Rule — Python Async SDK Missing aiohttp Dependency
 
 - **Scenario**: gaming-leaderboard

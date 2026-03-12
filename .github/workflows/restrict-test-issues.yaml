@@ -1,0 +1,63 @@
+# =============================================================================
+# Restrict Test Issue Templates
+# =============================================================================
+# Auto-closes issues created from the "run-iteration" and "create-scenario"
+# templates unless the creator has write or admin access to the repo.
+# Regular (blank) issues are not affected.
+# =============================================================================
+
+name: Restrict Test Issues
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  check-permission:
+    # Only run when the issue has both the "testing" label and one of the
+    # template-specific labels ("iteration" or "scenario")
+    if: >-
+      contains(github.event.issue.labels.*.name, 'testing') &&
+      (contains(github.event.issue.labels.*.name, 'iteration') ||
+       contains(github.event.issue.labels.*.name, 'scenario'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check creator permission
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const creator = context.payload.issue.user.login;
+            const { data: perm } = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: creator,
+            });
+
+            const level = perm.permission;
+            console.log(`User ${creator} has permission: ${level}`);
+
+            if (level === 'admin' || level === 'write') {
+              console.log('Authorized — allowing issue');
+              return;
+            }
+
+            // Close and comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `⚠️ Sorry @${creator}, only repository collaborators with **write** access `
+                  + `can create test iteration and scenario issues.\n\n`
+                  + `If you'd like to contribute a scenario or run a test iteration, `
+                  + `please open a regular issue describing what you'd like to do and a maintainer will help.`,
+            });
+
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'not_planned',
+            });
+
+            core.setFailed(`Issue closed — ${creator} does not have write access`);

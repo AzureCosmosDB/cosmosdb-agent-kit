@@ -7,7 +7,7 @@
 #
 # What it does:
 #   1. Detects which scenario and iteration changed
-#   2. Starts the Cosmos DB Linux emulator
+#   2. Starts the Azure Cosmos DB Windows emulator
 #   3. Reads iteration-config.yaml for build/run instructions
 #   4. Builds and starts the application
 #   5. Runs the scenario's pytest suite against it
@@ -62,19 +62,8 @@ jobs:
   test-iteration:
     name: "Test: ${{ needs.detect-iteration.outputs.scenario }} / ${{ needs.detect-iteration.outputs.iteration }}"
     needs: detect-iteration
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 30
-
-    services:
-      cosmosdb:
-        image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
-        ports:
-          - 8081:8081
-          - 10250-10255:10250-10255
-        env:
-          AZURE_COSMOS_EMULATOR_PARTITION_COUNT: 10
-          AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE: false
-          AZURE_COSMOS_EMULATOR_IP_ADDRESS_OVERRIDE: 127.0.0.1
 
     env:
       COSMOS_ENDPOINT: "https://localhost:8081"
@@ -86,48 +75,51 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Wait for Cosmos DB emulator
+      # ------------------------------------------------------------------
+      # Start Azure Cosmos DB Windows Emulator
+      # ------------------------------------------------------------------
+      - name: Start Azure Cosmos DB Emulator
+        shell: pwsh
         run: |
-          echo "Waiting for Cosmos DB emulator to start..."
-          for i in $(seq 1 60); do
-            if curl -sk https://localhost:8081/_explorer/emulator.pem > /dev/null 2>&1; then
-              echo "Emulator is ready (attempt $i)"
-              break
-            fi
-            echo "Attempt $i/60 - waiting..."
-            sleep 3
-          done
-
-          # Download and trust the emulator certificate
-          curl -sk https://localhost:8081/_explorer/emulator.pem > ~/emulatorcert.crt
-          sudo cp ~/emulatorcert.crt /usr/local/share/ca-certificates/
-          sudo update-ca-certificates
+          Write-Host "Launching Azure Cosmos DB Emulator"
+          Import-Module "$env:ProgramFiles\Azure Cosmos DB Emulator\PSModules\Microsoft.Azure.CosmosDB.Emulator"
+          Start-CosmosDbEmulator -NoUI -Key "$env:COSMOS_KEY"
+          Write-Host "Cosmos DB Emulator is running"
 
       # ------------------------------------------------------------------
       # Language-specific setup
       # ------------------------------------------------------------------
       - name: Read iteration config
         id: config
+        shell: pwsh
         run: |
-          CONFIG="${ITERATION_DIR}/iteration-config.yaml"
-          if [ ! -f "$CONFIG" ]; then
-            echo "::error::iteration-config.yaml not found at ${CONFIG}"
+          $config = "$env:ITERATION_DIR/iteration-config.yaml"
+          if (-not (Test-Path $config)) {
+            Write-Error "iteration-config.yaml not found at $config"
             exit 1
-          fi
+          }
 
-          LANGUAGE=$(python3 -c "import yaml; print(yaml.safe_load(open('$CONFIG'))['language'])")
-          PORT=$(python3 -c "import yaml; print(yaml.safe_load(open('$CONFIG')).get('port', 8080))")
-          BUILD_CMD=$(python3 -c "import yaml; print(yaml.safe_load(open('$CONFIG')).get('build', ''))")
-          RUN_CMD=$(python3 -c "import yaml; print(yaml.safe_load(open('$CONFIG'))['run'])")
-          HEALTH=$(python3 -c "import yaml; print(yaml.safe_load(open('$CONFIG')).get('health', '/health'))")
-          DB_NAME=$(python3 -c "import yaml; print(yaml.safe_load(open('$CONFIG')).get('database', 'test-db'))")
+          pip install pyyaml --quiet
+          $values = python -c @"
+          import yaml, json
+          cfg = yaml.safe_load(open('$config'))
+          print(json.dumps({
+            'language': cfg['language'],
+            'port': cfg.get('port', 8080),
+            'build': cfg.get('build', ''),
+            'run': cfg['run'],
+            'health': cfg.get('health', '/health'),
+            'database': cfg.get('database', 'test-db'),
+          }))
+          "@
+          $cfg = $values | ConvertFrom-Json
 
-          echo "language=${LANGUAGE}" >> "$GITHUB_OUTPUT"
-          echo "port=${PORT}" >> "$GITHUB_OUTPUT"
-          echo "build_cmd=${BUILD_CMD}" >> "$GITHUB_OUTPUT"
-          echo "run_cmd=${RUN_CMD}" >> "$GITHUB_OUTPUT"
-          echo "health=${HEALTH}" >> "$GITHUB_OUTPUT"
-          echo "db_name=${DB_NAME}" >> "$GITHUB_OUTPUT"
+          "language=$($cfg.language)"   >> $env:GITHUB_OUTPUT
+          "port=$($cfg.port)"           >> $env:GITHUB_OUTPUT
+          "build_cmd=$($cfg.build)"     >> $env:GITHUB_OUTPUT
+          "run_cmd=$($cfg.run)"         >> $env:GITHUB_OUTPUT
+          "health=$($cfg.health)"       >> $env:GITHUB_OUTPUT
+          "db_name=$($cfg.database)"    >> $env:GITHUB_OUTPUT
 
       - name: Setup Python
         if: steps.config.outputs.language == 'python'
@@ -167,6 +159,7 @@ jobs:
       - name: Build application
         if: steps.config.outputs.build_cmd != ''
         working-directory: ${{ env.ITERATION_DIR }}
+        shell: pwsh
         run: ${{ steps.config.outputs.build_cmd }}
 
       # ------------------------------------------------------------------
@@ -175,26 +168,30 @@ jobs:
       - name: Verify Python imports
         if: steps.config.outputs.language == 'python'
         working-directory: ${{ env.ITERATION_DIR }}
+        shell: pwsh
         run: |
-          # Find the main module from the run command (e.g., "uvicorn main:app" → "main")
-          RUN_CMD="${{ steps.config.outputs.run_cmd }}"
-          # Extract module name: handles "uvicorn main:app" and "python main.py"
-          MODULE=$(echo "$RUN_CMD" | grep -oP '(?:uvicorn\s+)(\w+)' | awk '{print $2}' || true)
-          if [ -z "$MODULE" ]; then
-            MODULE=$(echo "$RUN_CMD" | grep -oP '(?:python[3]?\s+)(\w+)' | awk '{print $2}' || true)
-          fi
-          if [ -z "$MODULE" ]; then
-            echo "Could not detect main module from run command: $RUN_CMD"
-            echo "Skipping import verification"
-            exit 0
-          fi
+          $runCmd = "${{ steps.config.outputs.run_cmd }}"
+          $module = $null
 
-          echo "Verifying imports for module: ${MODULE}"
-          python -c "import importlib; importlib.import_module('${MODULE}')" 2>&1 || {
-            echo "::error::Import verification failed — a dependency is likely missing from requirements.txt"
+          if ($runCmd -match 'uvicorn\s+(\w+)') {
+            $module = $Matches[1]
+          } elseif ($runCmd -match 'python[3]?\s+(\w+)') {
+            $module = $Matches[1]
+          }
+
+          if (-not $module) {
+            Write-Host "Could not detect main module from run command: $runCmd"
+            Write-Host "Skipping import verification"
+            exit 0
+          }
+
+          Write-Host "Verifying imports for module: $module"
+          python -c "import importlib; importlib.import_module('$module')"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Import verification failed — a dependency is likely missing from requirements.txt"
             exit 1
           }
-          echo "All imports resolved successfully"
+          Write-Host "All imports resolved successfully"
 
       # ------------------------------------------------------------------
       # Start the app and run tests
@@ -202,71 +199,86 @@ jobs:
       - name: Start application
         id: start_app
         working-directory: ${{ env.ITERATION_DIR }}
+        shell: pwsh
         run: |
           # Start app in background, capture output for diagnostics
-          ${{ steps.config.outputs.run_cmd }} > app-output.log 2>&1 &
-          APP_PID=$!
-          echo "APP_PID=${APP_PID}" >> "$GITHUB_ENV"
+          $logFile = Join-Path $PWD "app-output.log"
+          $process = Start-Process -FilePath "cmd" -ArgumentList "/c ${{ steps.config.outputs.run_cmd }} > `"$logFile`" 2>&1" -PassThru -WindowStyle Hidden
+          "APP_PID=$($process.Id)" >> $env:GITHUB_ENV
 
           # Wait for health endpoint
-          echo "Waiting for app on port ${{ steps.config.outputs.port }}..."
-          for i in $(seq 1 60); do
-            if curl -s http://localhost:${{ steps.config.outputs.port }}${{ steps.config.outputs.health }} > /dev/null 2>&1; then
-              echo "App is ready (attempt $i)"
-              exit 0
-            fi
-            # Check if process is still alive
-            if ! kill -0 $APP_PID 2>/dev/null; then
-              echo "::error::App process exited prematurely"
-              echo "--- Application output ---"
-              cat app-output.log || true
-              exit 1
-            fi
-            sleep 2
-          done
+          Write-Host "Waiting for app on port ${{ steps.config.outputs.port }}..."
+          $ready = $false
+          for ($i = 1; $i -le 60; $i++) {
+            try {
+              $resp = Invoke-WebRequest -Uri "http://localhost:${{ steps.config.outputs.port }}${{ steps.config.outputs.health }}" -UseBasicParsing -TimeoutSec 2 -ErrorAction SilentlyContinue
+              if ($resp.StatusCode -eq 200) {
+                Write-Host "App is ready (attempt $i)"
+                $ready = $true
+                break
+              }
+            } catch {}
 
-          echo "::error::App did not start within 120 seconds"
-          echo "--- Application output ---"
-          cat app-output.log || true
-          kill $APP_PID 2>/dev/null || true
-          exit 1
+            # Check if process is still alive
+            if ($process.HasExited) {
+              Write-Error "App process exited prematurely"
+              Write-Host "--- Application output ---"
+              if (Test-Path $logFile) { Get-Content $logFile }
+              exit 1
+            }
+            Start-Sleep -Seconds 2
+          }
+
+          if (-not $ready) {
+            Write-Error "App did not start within 120 seconds"
+            Write-Host "--- Application output ---"
+            if (Test-Path $logFile) { Get-Content $logFile }
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            exit 1
+          }
 
       - name: Setup test environment
         if: steps.start_app.outcome == 'success'
+        shell: pwsh
         run: |
           pip install -r testing-v2/harness/requirements.txt
 
       - name: Run tests
         if: steps.start_app.outcome == 'success'
         id: tests
+        shell: pwsh
         env:
           APP_ALREADY_RUNNING: "1"
         run: |
-          SCENARIO="${{ env.SCENARIO }}"
-          TEST_DIR="testing-v2/scenarios/${SCENARIO}/tests"
+          $scenario = $env:SCENARIO
+          $testDir = "testing-v2/scenarios/$scenario/tests"
 
-          if [ ! -d "$TEST_DIR" ]; then
-            echo "::error::No tests found at ${TEST_DIR}"
+          if (-not (Test-Path $testDir)) {
+            Write-Error "No tests found at $testDir"
             exit 1
-          fi
+          }
 
           # Run pytest with structured output
-          python -m pytest "${TEST_DIR}" \
-            --tb=short \
-            --no-header \
-            -v \
-            --junitxml=test-results.xml \
-            --timeout=30 \
-            2>&1 | tee test-output.txt
+          python -m pytest $testDir `
+            --tb=short `
+            --no-header `
+            -v `
+            --junitxml=test-results.xml `
+            --timeout=30 `
+            2>&1 | Tee-Object -FilePath test-output.txt
 
-          EXIT_CODE=${PIPESTATUS[0]}
-          echo "exit_code=${EXIT_CODE}" >> "$GITHUB_OUTPUT"
+          $exitCode = $LASTEXITCODE
+          "exit_code=$exitCode" >> $env:GITHUB_OUTPUT
 
           exit 0  # Don't fail the step — we report results in the next step
 
       - name: Stop application
         if: always()
-        run: kill $APP_PID 2>/dev/null || true
+        shell: pwsh
+        run: |
+          if ($env:APP_PID) {
+            Stop-Process -Id $env:APP_PID -Force -ErrorAction SilentlyContinue
+          }
 
       # ------------------------------------------------------------------
       # Report results
@@ -274,155 +286,9 @@ jobs:
       - name: Generate test report
         if: always()
         id: report
+        shell: pwsh
         run: |
-          cat > generate_report.py << 'PYTHON_SCRIPT'
-          import xml.etree.ElementTree as ET
-          import os, json, sys
-
-          scenario = os.environ["SCENARIO"]
-          iteration = os.environ["ITERATION"]
-          iteration_dir = os.environ.get("ITERATION_DIR", "")
-
-          # If test-results.xml doesn't exist, the app likely failed to start
-          if not os.path.exists("test-results.xml"):
-              # Try to read application startup logs
-              app_log = ""
-              log_path = os.path.join(iteration_dir, "app-output.log") if iteration_dir else ""
-              if log_path and os.path.exists(log_path):
-                  with open(log_path) as f:
-                      app_log = f.read()[-3000:]
-
-              lines = [
-                  f"## 🧪 Test Results: {scenario} / {iteration}",
-                  "",
-                  "**Pass rate: N/A** — application failed to start, no tests ran",
-                  "",
-                  "### ❌ Application Failed to Start",
-                  "",
-                  "The application did not start successfully, so no tests could run.",
-                  "This typically means a missing dependency, import error, or configuration issue.",
-                  "",
-              ]
-
-              if app_log:
-                  lines.extend([
-                      "<details>",
-                      "<summary>Application startup output (last 3000 chars)</summary>",
-                      "",
-                      "```",
-                      app_log,
-                      "```",
-                      "",
-                      "</details>",
-                      "",
-                  ])
-
-              report_md = "\n".join(lines)
-              with open("test-report.md", "w") as f:
-                  f.write(report_md)
-
-              report_json = {
-                  "scenario": scenario,
-                  "iteration": iteration,
-                  "summary": {
-                      "total": 0, "passed": 0, "failed": 0,
-                      "errors": 1, "skipped": 0, "pass_rate": 0,
-                  },
-                  "failures": [{"test": "startup", "message": "Application failed to start. " + (app_log[-300:] if app_log else "No output captured.")}],
-                  "startup_failed": True,
-              }
-              with open("test-report.json", "w") as f:
-                  json.dump(report_json, f, indent=2)
-
-              print(report_md)
-              sys.exit(0)
-
-          # Normal path: parse test results
-          tree = ET.parse("test-results.xml")
-          root = tree.getroot()
-
-          suite = root.find(".//testsuite") or root
-          total = int(suite.get("tests", 0))
-          failures = int(suite.get("failures", 0))
-          errors = int(suite.get("errors", 0))
-          skipped = int(suite.get("skipped", 0))
-          passed = total - failures - errors - skipped
-          pass_rate = round(passed / total * 100, 1) if total > 0 else 0
-
-          # Build markdown report
-          lines = [
-              f"## 🧪 Test Results: {scenario} / {iteration}",
-              "",
-              f"**Pass rate: {pass_rate}%** ({passed}/{total} tests passed)",
-              "",
-              "| Status | Count |",
-              "|--------|-------|",
-              f"| ✅ Passed | {passed} |",
-              f"| ❌ Failed | {failures} |",
-              f"| 💥 Errors | {errors} |",
-              f"| ⏭️ Skipped | {skipped} |",
-              "",
-          ]
-
-          # List failures for evaluation
-          failure_details = []
-          for tc in root.iter("testcase"):
-              failure = tc.find("failure")
-              error = tc.find("error")
-              if failure is not None or error is not None:
-                  name = tc.get("name", "unknown")
-                  classname = tc.get("classname", "")
-                  msg = (failure if failure is not None else error).get("message", "")[:300]
-                  failure_details.append({"test": f"{classname}::{name}", "message": msg})
-
-          if failure_details:
-              lines.append("### Failures Requiring Evaluation")
-              lines.append("")
-              lines.append("These failures indicate areas where the generated code does not")
-              lines.append("conform to the API contract or Cosmos DB best practices.")
-              lines.append("Each failure should be analyzed to determine if:")
-              lines.append("- A **new rule/skill** should be added to the agent kit")
-              lines.append("- An **existing rule** needs to be updated or clarified")
-              lines.append("- The **generated code** has a bug that the agent should fix")
-              lines.append("")
-              for f in failure_details:
-                  lines.append(f"- **{f['test']}**")
-                  lines.append(f"  > {f['message']}")
-                  lines.append("")
-
-          if pass_rate == 100:
-              lines.append("### ✅ All tests passed!")
-              lines.append("")
-              lines.append("The generated application fully conforms to the API contract.")
-              lines.append("Review the code for Cosmos DB best practices and merge if satisfactory.")
-
-          report_md = "\n".join(lines)
-
-          # Write for PR comment
-          with open("test-report.md", "w") as f:
-              f.write(report_md)
-
-          # Write structured JSON for downstream evaluation
-          report_json = {
-              "scenario": scenario,
-              "iteration": iteration,
-              "summary": {
-                  "total": total,
-                  "passed": passed,
-                  "failed": failures,
-                  "errors": errors,
-                  "skipped": skipped,
-                  "pass_rate": pass_rate,
-              },
-              "failures": failure_details,
-          }
-          with open("test-report.json", "w") as f:
-              json.dump(report_json, f, indent=2)
-
-          print(report_md)
-          PYTHON_SCRIPT
-
-          python generate_report.py
+          python testing-v2/harness/report.py
 
       - name: Comment test results on PR
         if: always() && github.event_name == 'pull_request'
@@ -603,11 +469,12 @@ jobs:
 
       - name: Fail if tests failed
         if: steps.tests.outputs.exit_code != '0' || steps.start_app.outcome != 'success'
+        shell: pwsh
         run: |
-          if [ "${{ steps.start_app.outcome }}" != "success" ]; then
-            echo "Application failed to start. See the PR comment for details."
-          else
-            echo "Tests failed. See the PR comment for details."
-          fi
-          echo "Evaluation instructions have been posted on the PR."
+          if ("${{ steps.start_app.outcome }}" -ne "success") {
+            Write-Host "Application failed to start. See the PR comment for details."
+          } else {
+            Write-Host "Tests failed. See the PR comment for details."
+          }
+          Write-Host "Evaluation instructions have been posted on the PR."
           exit 1
