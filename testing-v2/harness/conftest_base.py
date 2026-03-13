@@ -62,10 +62,13 @@ def wait_for_port(host: str, port: int, timeout: float = 120.0):
 
 def wait_for_health(base_url: str, health_path: str = "/health", timeout: float = 120.0):
     """Wait until the app's health endpoint returns 200."""
+    # Use a session with trust_env=False to bypass Windows system proxy
+    s = requests.Session()
+    s.trust_env = False
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         try:
-            resp = requests.get(f"{base_url}{health_path}", timeout=5)
+            resp = s.get(f"{base_url}{health_path}", timeout=5)
             if resp.status_code == 200:
                 return True
         except requests.ConnectionError:
@@ -191,6 +194,7 @@ def api(base_url, app_process, iteration_config):
         pytest.fail(f"Health endpoint {base_url}{health_path} did not return 200 within 120s")
 
     session = requests.Session()
+    session.trust_env = False  # Bypass Windows system proxy
     session.base_url = base_url  # type: ignore[attr-defined]
     session.headers.update({"Content-Type": "application/json"})
 

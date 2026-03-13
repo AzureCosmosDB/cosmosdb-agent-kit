@@ -442,6 +442,35 @@ jobs:
         run: |
           pip install -r testing-v2/harness/requirements.txt
 
+      - name: Verify Python can reach app
+        if: steps.start_app.outcome == 'success'
+        shell: pwsh
+        run: |
+          python -c @"
+          import urllib.request, os
+          os.environ.setdefault('NO_PROXY', '127.0.0.1,localhost')
+          url = 'http://127.0.0.1:${{ steps.config.outputs.port }}${{ steps.config.outputs.health }}'
+          print(f'Testing connectivity to {url}')
+          try:
+              r = urllib.request.urlopen(url, timeout=5)
+              print(f'  Status: {r.status}, Body: {r.read()[:200]}')
+          except Exception as e:
+              print(f'  urllib failed: {e}')
+          import requests
+          s = requests.Session()
+          s.trust_env = False
+          try:
+              r = s.get(url, timeout=5)
+              print(f'  requests (trust_env=False): {r.status_code}')
+          except Exception as e:
+              print(f'  requests (trust_env=False) failed: {e}')
+          try:
+              r = requests.get(url, timeout=5)
+              print(f'  requests (default): {r.status_code}')
+          except Exception as e:
+              print(f'  requests (default) failed: {e}')
+          "@
+
       - name: Run tests
         if: steps.start_app.outcome == 'success'
         id: tests
