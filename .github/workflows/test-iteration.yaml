@@ -24,16 +24,21 @@ permissions:
   actions: write
 
 concurrency:
-  group: test-iteration-pr-${{ github.event.inputs.pr_number || github.event.client_payload.pr_number }}
+  group: test-iteration-pr-${{ inputs.pr_number || github.event.client_payload.pr_number }}
   cancel-in-progress: true
 
 on:
-  # Note: pull_request trigger is intentionally omitted here.
-  # All PR testing is triggered via auto-trigger-tests.yaml (pull_request_target)
-  # which dispatches this workflow via workflow_dispatch. This avoids race
-  # conditions where pull_request runs use a stale merge-ref version of the
-  # workflow YAML before the base branch fixes are reflected.
+  # Primary trigger: called as a reusable workflow by auto-trigger-tests.yaml
+  # (pull_request_target). This makes test results appear as a PR status check,
+  # which is critical for Copilot coding agent auto-retry on CI failure.
+  workflow_call:
+    inputs:
+      pr_number:
+        description: 'PR number to test'
+        required: true
+        type: number
 
+  # Secondary trigger: manual runs from the Actions UI or gh CLI
   workflow_dispatch:
     inputs:
       pr_number:
@@ -60,20 +65,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          case "${{ github.event_name }}" in
-            workflow_dispatch)
-              PR_NUM="${{ github.event.inputs.pr_number }}"
-              echo "number=${PR_NUM}" >> "$GITHUB_OUTPUT"
-              HEAD_REF=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUM}" --jq '.head.ref')
-              echo "head_ref=${HEAD_REF}" >> "$GITHUB_OUTPUT"
-              ;;
-            repository_dispatch)
-              PR_NUM="${{ github.event.client_payload.pr_number }}"
-              echo "number=${PR_NUM}" >> "$GITHUB_OUTPUT"
-              HEAD_REF=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUM}" --jq '.head.ref')
-              echo "head_ref=${HEAD_REF}" >> "$GITHUB_OUTPUT"
-              ;;
-          esac
+          # inputs.pr_number works for both workflow_call and workflow_dispatch
+          # repository_dispatch uses client_payload
+          if [ -n "${{ inputs.pr_number }}" ]; then
+            PR_NUM="${{ inputs.pr_number }}"
+          else
+            PR_NUM="${{ github.event.client_payload.pr_number }}"
+          fi
+          echo "number=${PR_NUM}" >> "$GITHUB_OUTPUT"
+          HEAD_REF=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUM}" --jq '.head.ref')
+          echo "head_ref=${HEAD_REF}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v4
         with:
@@ -991,12 +992,54 @@ jobs:
         if: steps.tests.outputs.exit_code != '0' || steps.start_app.outcome != 'success' || steps.start_emulator.outcome != 'success'
         shell: pwsh
         run: |
+          # Output detailed error info in CI logs so Copilot coding agent can
+          # read them and auto-retry. Copilot monitors PR status checks and
+          # reads workflow logs when a check fails.
           if ("${{ steps.start_emulator.outcome }}" -ne "success") {
-            Write-Host "Cosmos DB Emulator failed to start. See the PR comment for details."
+            Write-Host "============================================"
+            Write-Host "FAILURE: Cosmos DB Emulator failed to start"
+            Write-Host "============================================"
+            Write-Host "This is a CI infrastructure issue, not a code bug."
+            Write-Host "Action: Re-run the workflow."
           } elseif ("${{ steps.start_app.outcome }}" -ne "success") {
-            Write-Host "Application failed to start. See the PR comment for details."
+            Write-Host "============================================"
+            Write-Host "FAILURE: Application failed to start"
+            Write-Host "============================================"
+            $stderrPath = Join-Path "${{ env.ITERATION_DIR }}" "app-error.log"
+            $stdoutPath = Join-Path "${{ env.ITERATION_DIR }}" "app-output.log"
+            if (Test-Path $stderrPath) {
+              Write-Host ""
+              Write-Host "--- stderr (last 100 lines) ---"
+              Get-Content $stderrPath | Select-Object -Last 100
+            }
+            if (Test-Path $stdoutPath) {
+              Write-Host ""
+              Write-Host "--- stdout (last 50 lines) ---"
+              Get-Content $stdoutPath | Select-Object -Last 50
+            }
+            Write-Host ""
+            Write-Host "Fix the application startup error in ${{ env.ITERATION_DIR }}/ and push to this branch."
           } else {
-            Write-Host "Tests failed. See the PR comment for details."
+            Write-Host "============================================"
+            Write-Host "FAILURE: Tests failed"
+            Write-Host "============================================"
+            if (Test-Path "test-report.json") {
+              $report = Get-Content "test-report.json" | ConvertFrom-Json
+              Write-Host "Results: $($report.summary.passed)/$($report.summary.total) passed ($($report.summary.pass_rate)%)"
+              Write-Host ""
+              foreach ($test in $report.tests) {
+                if ($test.outcome -ne "passed") {
+                  Write-Host "FAILED: $($test.name)"
+                  if ($test.message) { Write-Host "  $($test.message)" }
+                }
+              }
+            }
+            if (Test-Path "test-output.txt") {
+              Write-Host ""
+              Write-Host "--- Test output (last 100 lines) ---"
+              Get-Content "test-output.txt" | Select-Object -Last 100
+            }
+            Write-Host ""
+            Write-Host "Fix the failing tests in ${{ env.ITERATION_DIR }}/ and push to this branch."
           }
-          Write-Host "Evaluation instructions have been posted on the PR."
           exit 1

@@ -3,11 +3,16 @@
 # =============================================================================
 # Bridges the gap where pull_request events don't fire for commits pushed by
 # GitHub Apps (like Copilot coding agent). Uses pull_request_target which DOES
-# fire for App-pushed commits, and dispatches the test workflow via
-# workflow_dispatch.
+# fire for App-pushed commits.
 #
-# Security: This workflow only reads the PR number and dispatches another
-# workflow. It does NOT check out or execute any PR code.
+# Calls test-iteration.yaml as a reusable workflow (workflow_call) so that the
+# test results appear as a PR status check. This is critical: the Copilot
+# coding agent monitors PR check status and auto-retries when CI fails.
+# A workflow_dispatch would run as a separate workflow not linked to the PR,
+# so Copilot would never see the failure.
+#
+# Security: pull_request_target runs the BASE branch version of this file,
+# not the PR's version. The called workflow checks out the PR head ref.
 # =============================================================================
 
 name: Auto-Trigger Tests
@@ -19,20 +24,13 @@ on:
       - 'testing-v2/scenarios/*/iterations/**'
 
 permissions:
+  contents: write
+  pull-requests: write
   actions: write
 
 jobs:
-  dispatch:
-    name: Trigger test workflow
-    runs-on: ubuntu-latest
-    steps:
-      - name: Dispatch Test Iteration workflow
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "Dispatching test-iteration workflow for PR #${{ github.event.pull_request.number }}"
-          echo "  Base branch: ${{ github.event.pull_request.base.ref }}"
-          gh workflow run test-iteration.yaml \
-            --repo "${{ github.repository }}" \
-            --ref "${{ github.event.pull_request.base.ref }}" \
-            -f pr_number=${{ github.event.pull_request.number }}
+  test:
+    uses: ./.github/workflows/test-iteration.yaml
+    with:
+      pr_number: ${{ github.event.pull_request.number }}
+    secrets: inherit
