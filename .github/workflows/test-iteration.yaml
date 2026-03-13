@@ -656,9 +656,9 @@ jobs:
 
             const iterTemplate = 'testing-v2/scenarios/_iteration-template.md';
 
-            let body;
+            let copilotPrompt;
             if (skillsLoaded) {
-              body = deepMarker + '\n' +
+              copilotPrompt =
                 `@copilot **Deep evaluation needed.** Test results: ${testSummary}.\n\n` +
                 `Skills were loaded for this iteration. Perform a thorough code review and ` +
                 `update the ITERATION.md that CI created. Follow these steps:\n\n` +
@@ -685,10 +685,10 @@ jobs:
                 `7. If any tests failed: classify each failure per \`testing-v2/EVALUATE.md\`, ` +
                 `create new rules if needed, update \`testing-v2/IMPROVEMENTS-LOG.md\`, ` +
                 `run \`npm run build\`\n` +
-                `8. Commit all changes to this PR branch\n`;
+                `8. Commit all changes to this PR branch`;
             } else {
-              body = deepMarker + '\n' +
-                `@copilot **Deep evaluation needed (CONTROL RUN \u2014 no skills loaded).** ` +
+              copilotPrompt =
+                `@copilot **Deep evaluation needed (CONTROL RUN — no skills loaded).** ` +
                 `Test results: ${testSummary}.\n\n` +
                 `This was a control run: the agent generated code WITHOUT reading AGENTS.md. ` +
                 `Your job is to evaluate what would have been different with skills loaded.\n\n` +
@@ -710,10 +710,21 @@ jobs:
                 `   - **Rules That Would Have Helped**: for each gap, cite the specific rule ` +
                 `file (e.g., \`partition-high-cardinality.md\`) and explain what it would have changed\n` +
                 `   - **Score Summary**: per-category scores (both as-is and estimated with-skills)\n` +
-                `7. Do NOT create or update any rules \u2014 this is a control run\n` +
+                `7. Do NOT create or update any rules — this is a control run\n` +
                 `8. Update \`testing-v2/IMPROVEMENTS-LOG.md\` noting this was a control run\n` +
-                `9. Commit all changes to this PR branch\n`;
+                `9. Commit all changes to this PR branch`;
             }
+
+            const modeLabel = skillsLoaded ? '' : ' (CONTROL RUN)';
+            const body = deepMarker + '\n' +
+              `## 📋 Deep Evaluation Ready${modeLabel} — ${testSummary}\n\n` +
+              `CI has finished testing. A deep evaluation is needed to analyze the generated code ` +
+              `and produce a thorough ITERATION.md.\n\n` +
+              `---\n\n` +
+              `### 🔧 Action Required\n\n` +
+              `> **Copy the prompt below and post it as a new comment** to trigger Copilot to perform the deep evaluation.\n` +
+              `> (Bot-posted \`@copilot\` mentions do not trigger the agent — it must come from a user.)\n\n` +
+              '````\n' + copilotPrompt + '\n````\n';
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -725,6 +736,8 @@ jobs:
       - name: Request Copilot fix startup failure
         if: always() && (steps.start_app.outcome != 'success' || steps.start_emulator.outcome != 'success')
         uses: actions/github-script@v7
+        env:
+          LANGUAGE: ${{ steps.config.outputs.language }}
         with:
           script: |
             const fs = require('fs');
@@ -732,6 +745,7 @@ jobs:
             const iteration = process.env.ITERATION;
             const iterationDir = process.env.ITERATION_DIR;
             const prNumber = parseInt(process.env.PR_NUMBER);
+            const language = process.env.LANGUAGE || 'unknown';
             const emulatorOutcome = '${{ steps.start_emulator.outcome }}';
 
             // Loop protection: count existing fix-request comments
@@ -748,7 +762,7 @@ jobs:
             // Emulator failure -- infrastructure issue, not a code bug
             if (emulatorOutcome !== 'success') {
               const body = fixMarker + '\n' +
-                `## [WARN] Cosmos DB Emulator failed to start\n\n` +
+                `## ⚠️ Cosmos DB Emulator failed to start\n\n` +
                 `The Azure Cosmos DB Emulator did not start successfully (outcome: \`${emulatorOutcome}\`).\n` +
                 `This is a **CI infrastructure issue**, not an application code bug.\n\n` +
                 `**Action:** Re-run the workflow. If this persists, check the emulator start step logs.\n`;
@@ -775,9 +789,50 @@ jobs:
             const stderrTail = appStderr.slice(-3000) || '(empty)';
             const stdoutTail = appStdout.slice(-1500) || '(empty)';
 
+            // Language-specific common causes
+            const commonCauses = {
+              python: [
+                'Missing dependency in requirements.txt',
+                'Import error or syntax error in Python code',
+                'Cosmos DB connection failure (check SSL certs, endpoint URL, key)',
+                'Port already in use or wrong port configuration',
+              ],
+              java: [
+                'Missing dependency in pom.xml or build.gradle',
+                'Compilation error or missing class',
+                'SSL/TLS certificate issue connecting to Cosmos DB Emulator',
+                'Spring Boot application.properties misconfiguration (port, endpoint, key)',
+              ],
+              dotnet: [
+                'Missing NuGet package reference in .csproj',
+                'Build error or missing type/namespace',
+                'SSL certificate trust issue with Cosmos DB Emulator',
+                'appsettings.json misconfiguration (endpoint, key, database name)',
+              ],
+              nodejs: [
+                'Missing dependency in package.json',
+                'Import/require error or syntax error',
+                'SSL certificate rejection (NODE_TLS_REJECT_UNAUTHORIZED)',
+                'Port or endpoint misconfiguration in environment variables',
+              ],
+              go: [
+                'Missing module dependency (go.mod)',
+                'Compilation error or unresolved import',
+                'TLS certificate verification failure with Cosmos DB Emulator',
+                'Environment variable misconfiguration for endpoint/key',
+              ],
+            };
+            const causes = commonCauses[language] || [
+              'Missing dependency in project configuration',
+              'Build or compilation error',
+              'Cosmos DB connection failure (SSL certs, endpoint URL, key)',
+              'Port already in use or wrong port configuration',
+            ];
+            const causesText = causes.map(c => `- ${c}`).join('\n');
+
             if (fixAttempts >= maxAttempts) {
               const body = fixMarker + '\n' +
-                `## [WARN] Max auto-fix attempts reached (${maxAttempts})\n\n` +
+                `## ⚠️ Max auto-fix attempts reached (${maxAttempts})\n\n` +
                 `The application still fails to start after ${maxAttempts} automated fix attempts.\n` +
                 `Manual intervention is needed.\n\n` +
                 `**Last stderr output:**\n` +
@@ -792,24 +847,30 @@ jobs:
               return;
             }
 
-            const body = fixMarker + '\n' +
+            // Build the @copilot prompt for the user to copy-paste
+            const copilotPrompt =
               `@copilot The application failed to start in CI (attempt ${fixAttempts + 1}/${maxAttempts}). ` +
               `Fix the code and push to this branch.\n\n` +
-              `**stderr (last lines -- look for tracebacks, import errors, connection failures):**\n` +
-              '```\n' + stderrTail + '\n```\n\n' +
-              `**stdout (last lines):**\n` +
-              '```\n' + stdoutTail + '\n```\n\n' +
-              `**Common causes:**\n` +
-              `- Missing dependency in requirements.txt\n` +
-              `- Import error or syntax error in Python code\n` +
-              `- Cosmos DB connection failure (check SSL certs, endpoint URL, key)\n` +
-              `- Port already in use or wrong port configuration\n\n` +
               `**Instructions:**\n` +
-              `1. Read the stderr output above carefully -- it contains the actual error\n` +
+              `1. Read the stderr output in the comment above — it contains the actual error\n` +
               `2. Read your generated code in \`${iterationDir}/\`\n` +
               `3. Fix the root cause of the startup failure\n` +
               `4. Make sure the application can start and respond to HTTP requests\n` +
-              `5. Commit and push the fix to this branch\n`;
+              `5. Commit and push the fix to this branch`;
+
+            const body = fixMarker + '\n' +
+              `## ❌ Application Startup Failed (${language}) — attempt ${fixAttempts + 1}/${maxAttempts}\n\n` +
+              `**stderr (last lines):**\n` +
+              '```\n' + stderrTail + '\n```\n\n' +
+              `**stdout (last lines):**\n` +
+              '```\n' + stdoutTail + '\n```\n\n' +
+              `**Common causes (${language}):**\n` +
+              causesText + '\n\n' +
+              `---\n\n` +
+              `### 🔧 Action Required\n\n` +
+              `> **Copy the prompt below and post it as a new comment** to trigger Copilot to fix this issue.\n` +
+              `> (Bot-posted \`@copilot\` mentions do not trigger the agent — it must come from a user.)\n\n` +
+              '````\n' + copilotPrompt + '\n````\n';
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -869,9 +930,9 @@ jobs:
               return;
             }
 
-            let instructions;
+            let copilotPrompt;
             if (skillsLoaded) {
-              instructions =
+              copilotPrompt =
                 `@copilot **${failureSummary}** Evaluate the test failures and fix the code. ` +
                 `Follow the instructions in testing-v2/EVALUATE.md.\n\n` +
                 `**Instructions:**\n` +
@@ -882,9 +943,9 @@ jobs:
                 `5. Fix contract violations directly in the generated code\n` +
                 `6. Create new rules if needed, update \`testing-v2/IMPROVEMENTS-LOG.md\`\n` +
                 `7. Run \`npm run build\` to regenerate AGENTS.md\n` +
-                `8. Commit all changes to this PR branch\n`;
+                `8. Commit all changes to this PR branch`;
             } else {
-              instructions =
+              copilotPrompt =
                 `@copilot **${failureSummary}** This was a **control run** (no skills loaded). ` +
                 `Evaluate the test failures but do NOT create or update any rules.\n\n` +
                 `**Instructions:**\n` +
@@ -893,10 +954,18 @@ jobs:
                 `3. Classify each failure (contract violation, Cosmos DB anti-pattern, SDK quirk)\n` +
                 `4. Fix contract violations directly in the generated code\n` +
                 `5. Do NOT create or update rules in \`skills/cosmosdb-best-practices/rules/\`\n` +
-                `6. Commit code fixes to this PR branch\n`;
+                `6. Commit code fixes to this PR branch`;
             }
 
-            const body = evalMarker + '\n' + instructions;
+            const modeLabel = skillsLoaded ? '' : ' (CONTROL RUN)';
+            const body = evalMarker + '\n' +
+              `## ❌ Test Failures${modeLabel} — ${failureSummary}\n\n` +
+              `See the test results comment above for detailed failure output.\n\n` +
+              `---\n\n` +
+              `### 🔧 Action Required\n\n` +
+              `> **Copy the prompt below and post it as a new comment** to trigger Copilot to fix the failures.\n` +
+              `> (Bot-posted \`@copilot\` mentions do not trigger the agent — it must come from a user.)\n\n` +
+              '````\n' + copilotPrompt + '\n````\n';
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
