@@ -18,6 +18,11 @@
 
 name: Test Iteration
 
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
 concurrency:
   group: test-iteration-pr-${{ github.event.inputs.pr_number || github.event.client_payload.pr_number }}
   cancel-in-progress: true
@@ -119,6 +124,7 @@ jobs:
       PR_NUMBER: ${{ needs.detect-iteration.outputs.pr_number }}
       PYTHONUNBUFFERED: "1"
       PYTHONIOENCODING: "utf-8"
+      HEAD_REF: ${{ needs.detect-iteration.outputs.head_ref }}
 
     steps:
       - uses: actions/checkout@v4
@@ -528,6 +534,86 @@ jobs:
                 body,
               });
             }
+
+      # ------------------------------------------------------------------
+      # Evaluate iteration and archive results
+      # ------------------------------------------------------------------
+      - name: Evaluate iteration
+        if: always() && steps.start_app.outcome == 'success'
+        shell: pwsh
+        run: |
+          python testing-v2/harness/evaluate.py
+
+      - name: Archive source code
+        if: steps.tests.outputs.exit_code == '0'
+        shell: pwsh
+        run: |
+          $iterDir = $env:ITERATION_DIR
+          $zipPath = Join-Path $iterDir "source-code.zip"
+
+          # Files to keep outside the zip
+          $keep = @("ITERATION.md", "iteration-config.yaml", "source-code.zip",
+                    "app-output.log", "app-error.log", "_start-app.cmd")
+
+          # Collect files to archive
+          $toArchive = Get-ChildItem $iterDir -Recurse -File |
+            Where-Object { $keep -notcontains $_.Name }
+
+          if ($toArchive.Count -eq 0) {
+            Write-Host "No source files to archive"
+          } else {
+            # Create zip
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $zip = [System.IO.Compression.ZipFile]::Open($zipPath, 'Create')
+            foreach ($f in $toArchive) {
+              $entryName = $f.FullName.Substring((Resolve-Path $iterDir).Path.Length + 1)
+              [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $zip, $f.FullName, $entryName, 'Optimal') | Out-Null
+            }
+            $zip.Dispose()
+            Write-Host "Created $zipPath with $($toArchive.Count) files"
+
+            # Remove archived files
+            foreach ($f in $toArchive) { Remove-Item $f.FullName -Force }
+
+            # Remove empty directories
+            Get-ChildItem $iterDir -Recurse -Directory |
+              Sort-Object { $_.FullName.Length } -Descending |
+              ForEach-Object {
+                if ((Get-ChildItem $_.FullName -Force).Count -eq 0) {
+                  Remove-Item $_.FullName -Force
+                }
+              }
+
+            # Remove temp files
+            foreach ($name in @("app-output.log", "app-error.log", "_start-app.cmd")) {
+              $p = Join-Path $iterDir $name
+              if (Test-Path $p) { Remove-Item $p -Force }
+            }
+
+            Write-Host "Removed $($toArchive.Count) original source files"
+          }
+
+      - name: Commit evaluation results
+        if: always() && steps.start_app.outcome == 'success'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          BRANCH="$HEAD_REF"
+          git checkout -B "$BRANCH"
+
+          # Stage evaluation files
+          git add "testing-v2/scenarios/${SCENARIO}/iterations/${ITERATION}/"
+          git add "testing-v2/IMPROVEMENTS-LOG.md"
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Evaluate ${SCENARIO}/${ITERATION} [skip ci]"
+            git push origin "$BRANCH" || echo "Push failed (branch may have been updated)"
+          fi
 
       - name: Request Copilot fix startup failure
         if: always() && (steps.start_app.outcome != 'success' || steps.start_emulator.outcome != 'success')
