@@ -372,13 +372,18 @@ jobs:
           Write-Host "  stdout -> $stdoutLog"
           Write-Host "  stderr -> $stderrLog"
 
-          # Use cmd.exe /c with a hidden window so the app gets its own
-          # console and survives when this PowerShell step exits.
+          # Create a launcher batch file that handles output redirection
+          # and runs in a hidden window. This gives the app its own console
+          # so it survives when this PowerShell step exits.
           # (Start-Process -NoNewWindow shares the parent console; Windows
           # sends CTRL_CLOSE_EVENT to all attached processes when that
           # console is destroyed, silently killing the app.)
-          $cmdArgs = "/c `"$runCmd`" > `"$stdoutLog`" 2> `"$stderrLog`""
-          $process = Start-Process cmd.exe -ArgumentList $cmdArgs `
+          $batchFile = Join-Path $PWD "_start-app.cmd"
+          $batchContent = "@echo off`r`n$runCmd > `"$stdoutLog`" 2> `"$stderrLog`""
+          [System.IO.File]::WriteAllText($batchFile, $batchContent, [System.Text.Encoding]::ASCII)
+          Write-Host "Batch file content: $(Get-Content $batchFile -Raw)"
+
+          $process = Start-Process $batchFile `
             -PassThru -WindowStyle Hidden -WorkingDirectory $PWD
 
           "APP_PID=$($process.Id)" >> $env:GITHUB_ENV
