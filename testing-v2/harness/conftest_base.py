@@ -98,8 +98,8 @@ def app_port(iteration_config):
 
 @pytest.fixture(scope="session")
 def base_url(app_port):
-    """Base URL for API requests."""
-    return f"http://localhost:{app_port}"
+    """Base URL for API requests. Uses 127.0.0.1 to avoid IPv6 issues on Windows."""
+    return f"http://127.0.0.1:{app_port}"
 
 
 @pytest.fixture(scope="session")
@@ -161,7 +161,7 @@ def app_process(iteration_dir, iteration_config, app_port):
     )
 
     # Wait for port
-    if not wait_for_port("localhost", app_port, timeout=120):
+    if not wait_for_port("127.0.0.1", app_port, timeout=120):
         stdout = proc.stdout.read().decode(errors="replace")[-2000:] if proc.stdout else ""
         stderr = proc.stderr.read().decode(errors="replace")[-2000:] if proc.stderr else ""
         proc.kill()
