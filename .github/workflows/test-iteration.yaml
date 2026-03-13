@@ -363,23 +363,23 @@ jobs:
         working-directory: ${{ env.ITERATION_DIR }}
         shell: pwsh
         run: |
-          # Parse run command to extract executable and arguments
           $runCmd = "${{ steps.config.outputs.run_cmd }}"
-          $parts = $runCmd -split '\s+', 2
-          $exe   = $parts[0]
-          $args  = if ($parts.Count -gt 1) { $parts[1] } else { "" }
 
           $stdoutLog = Join-Path $PWD "app-output.log"
           $stderrLog = Join-Path $PWD "app-error.log"
 
-          Write-Host "Starting: $exe $args"
+          Write-Host "Starting: $runCmd"
           Write-Host "  stdout -> $stdoutLog"
           Write-Host "  stderr -> $stderrLog"
 
-          $process = Start-Process -FilePath $exe -ArgumentList $args `
-            -RedirectStandardOutput $stdoutLog `
-            -RedirectStandardError  $stderrLog `
-            -PassThru -WorkingDirectory $PWD -NoNewWindow
+          # Use cmd.exe /c with a hidden window so the app gets its own
+          # console and survives when this PowerShell step exits.
+          # (Start-Process -NoNewWindow shares the parent console; Windows
+          # sends CTRL_CLOSE_EVENT to all attached processes when that
+          # console is destroyed, silently killing the app.)
+          $cmdArgs = "/c `"$runCmd`" > `"$stdoutLog`" 2> `"$stderrLog`""
+          $process = Start-Process cmd.exe -ArgumentList $cmdArgs `
+            -PassThru -WindowStyle Hidden -WorkingDirectory $PWD
 
           "APP_PID=$($process.Id)" >> $env:GITHUB_ENV
 
@@ -432,7 +432,7 @@ jobs:
             if (Test-Path $stdoutLog) { Get-Content $stdoutLog -Tail 80 }
             Write-Host "--- stderr (last 80 lines) ---"
             if (Test-Path $stderrLog) { Get-Content $stderrLog -Tail 80 }
-            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            & taskkill /PID $process.Id /T /F 2>$null
             exit 1
           }
 
@@ -505,7 +505,8 @@ jobs:
         shell: pwsh
         run: |
           if ($env:APP_PID) {
-            Stop-Process -Id $env:APP_PID -Force -ErrorAction SilentlyContinue
+            # Kill the process tree (cmd.exe + child app)
+            & taskkill /PID $env:APP_PID /T /F 2>$null
           }
 
       # ------------------------------------------------------------------
