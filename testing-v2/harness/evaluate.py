@@ -108,7 +108,7 @@ def compute_score(report):
     return 1
 
 
-def generate_iteration_md(scenario, iteration, report, patterns, source_files):
+def generate_iteration_md(scenario, iteration, report, patterns, source_files, skills_loaded):
     """Generate ITERATION.md content."""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     summary = report.get("summary", {}) if report else {}
@@ -128,6 +128,8 @@ def generate_iteration_md(scenario, iteration, report, patterns, source_files):
     else:
         result_text = f"{passed}/{total} tests passed ({pass_rate}%)"
 
+    run_type = "Normal run (skills loaded)" if skills_loaded else "Control run (NO skills loaded)"
+
     lines = [
         f"# {iteration} - {language.title()} {scenario_title}",
         "",
@@ -136,16 +138,30 @@ def generate_iteration_md(scenario, iteration, report, patterns, source_files):
         f"- **Language/SDK**: {language.title()}",
         f"- **Agent**: GitHub Copilot (automated iteration)",
         f"- **Tester**: Automated CI",
+        f"- **Run Type**: {run_type}",
         "",
         "## Skills Verification",
         "",
-        "**Were skills loaded before building?** Yes (via issue prompt referencing AGENTS.md)",
+    ]
+
+    if skills_loaded:
+        lines.append("**Were skills loaded before building?** Yes (via issue prompt referencing AGENTS.md)")
+    else:
+        lines.extend([
+            "**Were skills loaded before building?** No (CONTROL RUN)",
+            "",
+            "> This is a control run. The agent generated code using only its built-in",
+            "> knowledge, without reading the Cosmos DB best practices skills.",
+            "> The evaluation below identifies which existing rules would have helped.",
+        ])
+
+    lines.extend([
         "",
         "## Cosmos DB Patterns Detected",
         "",
         "| Pattern | Status | Related Rule |",
         "|---------|--------|--------------|",
-    ]
+    ])
 
     pattern_labels = [
         ("singleton_client", "Singleton CosmosClient", "sdk-singleton-client"),
@@ -218,7 +234,7 @@ def generate_iteration_md(scenario, iteration, report, patterns, source_files):
     return "\n".join(lines)
 
 
-def update_improvements_log(scenario, iteration, report):
+def update_improvements_log(scenario, iteration, report, skills_loaded):
     """Add or replace an entry in IMPROVEMENTS-LOG.md."""
     log_path = Path("testing-v2/IMPROVEMENTS-LOG.md")
     if not log_path.exists():
@@ -234,6 +250,7 @@ def update_improvements_log(scenario, iteration, report):
 
     language = iteration.rsplit("-", 1)[-1] if "-" in iteration else "unknown"
     scenario_title = scenario.replace("-", " ").title()
+    run_type = "skills loaded" if skills_loaded else "CONTROL - no skills"
 
     if pass_rate == 100:
         result_line = f"SUCCESSFUL -- {total}/{total} tests passed (100%)"
@@ -243,10 +260,11 @@ def update_improvements_log(scenario, iteration, report):
         result_line = f"FAILED -- {passed}/{total} tests passed ({pass_rate}%)"
 
     entry_lines = [
-        f"#### {now}: {iteration} - {scenario_title} ({language.title()})",
+        f"#### {now}: {iteration} - {scenario_title} ({language.title()}) [{run_type}]",
         "",
         f"- **Scenario**: {scenario}",
         f"- **Iteration**: {iteration}",
+        f"- **Skills loaded**: {'Yes' if skills_loaded else 'No (control run)'}",
         f"- **Result**: {result_line}",
         f"- **Score**: {score}/10",
         "",
@@ -296,6 +314,7 @@ def main():
     scenario = os.environ.get("SCENARIO", "unknown")
     iteration = os.environ.get("ITERATION", "unknown")
     iteration_dir = os.environ.get("ITERATION_DIR", "")
+    skills_loaded = os.environ.get("SKILLS_LOADED", "True") == "True"
 
     if not iteration_dir:
         print("ERROR: ITERATION_DIR not set")
@@ -303,6 +322,7 @@ def main():
 
     print(f"Evaluating {scenario} / {iteration}")
     print(f"  Iteration dir: {iteration_dir}")
+    print(f"  Skills loaded: {skills_loaded}")
 
     report = load_test_results()
     if report:
@@ -319,14 +339,14 @@ def main():
     print(f"  Source files: {len(source_files)}")
 
     iteration_md = generate_iteration_md(
-        scenario, iteration, report, patterns, source_files
+        scenario, iteration, report, patterns, source_files, skills_loaded
     )
     md_path = Path(iteration_dir) / "ITERATION.md"
     md_path.write_text(iteration_md, encoding="utf-8")
     print(f"  Created {md_path}")
 
     if report:
-        update_improvements_log(scenario, iteration, report)
+        update_improvements_log(scenario, iteration, report, skills_loaded)
 
     print("Evaluation complete")
 

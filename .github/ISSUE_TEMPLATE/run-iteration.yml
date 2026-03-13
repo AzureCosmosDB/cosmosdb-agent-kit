@@ -40,6 +40,21 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: skills
+    attributes:
+      label: Load skills?
+      description: >
+        **Yes** = agent reads AGENTS.md before generating code (normal run).
+        **No** = control run — agent generates code using only its built-in knowledge,
+        then the evaluation checks which existing rules would have helped.
+      options:
+        - "yes"
+        - "no"
+      default: 0
+    validations:
+      required: true
+
   - type: textarea
     id: notes
     attributes:
@@ -61,12 +76,17 @@ body:
 
         You are generating a Cosmos DB application for a test iteration. Follow these steps exactly.
 
-        ### Step 1: Load the Cosmos DB skills
+        ### Step 1: Load the Cosmos DB skills (if enabled)
 
-        Read this file FIRST — it contains all best practice rules you must apply:
+        Check the **Load skills?** field above.
+
+        **If "yes"**: Read this file FIRST — it contains all best practice rules you must apply:
         ```
         skills/cosmosdb-best-practices/AGENTS.md
         ```
+
+        **If "no"**: Do NOT read AGENTS.md. Generate code using only your built-in
+        knowledge of Azure Cosmos DB. This is a control run to measure baseline quality.
 
         ### Step 2: Determine the scenario and language
 
@@ -115,6 +135,10 @@ body:
         - Read `COSMOS_ENDPOINT` and `COSMOS_KEY` from environment variables
         - Listen on the configured port
         - Expose a `/health` endpoint that returns 200
+
+        **Important**: Set the `skills_loaded` field in iteration-config.yaml:
+        - If you read AGENTS.md (skills=yes): set `skills_loaded: true`
+        - If this is a control run (skills=no): set `skills_loaded: false`
 
         ### Step 8: Verify dependencies
 

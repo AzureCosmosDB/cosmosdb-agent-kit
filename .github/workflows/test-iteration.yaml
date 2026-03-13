@@ -259,6 +259,7 @@ jobs:
             'run': cfg['run'],
             'health': cfg.get('health', '/health'),
             'database': cfg.get('database', 'test-db'),
+            'skills_loaded': cfg.get('skills_loaded', True),
           }))
           "@
           $cfg = $values | ConvertFrom-Json
@@ -269,6 +270,7 @@ jobs:
           "run_cmd=$($cfg.run)"         >> $env:GITHUB_OUTPUT
           "health=$($cfg.health)"       >> $env:GITHUB_OUTPUT
           "db_name=$($cfg.database)"    >> $env:GITHUB_OUTPUT
+          "skills_loaded=$($cfg.skills_loaded)" >> $env:GITHUB_OUTPUT
 
       - name: Setup Python
         if: steps.config.outputs.language == 'python'
@@ -541,6 +543,8 @@ jobs:
       - name: Evaluate iteration
         if: always() && steps.start_app.outcome == 'success'
         shell: pwsh
+        env:
+          SKILLS_LOADED: ${{ steps.config.outputs.skills_loaded }}
         run: |
           python testing-v2/harness/evaluate.py
 
@@ -614,6 +618,109 @@ jobs:
             git commit -m "Evaluate ${SCENARIO}/${ITERATION} [skip ci]"
             git push origin "$BRANCH" || echo "Push failed (branch may have been updated)"
           fi
+
+      - name: Request Copilot deep evaluation
+        if: always() && steps.start_app.outcome == 'success'
+        uses: actions/github-script@v7
+        env:
+          SKILLS_LOADED_VAL: ${{ steps.config.outputs.skills_loaded }}
+        with:
+          script: |
+            const fs = require('fs');
+            const scenario = process.env.SCENARIO;
+            const iteration = process.env.ITERATION;
+            const iterationDir = process.env.ITERATION_DIR;
+            const prNumber = parseInt(process.env.PR_NUMBER);
+            const skillsLoaded = process.env.SKILLS_LOADED_VAL === 'True';
+
+            let testSummary = '';
+            try {
+              const report = JSON.parse(fs.readFileSync('test-report.json', 'utf8'));
+              const s = report.summary;
+              testSummary = `${s.passed}/${s.total} tests passed (${s.pass_rate}%)`;
+            } catch (e) {
+              testSummary = 'Test results unavailable';
+            }
+
+            // Loop protection
+            const deepMarker = '<!-- copilot-deep-eval -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+            if (comments.some(c => c.body.includes(deepMarker))) {
+              console.log('Deep evaluation already requested, skipping');
+              return;
+            }
+
+            const iterTemplate = 'testing-v2/scenarios/_iteration-template.md';
+
+            let body;
+            if (skillsLoaded) {
+              body = deepMarker + '\n' +
+                `@copilot **Deep evaluation needed.** Test results: ${testSummary}.\n\n` +
+                `Skills were loaded for this iteration. Perform a thorough code review and ` +
+                `update the ITERATION.md that CI created. Follow these steps:\n\n` +
+                `1. Read the generated code (unzip \`${iterationDir}/source-code.zip\` if archived, ` +
+                `or read files in \`${iterationDir}/\`)\n` +
+                `2. Read all rules in \`skills/cosmosdb-best-practices/AGENTS.md\`\n` +
+                `3. Read \`testing-v2/scenarios/${scenario}/api-contract.yaml\`\n` +
+                `4. Read the template at \`${iterTemplate}\` for the expected format\n` +
+                `5. Read the test results comment above\n` +
+                `6. **Rewrite** \`${iterationDir}/ITERATION.md\` with a thorough evaluation:\n` +
+                `   - **Data Model** section: analyze container design, embedding vs referencing, ` +
+                `document structure, and which model-* rules were applied or missed\n` +
+                `   - **Container Configuration**: partition key choices, indexing policies, ` +
+                `composite indexes, and which partition-*/index-* rules were applied\n` +
+                `   - **Repository Layer**: query patterns, point reads, parameterization, ` +
+                `and which query-* rules were applied\n` +
+                `   - **SDK Usage**: singleton client, connection mode, ETag handling, ` +
+                `diagnostics, and which sdk-* rules were applied\n` +
+                `   - **Build Status**: any build issues and fixes\n` +
+                `   - **Gaps Identified**: critical, best practice, and knowledge gaps\n` +
+                `   - **Recommendations**: high/medium/low priority skill improvements\n` +
+                `   - **Score Summary**: per-category scores (Data Model, Partition Key, ` +
+                `Indexing, SDK Usage, Query Patterns, Overall) each X/10\n` +
+                `7. If any tests failed: classify each failure per \`testing-v2/EVALUATE.md\`, ` +
+                `create new rules if needed, update \`testing-v2/IMPROVEMENTS-LOG.md\`, ` +
+                `run \`npm run build\`\n` +
+                `8. Commit all changes to this PR branch\n`;
+            } else {
+              body = deepMarker + '\n' +
+                `@copilot **Deep evaluation needed (CONTROL RUN \u2014 no skills loaded).** ` +
+                `Test results: ${testSummary}.\n\n` +
+                `This was a control run: the agent generated code WITHOUT reading AGENTS.md. ` +
+                `Your job is to evaluate what would have been different with skills loaded.\n\n` +
+                `1. Read the generated code (unzip \`${iterationDir}/source-code.zip\` if archived, ` +
+                `or read files in \`${iterationDir}/\`)\n` +
+                `2. Read all rules in \`skills/cosmosdb-best-practices/AGENTS.md\`\n` +
+                `3. Read \`testing-v2/scenarios/${scenario}/api-contract.yaml\`\n` +
+                `4. Read the template at \`${iterTemplate}\` for the expected format\n` +
+                `5. Read the test results comment above\n` +
+                `6. **Rewrite** \`${iterationDir}/ITERATION.md\` with a thorough evaluation:\n` +
+                `   - **Skills Verification**: mark that skills were NOT loaded (control run)\n` +
+                `   - **Data Model** section: analyze what the agent did and identify ` +
+                `which model-* rules from AGENTS.md WOULD HAVE helped if loaded\n` +
+                `   - **Container Configuration**: identify which partition-*/index-* rules ` +
+                `would have improved the design\n` +
+                `   - **Repository Layer**: identify which query-* rules would have helped\n` +
+                `   - **SDK Usage**: identify which sdk-* rules were missed\n` +
+                `   - **Gaps Identified**: list issues that existing rules would have prevented\n` +
+                `   - **Rules That Would Have Helped**: for each gap, cite the specific rule ` +
+                `file (e.g., \`partition-high-cardinality.md\`) and explain what it would have changed\n` +
+                `   - **Score Summary**: per-category scores (both as-is and estimated with-skills)\n` +
+                `7. Do NOT create or update any rules \u2014 this is a control run\n` +
+                `8. Update \`testing-v2/IMPROVEMENTS-LOG.md\` noting this was a control run\n` +
+                `9. Commit all changes to this PR branch\n`;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body,
+            });
 
       - name: Request Copilot fix startup failure
         if: always() && (steps.start_app.outcome != 'success' || steps.start_emulator.outcome != 'success')
@@ -714,12 +821,15 @@ jobs:
       - name: Request Copilot evaluate test failures
         if: always() && steps.start_app.outcome == 'success' && steps.tests.outputs.exit_code != '0'
         uses: actions/github-script@v7
+        env:
+          SKILLS_LOADED_VAL: ${{ steps.config.outputs.skills_loaded }}
         with:
           script: |
             const fs = require('fs');
             const scenario = process.env.SCENARIO;
             const iteration = process.env.ITERATION;
             const prNumber = parseInt(process.env.PR_NUMBER);
+            const skillsLoaded = process.env.SKILLS_LOADED_VAL === 'True';
 
             // Read the structured test report for context
             let failureSummary = '';
@@ -759,18 +869,34 @@ jobs:
               return;
             }
 
-            const body = evalMarker + '\n' +
-              `@copilot **${failureSummary}** Evaluate the test failures and fix the code. ` +
-              `Follow the instructions in testing-v2/EVALUATE.md.\n\n` +
-              `**Instructions:**\n` +
-              `1. Read the test results comment above for specific failures\n` +
-              `2. Read the API contract at \`testing-v2/scenarios/${scenario}/api-contract.yaml\`\n` +
-              `3. Read the existing rules in \`skills/cosmosdb-best-practices/rules/\`\n` +
-              `4. Classify each failure (contract violation, missing rule, unclear rule, SDK quirk)\n` +
-              `5. Fix contract violations directly in the generated code\n` +
-              `6. Create new rules if needed, update \`testing-v2/IMPROVEMENTS-LOG.md\`\n` +
-              `7. Run \`npm run build\` to regenerate AGENTS.md\n` +
-              `8. Commit all changes to this PR branch\n`;
+            let instructions;
+            if (skillsLoaded) {
+              instructions =
+                `@copilot **${failureSummary}** Evaluate the test failures and fix the code. ` +
+                `Follow the instructions in testing-v2/EVALUATE.md.\n\n` +
+                `**Instructions:**\n` +
+                `1. Read the test results comment above for specific failures\n` +
+                `2. Read the API contract at \`testing-v2/scenarios/${scenario}/api-contract.yaml\`\n` +
+                `3. Read the existing rules in \`skills/cosmosdb-best-practices/rules/\`\n` +
+                `4. Classify each failure (contract violation, missing rule, unclear rule, SDK quirk)\n` +
+                `5. Fix contract violations directly in the generated code\n` +
+                `6. Create new rules if needed, update \`testing-v2/IMPROVEMENTS-LOG.md\`\n` +
+                `7. Run \`npm run build\` to regenerate AGENTS.md\n` +
+                `8. Commit all changes to this PR branch\n`;
+            } else {
+              instructions =
+                `@copilot **${failureSummary}** This was a **control run** (no skills loaded). ` +
+                `Evaluate the test failures but do NOT create or update any rules.\n\n` +
+                `**Instructions:**\n` +
+                `1. Read the test results comment above for specific failures\n` +
+                `2. Read the API contract at \`testing-v2/scenarios/${scenario}/api-contract.yaml\`\n` +
+                `3. Classify each failure (contract violation, Cosmos DB anti-pattern, SDK quirk)\n` +
+                `4. Fix contract violations directly in the generated code\n` +
+                `5. Do NOT create or update rules in \`skills/cosmosdb-best-practices/rules/\`\n` +
+                `6. Commit code fixes to this PR branch\n`;
+            }
+
+            const body = evalMarker + '\n' + instructions;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,

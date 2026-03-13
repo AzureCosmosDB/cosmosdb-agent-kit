@@ -45,6 +45,10 @@ build: pip install -r requirements.txt
 #   rust:    ./target/release/app
 run: python app.py
 
+# Whether the agent loaded skills/cosmosdb-best-practices/AGENTS.md before
+# generating this code. Set to false for control runs (baseline measurement).
+skills_loaded: true
+
 # Environment variables (optional, in addition to COSMOS_ENDPOINT and COSMOS_KEY)
 # env:
 #   SOME_VAR: some-value
