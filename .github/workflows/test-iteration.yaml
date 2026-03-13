@@ -331,6 +331,41 @@ jobs:
           "SSL_CERT_FILE=$certifi"      >> $env:GITHUB_ENV
           "REQUESTS_CA_BUNDLE=$certifi" >> $env:GITHUB_ENV
 
+      - name: Trust Cosmos DB Emulator cert (Java)
+        if: steps.config.outputs.language == 'java' && env.COSMOS_CERT_PATH != ''
+        shell: pwsh
+        run: |
+          # Import the emulator's self-signed cert into Java's default truststore
+          $javaHome = $env:JAVA_HOME
+          $cacerts = Join-Path $javaHome "lib\security\cacerts"
+          if (-not (Test-Path $cacerts)) {
+            # Fallback for older JDK layouts
+            $cacerts = Join-Path $javaHome "jre\lib\security\cacerts"
+          }
+          Write-Host "Importing emulator cert into Java truststore: $cacerts"
+          keytool -importcert -noprompt -alias cosmosdb-emulator -file $env:COSMOS_CERT_PATH -keystore $cacerts -storepass changeit
+          Write-Host "Emulator cert imported successfully"
+
+      - name: Trust Cosmos DB Emulator cert (.NET)
+        if: steps.config.outputs.language == 'dotnet' && env.COSMOS_CERT_PATH != ''
+        shell: pwsh
+        run: |
+          # Import the emulator's self-signed cert into the Windows trusted root store
+          $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($env:COSMOS_CERT_PATH)
+          $store = New-Object System.Security.Cryptography.X509Certificates.X509Store("Root", "CurrentUser")
+          $store.Open("ReadWrite")
+          $store.Add($cert)
+          $store.Close()
+          Write-Host "Emulator cert added to CurrentUser\Root store"
+
+      - name: Trust Cosmos DB Emulator cert (Node.js)
+        if: steps.config.outputs.language == 'nodejs' && env.COSMOS_CERT_PATH != ''
+        shell: pwsh
+        run: |
+          # Node.js uses NODE_EXTRA_CA_CERTS to trust additional certificates
+          "NODE_EXTRA_CA_CERTS=$env:COSMOS_CERT_PATH" >> $env:GITHUB_ENV
+          Write-Host "Set NODE_EXTRA_CA_CERTS=$env:COSMOS_CERT_PATH"
+
       # ------------------------------------------------------------------
       # Verify imports resolve before starting the app
       # ------------------------------------------------------------------
