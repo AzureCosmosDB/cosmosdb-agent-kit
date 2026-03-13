@@ -124,6 +124,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.detect-iteration.outputs.head_ref }}
+          fetch-depth: 0
+
+      # Overlay test harness files from the base branch so framework code
+      # (report.py, conftest, etc.) is always up-to-date even when the PR
+      # head branch is behind.
+      - name: Update test harness from base branch
+        shell: bash
+        run: |
+          BASE_REF="${{ github.ref_name }}"
+          echo "Overlaying test harness from base branch: $BASE_REF"
+          git fetch origin "$BASE_REF"
+          git checkout "origin/$BASE_REF" -- testing-v2/harness/ 2>/dev/null || echo "No harness changes on base"
 
       # ------------------------------------------------------------------
       # Start Azure Cosmos DB Windows Emulator
@@ -370,17 +382,26 @@ jobs:
           "APP_PID=$($process.Id)" >> $env:GITHUB_ENV
 
           # Wait for health endpoint
-          Write-Host "Waiting for app on port ${{ steps.config.outputs.port }}..."
+          # Use 127.0.0.1 instead of localhost to avoid IPv6 resolution
+          # issues on Windows (app binds 0.0.0.0 = IPv4 only).
+          $healthUrl = "http://127.0.0.1:${{ steps.config.outputs.port }}${{ steps.config.outputs.health }}"
+          Write-Host "Waiting for app at $healthUrl ..."
           $ready = $false
           for ($i = 1; $i -le 60; $i++) {
             try {
-              $resp = Invoke-WebRequest -Uri "http://localhost:${{ steps.config.outputs.port }}${{ steps.config.outputs.health }}" -UseBasicParsing -TimeoutSec 2 -ErrorAction SilentlyContinue
+              $resp = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
               if ($resp.StatusCode -eq 200) {
                 Write-Host "App is ready (attempt $i)"
                 $ready = $true
                 break
+              } else {
+                Write-Host "  Health returned status $($resp.StatusCode) (attempt $i)"
               }
-            } catch {}
+            } catch {
+              if ($i -le 3 -or $i % 10 -eq 0) {
+                Write-Host "  Health check error (attempt $i): $($_.Exception.Message)"
+              }
+            }
 
             # Check if process is still alive
             if ($process.HasExited) {
