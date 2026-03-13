@@ -119,6 +119,8 @@ jobs:
       PR_NUMBER: ${{ needs.detect-iteration.outputs.pr_number }}
       PYTHONUNBUFFERED: "1"
       PYTHONIOENCODING: "utf-8"
+      # Prevent Python requests from using Windows system proxy for local connections
+      NO_PROXY: "localhost,127.0.0.1"
 
     steps:
       - uses: actions/checkout@v4
