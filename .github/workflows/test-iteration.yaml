@@ -4,11 +4,8 @@
 # Runs automated tests against a generated application in a PR.
 #
 # Triggers:
-#   - pull_request: Any PR that adds/modifies iteration files (may not fire
-#     for commits pushed by GitHub Apps like Copilot coding agent)
-#   - workflow_dispatch: Manual trigger with a PR number
-#   - repository_dispatch: Auto-triggered by the auto-test-iteration workflow
-#     when Copilot finishes generating code
+#   - workflow_dispatch: Manual trigger (or dispatched by auto-trigger-tests)
+#   - repository_dispatch: Auto-triggered by external events
 #
 # What it does:
 #   1. Detects which scenario and iteration changed
@@ -22,13 +19,15 @@
 name: Test Iteration
 
 concurrency:
-  group: test-iteration-pr-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.event.client_payload.pr_number }}
+  group: test-iteration-pr-${{ github.event.inputs.pr_number || github.event.client_payload.pr_number }}
   cancel-in-progress: true
 
 on:
-  pull_request:
-    paths:
-      - 'testing-v2/scenarios/*/iterations/**'
+  # Note: pull_request trigger is intentionally omitted here.
+  # All PR testing is triggered via auto-trigger-tests.yaml (pull_request_target)
+  # which dispatches this workflow via workflow_dispatch. This avoids race
+  # conditions where pull_request runs use a stale merge-ref version of the
+  # workflow YAML before the base branch fixes are reflected.
 
   workflow_dispatch:
     inputs:
@@ -57,10 +56,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           case "${{ github.event_name }}" in
-            pull_request)
-              echo "number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-              echo "head_ref=${{ github.event.pull_request.head.ref }}" >> "$GITHUB_OUTPUT"
-              ;;
             workflow_dispatch)
               PR_NUM="${{ github.event.inputs.pr_number }}"
               echo "number=${PR_NUM}" >> "$GITHUB_OUTPUT"
@@ -139,38 +134,74 @@ jobs:
         run: |
           Write-Host "Launching Azure Cosmos DB Emulator"
           Import-Module "$env:ProgramFiles\Azure Cosmos DB Emulator\PSModules\Microsoft.Azure.CosmosDB.Emulator"
-          Start-CosmosDbEmulator -NoUI -Key "$env:COSMOS_KEY"
 
-          # Poll emulator status using /getstatus exit codes (1=starting, 2=running, 3=stopped)
-          # Pattern from: azure-sdk-for-java/eng/common/scripts/Cosmos-Emulator.ps1
           $emulatorExe = "$env:ProgramFiles\Azure Cosmos DB Emulator\Microsoft.Azure.Cosmos.Emulator.exe"
-          $timeoutSeconds = 600
+          $maxRestarts = 3
           $pollInterval = 5
-          $maxAttempts = [math]::Ceiling($timeoutSeconds / $pollInterval)
-          Write-Host "Waiting up to $timeoutSeconds seconds for emulator to be ready..."
+          $timeoutPerAttempt = 300  # 5 minutes per attempt
+
           $ready = $false
-          for ($i = 1; $i -le $maxAttempts; $i++) {
-            $process = Start-Process $emulatorExe -ArgumentList "/getstatus" -PassThru -Wait
-            switch ($process.ExitCode) {
-              2 {
-                Write-Host "Emulator is running (attempt $i, exit code 2)"
-                $ready = $true
-                break
-              }
-              3 {
-                Write-Host "Emulator has stopped unexpectedly (exit code 3) -- will retry"
-              }
-              default {
-                Write-Host "Emulator still starting (attempt $i, exit code $($process.ExitCode))"
-              }
+
+          for ($attempt = 1; $attempt -le $maxRestarts; $attempt++) {
+            Write-Host "--- Emulator start attempt $attempt of $maxRestarts ---"
+
+            if ($attempt -eq 1) {
+              Start-CosmosDbEmulator -NoUI -Key "$env:COSMOS_KEY"
+            } else {
+              # Kill any leftover emulator processes before restart
+              Write-Host "Stopping leftover emulator processes..."
+              Get-Process -Name "Microsoft.Azure.Cosmos.Emulator" -ErrorAction SilentlyContinue | Stop-Process -Force
+              Get-Process -Name "Microsoft.Azure.Cosmos.Master" -ErrorAction SilentlyContinue | Stop-Process -Force
+              Start-Sleep -Seconds 5
+              Write-Host "Restarting emulator..."
+              Start-CosmosDbEmulator -NoUI -Key "$env:COSMOS_KEY"
             }
+
+            # Brief initial wait to let the emulator process initialize
+            Start-Sleep -Seconds 10
+
+            # Poll emulator status using /getstatus exit codes
+            # (1=starting, 2=running, 3=stopped)
+            $maxPolls = [math]::Ceiling($timeoutPerAttempt / $pollInterval)
+            Write-Host "Polling /getstatus for up to $timeoutPerAttempt seconds..."
+
+            for ($i = 1; $i -le $maxPolls; $i++) {
+              $proc = Start-Process $emulatorExe -ArgumentList "/getstatus" -PassThru -Wait
+              switch ($proc.ExitCode) {
+                2 {
+                  Write-Host "Emulator is running (poll $i, exit code 2)"
+                  $ready = $true
+                  break
+                }
+                3 {
+                  Write-Host "Emulator returned stopped (poll $i, exit code 3)"
+                  break  # break inner loop to trigger restart
+                }
+                default {
+                  if ($i % 12 -eq 0) {
+                    Write-Host "  Still starting... (poll $i, exit code $($proc.ExitCode), elapsed ~$($i * $pollInterval)s)"
+                  }
+                }
+              }
+              if ($ready -or $proc.ExitCode -eq 3) { break }
+              Start-Sleep -Seconds $pollInterval
+            }
+
             if ($ready) { break }
-            Start-Sleep -Seconds $pollInterval
+
+            if ($attempt -lt $maxRestarts) {
+              Write-Host "Emulator did not become ready in $timeoutPerAttempt seconds. Will restart..."
+            }
           }
+
           if (-not $ready) {
-            Write-Error "Cosmos DB Emulator did not become ready within $timeoutSeconds seconds"
+            Write-Host "--- Diagnostic info ---"
+            Get-Process -Name "*Cosmos*" -ErrorAction SilentlyContinue | Format-Table Name, Id, StartTime, CPU -AutoSize
+            Write-Error "Cosmos DB Emulator did not become ready after $maxRestarts attempts ($($maxRestarts * $timeoutPerAttempt) seconds total)"
             exit 1
           }
+
+          Write-Host "Emulator is ready."
 
           # Export the emulator's self-signed TLS certificate to PEM
           $cert = Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.FriendlyName -like '*DocumentDb*' -or $_.Subject -like '*CosmosDB*' -or $_.Subject -like '*localhost*' } | Select-Object -First 1

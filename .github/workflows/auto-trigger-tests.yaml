@@ -31,6 +31,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           echo "Dispatching test-iteration workflow for PR #${{ github.event.pull_request.number }}"
+          echo "  Base branch: ${{ github.event.pull_request.base.ref }}"
           gh workflow run test-iteration.yaml \
             --repo "${{ github.repository }}" \
+            --ref "${{ github.event.pull_request.base.ref }}" \
             -f pr_number=${{ github.event.pull_request.number }}
