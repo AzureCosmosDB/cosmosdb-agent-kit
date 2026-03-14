@@ -288,3 +288,91 @@ endpoints:
           batteryLevel:
             type: object
             required: [min, max, avg]
+
+  # ----------------------------------------------------------
+  # Device Updates & Deletion
+  # ----------------------------------------------------------
+
+  update_device:
+    method: PATCH
+    path: /api/devices/{deviceId}
+    description: Update a device's metadata (name, location, or deviceType)
+    parameters:
+      deviceId:
+        in: path
+        type: string
+        required: true
+    request:
+      body:
+        properties:
+          name:
+            type: string
+            description: New device name
+          location:
+            type: string
+            description: New location/facility
+          deviceType:
+            type: string
+            description: New device type
+    response:
+      status: 200
+      body:
+        required:
+          - deviceId
+          - name
+          - location
+          - deviceType
+    errors:
+      - status: 404
+        description: Device not found
+
+  delete_device:
+    method: DELETE
+    path: /api/devices/{deviceId}
+    description: Delete a device and all its telemetry data
+    parameters:
+      deviceId:
+        in: path
+        type: string
+        required: true
+    response:
+      status: 204
+    errors:
+      - status: 404
+        description: Device not found
+
+  # ----------------------------------------------------------
+  # Location-Level Queries
+  # ----------------------------------------------------------
+
+  get_location_summary:
+    method: GET
+    path: /api/locations/{location}/telemetry/latest
+    description: Get the latest telemetry reading from each device at a location
+    parameters:
+      location:
+        in: path
+        type: string
+        required: true
+    response:
+      status: 200
+      body:
+        type: array
+        items:
+          required:
+            - deviceId
+            - temperature
+            - humidity
+            - batteryLevel
+            - timestamp
+          properties:
+            deviceId:
+              type: string
+            temperature:
+              type: number
+            humidity:
+              type: number
+            batteryLevel:
+              type: number
+            timestamp:
+              type: string

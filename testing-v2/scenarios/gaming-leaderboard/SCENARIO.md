@@ -80,9 +80,12 @@ Automated tests in the [`tests/`](tests/) directory validate implementations aga
 | GET | `/health` | Health check (returns 200 when ready) |
 | POST | `/api/players` | Create a player profile |
 | GET | `/api/players/{playerId}` | Get player profile with stats |
+| PATCH | `/api/players/{playerId}` | Update player profile |
+| DELETE | `/api/players/{playerId}` | Delete player and associated data |
 | POST | `/api/scores` | Submit a game score |
-| GET | `/api/leaderboards/global?top=N` | Global top N leaderboard |
-| GET | `/api/leaderboards/regional/{region}?top=N` | Regional top N leaderboard |
+| GET | `/api/players/{playerId}/scores?limit=N` | Player score history (most recent first) |
+| GET | `/api/leaderboards/global?top=N` | Global top N leaderboard (tiebreak: displayName asc) |
+| GET | `/api/leaderboards/regional/{region}?top=N` | Regional top N leaderboard (same tiebreak) |
 | GET | `/api/players/{playerId}/rank` | Player rank + ±10 neighbors |
 
 **The agent MUST also create `iteration-config.yaml`** in the iteration folder.
@@ -128,14 +131,19 @@ Endpoints:
 - GET  /health                              → Returns 200 when app is ready
 - POST /api/players                         → Body: {playerId, displayName, region} → 201 with {playerId, displayName, region, totalGames, bestScore, averageScore}
 - GET  /api/players/{playerId}              → 200 with {playerId, displayName, region, totalGames, bestScore, averageScore} or 404
+- PATCH /api/players/{playerId}             → Body: {displayName?, region?} → 200 with updated player or 404
+- DELETE /api/players/{playerId}            → 204 on success, 404 if not found
 - POST /api/scores                          → Body: {playerId, score, gameMode?} → 201 with {scoreId, playerId, score}
-- GET  /api/leaderboards/global?top=N       → 200 with array of {rank, playerId, displayName, score} sorted by score desc
-- GET  /api/leaderboards/regional/{region}?top=N → 200 with array of {rank, playerId, displayName, score} for that region
+- GET  /api/players/{playerId}/scores?limit=N → 200 with array of {scoreId, playerId, score, gameMode, timestamp} most recent first (default limit=10)
+- GET  /api/leaderboards/global?top=N       → 200 with array of {rank, playerId, displayName, score} sorted by score desc, then displayName asc for ties
+- GET  /api/leaderboards/regional/{region}?top=N → 200 with array of {rank, playerId, displayName, score} for that region, same tiebreaking
 - GET  /api/players/{playerId}/rank          → 200 with {playerId, rank, score, neighbors[]} or 404
 
 Field naming: use camelCase (playerId, displayName, totalGames, bestScore, averageScore, scoreId, gameMode).
 New players must have totalGames=0, bestScore=0, averageScore=0.
 Leaderboard rank is 1-based. Global leaderboard default top=100.
+Leaderboard tiebreaking: when two players have the same score, sort by displayName ascending.
+Score history default limit=10, sorted most-recent-first. GET /api/players/{playerId}/scores returns 404 for deleted players.
 
 **You MUST also create a file called `iteration-config.yaml`** in your iteration folder with:
 ```yaml
@@ -189,14 +197,19 @@ Endpoints:
 - GET  /health                              → Returns 200 when app is ready
 - POST /api/players                         → Body: {playerId, displayName, region} → 201 with {playerId, displayName, region, totalGames, bestScore, averageScore}
 - GET  /api/players/{playerId}              → 200 with {playerId, displayName, region, totalGames, bestScore, averageScore} or 404
+- PATCH /api/players/{playerId}             → Body: {displayName?, region?} → 200 with updated player or 404
+- DELETE /api/players/{playerId}            → 204 on success, 404 if not found
 - POST /api/scores                          → Body: {playerId, score, gameMode?} → 201 with {scoreId, playerId, score}
-- GET  /api/leaderboards/global?top=N       → 200 with array of {rank, playerId, displayName, score} sorted by score desc
-- GET  /api/leaderboards/regional/{region}?top=N → 200 with array of {rank, playerId, displayName, score} for that region
+- GET  /api/players/{playerId}/scores?limit=N → 200 with array of {scoreId, playerId, score, gameMode, timestamp} most recent first (default limit=10)
+- GET  /api/leaderboards/global?top=N       → 200 with array of {rank, playerId, displayName, score} sorted by score desc, then displayName asc for ties
+- GET  /api/leaderboards/regional/{region}?top=N → 200 with array of {rank, playerId, displayName, score} for that region, same tiebreaking
 - GET  /api/players/{playerId}/rank          → 200 with {playerId, rank, score, neighbors[]} or 404
 
 Field naming: use camelCase (playerId, displayName, totalGames, bestScore, averageScore, scoreId, gameMode).
 New players must have totalGames=0, bestScore=0, averageScore=0.
 Leaderboard rank is 1-based. Global leaderboard default top=100.
+Leaderboard tiebreaking: when two players have the same score, sort by displayName ascending.
+Score history default limit=10, sorted most-recent-first. GET /api/players/{playerId}/scores returns 404 for deleted players.
 
 **You MUST also create a file called `iteration-config.yaml`** in your iteration folder with:
 ```yaml
@@ -250,14 +263,19 @@ Endpoints:
 - GET  /health                              → Returns 200 when app is ready
 - POST /api/players                         → Body: {playerId, displayName, region} → 201 with {playerId, displayName, region, totalGames, bestScore, averageScore}
 - GET  /api/players/{playerId}              → 200 with {playerId, displayName, region, totalGames, bestScore, averageScore} or 404
+- PATCH /api/players/{playerId}             → Body: {displayName?, region?} → 200 with updated player or 404
+- DELETE /api/players/{playerId}            → 204 on success, 404 if not found
 - POST /api/scores                          → Body: {playerId, score, gameMode?} → 201 with {scoreId, playerId, score}
-- GET  /api/leaderboards/global?top=N       → 200 with array of {rank, playerId, displayName, score} sorted by score desc
-- GET  /api/leaderboards/regional/{region}?top=N → 200 with array of {rank, playerId, displayName, score} for that region
+- GET  /api/players/{playerId}/scores?limit=N → 200 with array of {scoreId, playerId, score, gameMode, timestamp} most recent first (default limit=10)
+- GET  /api/leaderboards/global?top=N       → 200 with array of {rank, playerId, displayName, score} sorted by score desc, then displayName asc for ties
+- GET  /api/leaderboards/regional/{region}?top=N → 200 with array of {rank, playerId, displayName, score} for that region, same tiebreaking
 - GET  /api/players/{playerId}/rank          → 200 with {playerId, rank, score, neighbors[]} or 404
 
 Field naming: use camelCase (playerId, displayName, totalGames, bestScore, averageScore, scoreId, gameMode).
 New players must have totalGames=0, bestScore=0, averageScore=0.
 Leaderboard rank is 1-based. Global leaderboard default top=100.
+Leaderboard tiebreaking: when two players have the same score, sort by displayName ascending.
+Score history default limit=10, sorted most-recent-first. GET /api/players/{playerId}/scores returns 404 for deleted players.
 
 **You MUST also create a file called `iteration-config.yaml`** in your iteration folder with:
 ```yaml
@@ -311,14 +329,19 @@ Endpoints:
 - GET  /health                              → Returns 200 when app is ready
 - POST /api/players                         → Body: {playerId, displayName, region} → 201 with {playerId, displayName, region, totalGames, bestScore, averageScore}
 - GET  /api/players/{playerId}              → 200 with {playerId, displayName, region, totalGames, bestScore, averageScore} or 404
+- PATCH /api/players/{playerId}             → Body: {displayName?, region?} → 200 with updated player or 404
+- DELETE /api/players/{playerId}            → 204 on success, 404 if not found
 - POST /api/scores                          → Body: {playerId, score, gameMode?} → 201 with {scoreId, playerId, score}
-- GET  /api/leaderboards/global?top=N       → 200 with array of {rank, playerId, displayName, score} sorted by score desc
-- GET  /api/leaderboards/regional/{region}?top=N → 200 with array of {rank, playerId, displayName, score} for that region
+- GET  /api/players/{playerId}/scores?limit=N → 200 with array of {scoreId, playerId, score, gameMode, timestamp} most recent first (default limit=10)
+- GET  /api/leaderboards/global?top=N       → 200 with array of {rank, playerId, displayName, score} sorted by score desc, then displayName asc for ties
+- GET  /api/leaderboards/regional/{region}?top=N → 200 with array of {rank, playerId, displayName, score} for that region, same tiebreaking
 - GET  /api/players/{playerId}/rank          → 200 with {playerId, rank, score, neighbors[]} or 404
 
 Field naming: use camelCase (playerId, displayName, totalGames, bestScore, averageScore, scoreId, gameMode).
 New players must have totalGames=0, bestScore=0, averageScore=0.
 Leaderboard rank is 1-based. Global leaderboard default top=100.
+Leaderboard tiebreaking: when two players have the same score, sort by displayName ascending.
+Score history default limit=10, sorted most-recent-first. GET /api/players/{playerId}/scores returns 404 for deleted players.
 
 **You MUST also create a file called `iteration-config.yaml`** in your iteration folder with:
 ```yaml
@@ -372,14 +395,19 @@ Endpoints:
 - GET  /health                              → Returns 200 when app is ready
 - POST /api/players                         → Body: {playerId, displayName, region} → 201 with {playerId, displayName, region, totalGames, bestScore, averageScore}
 - GET  /api/players/{playerId}              → 200 with {playerId, displayName, region, totalGames, bestScore, averageScore} or 404
+- PATCH /api/players/{playerId}             → Body: {displayName?, region?} → 200 with updated player or 404
+- DELETE /api/players/{playerId}            → 204 on success, 404 if not found
 - POST /api/scores                          → Body: {playerId, score, gameMode?} → 201 with {scoreId, playerId, score}
-- GET  /api/leaderboards/global?top=N       → 200 with array of {rank, playerId, displayName, score} sorted by score desc
-- GET  /api/leaderboards/regional/{region}?top=N → 200 with array of {rank, playerId, displayName, score} for that region
+- GET  /api/players/{playerId}/scores?limit=N → 200 with array of {scoreId, playerId, score, gameMode, timestamp} most recent first (default limit=10)
+- GET  /api/leaderboards/global?top=N       → 200 with array of {rank, playerId, displayName, score} sorted by score desc, then displayName asc for ties
+- GET  /api/leaderboards/regional/{region}?top=N → 200 with array of {rank, playerId, displayName, score} for that region, same tiebreaking
 - GET  /api/players/{playerId}/rank          → 200 with {playerId, rank, score, neighbors[]} or 404
 
 Field naming: use camelCase (playerId, displayName, totalGames, bestScore, averageScore, scoreId, gameMode).
 New players must have totalGames=0, bestScore=0, averageScore=0.
 Leaderboard rank is 1-based. Global leaderboard default top=100.
+Leaderboard tiebreaking: when two players have the same score, sort by displayName ascending.
+Score history default limit=10, sorted most-recent-first. GET /api/players/{playerId}/scores returns 404 for deleted players.
 
 **You MUST also create a file called `iteration-config.yaml`** in your iteration folder with:
 ```yaml

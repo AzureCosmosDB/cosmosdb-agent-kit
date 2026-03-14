@@ -373,3 +373,150 @@ class TestUpdateOrderStatus:
         assert resp.status_code == 404, (
             f"PATCH nonexistent order should return 404, got {resp.status_code}"
         )
+
+
+# ===================================================================
+# CUSTOMER ORDER SUMMARY
+# ===================================================================
+
+class TestCustomerSummary:
+    """GET /api/customers/{customerId}/orders/summary — Aggregated stats."""
+
+    def test_customer_summary_returns_200(self, api, seeded_data):
+        resp = api.request("GET", "/api/customers/customer-001/orders/summary")
+        assert resp.status_code == 200, (
+            f"GET /api/customers/customer-001/orders/summary should return 200, "
+            f"got {resp.status_code}. Response: {resp.text[:500]}"
+        )
+
+    def test_customer_summary_has_required_fields(self, api, seeded_data):
+        resp = api.request("GET", "/api/customers/customer-001/orders/summary")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        required = ["customerId", "totalOrders", "totalSpent", "averageOrderValue"]
+        missing = [f for f in required if f not in body]
+        assert not missing, (
+            f"Customer summary missing required fields: {missing}. "
+            f"Got: {list(body.keys())}. "
+            f"See api-contract.yaml get_customer_summary.response"
+        )
+
+    def test_customer_001_summary_correct(self, api, seeded_data):
+        """
+        customer-001 has 2 orders: $109.97 + $45.00 = $154.97 total.
+        averageOrderValue = 154.97 / 2 = 77.485
+        """
+        resp = api.request("GET", "/api/customers/customer-001/orders/summary")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        assert body["customerId"] == "customer-001"
+        assert body["totalOrders"] >= 2, (
+            f"customer-001 should have at least 2 orders, got {body['totalOrders']}"
+        )
+        assert abs(body["totalSpent"] - 154.97) < 0.02, (
+            f"customer-001 totalSpent should be ~154.97, got {body['totalSpent']}"
+        )
+
+    def test_customer_003_summary_correct(self, api, seeded_data):
+        """
+        customer-003 has 1 order: $254.95 total.
+        averageOrderValue = 254.95
+        """
+        resp = api.request("GET", "/api/customers/customer-003/orders/summary")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        assert body["totalOrders"] >= 1
+        assert abs(body["totalSpent"] - 254.95) < 0.02, (
+            f"customer-003 totalSpent should be ~254.95, got {body['totalSpent']}"
+        )
+        # With 1 order, average == total
+        if body["totalOrders"] == 1:
+            assert abs(body["averageOrderValue"] - 254.95) < 0.02, (
+                f"With 1 order, averageOrderValue should equal totalSpent. "
+                f"Got {body['averageOrderValue']}"
+            )
+
+    def test_customer_summary_average_is_correct(self, api, seeded_data):
+        """averageOrderValue must equal totalSpent / totalOrders."""
+        resp = api.request("GET", "/api/customers/customer-001/orders/summary")
+        body = resp.json()
+
+        expected_avg = body["totalSpent"] / body["totalOrders"]
+        assert abs(body["averageOrderValue"] - expected_avg) < 0.02, (
+            f"averageOrderValue should be totalSpent/totalOrders = "
+            f"{body['totalSpent']}/{body['totalOrders']} = {expected_avg:.2f}, "
+            f"got {body['averageOrderValue']}"
+        )
+
+    def test_nonexistent_customer_summary_empty(self, api, seeded_data):
+        """Summary for nonexistent customer should return 0s or 404."""
+        resp = api.request("GET", "/api/customers/nonexistent-xyz/orders/summary")
+        # Accept either 200 with zero values or 404
+        assert resp.status_code in (200, 404), (
+            f"Summary for nonexistent customer should return 200 (with zeros) "
+            f"or 404, got {resp.status_code}"
+        )
+        if resp.status_code == 200:
+            body = resp.json()
+            assert body["totalOrders"] == 0
+            assert body["totalSpent"] == 0
+
+
+# ===================================================================
+# DELETE ORDER
+# ===================================================================
+
+class TestDeleteOrder:
+    """DELETE /api/orders/{orderId} — Delete a pending order."""
+
+    def test_delete_pending_order_returns_204(self, api, seeded_data):
+        # Create a disposable order
+        resp = api.request("POST", "/api/orders", json={
+            "customerId": "delete-cust-001",
+            "items": [{"productId": "p1", "productName": "DeleteMe", "quantity": 1, "unitPrice": 10.00}],
+        })
+        assert resp.status_code == 201
+        order_id = resp.json()["orderId"]
+
+        resp = api.request("DELETE", f"/api/orders/{order_id}")
+        assert resp.status_code == 204, (
+            f"DELETE pending order should return 204, got {resp.status_code}"
+        )
+
+    def test_deleted_order_returns_404_on_get(self, api, seeded_data):
+        resp = api.request("POST", "/api/orders", json={
+            "customerId": "delete-cust-002",
+            "items": [{"productId": "p1", "productName": "DeleteCheck", "quantity": 1, "unitPrice": 5.00}],
+        })
+        order_id = resp.json()["orderId"]
+        api.request("DELETE", f"/api/orders/{order_id}")
+
+        resp = api.request("GET", f"/api/orders/{order_id}")
+        assert resp.status_code == 404, (
+            f"Deleted order should return 404 on GET, got {resp.status_code}"
+        )
+
+    def test_delete_nonexistent_order_returns_404(self, api):
+        resp = api.request("DELETE", "/api/orders/nonexistent-xyz")
+        assert resp.status_code == 404, (
+            f"DELETE nonexistent order should return 404, got {resp.status_code}"
+        )
+
+    def test_delete_shipped_order_returns_409(self, api, seeded_data):
+        """Only pending orders can be deleted. Shipped orders must return 409."""
+        # Create and ship an order
+        resp = api.request("POST", "/api/orders", json={
+            "customerId": "delete-cust-003",
+            "items": [{"productId": "p1", "productName": "ShippedItem", "quantity": 1, "unitPrice": 20.00}],
+        })
+        order_id = resp.json()["orderId"]
+        api.request("PATCH", f"/api/orders/{order_id}/status", json={"status": "shipped"})
+
+        resp = api.request("DELETE", f"/api/orders/{order_id}")
+        assert resp.status_code == 409, (
+            f"DELETE shipped order should return 409 Conflict, got {resp.status_code}. "
+            f"Only pending orders can be deleted."
+        )

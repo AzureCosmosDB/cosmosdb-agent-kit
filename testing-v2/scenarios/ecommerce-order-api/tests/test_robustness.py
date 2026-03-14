@@ -17,6 +17,7 @@ mismatches, and customer data isolation failures.
 """
 
 import pytest
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 # ===================================================================
@@ -462,4 +463,190 @@ class TestEdgeCases:
         assert len(body["items"]) == 3, (
             f"Order was created with 3 items but GET returned {len(body['items'])}. "
             f"Items may be lost during storage/retrieval."
+        )
+
+
+# ===================================================================
+# STATUS TRANSITION RULES
+# ===================================================================
+
+class TestStatusTransitionRules:
+    """
+    Verify that the status state machine is enforced correctly.
+
+    Valid transitions:
+    - pending → shipped
+    - pending → cancelled
+    - shipped → delivered
+
+    Invalid transitions (must return 409 Conflict):
+    - shipped → pending (can't un-ship)
+    - delivered → anything (terminal state)
+    - cancelled → anything (terminal state)
+
+    This tests read-modify-write patterns. Without proper concurrency
+    handling (ETags), concurrent status updates can produce invalid states.
+    """
+
+    def test_pending_to_shipped_allowed(self, api, seeded_data):
+        resp = api.request("POST", "/api/orders", json={
+            "customerId": "transition-001",
+            "items": [{"productId": "p1", "productName": "T1", "quantity": 1, "unitPrice": 10.00}],
+        })
+        order_id = resp.json()["orderId"]
+
+        resp = api.request("PATCH", f"/api/orders/{order_id}/status", json={"status": "shipped"})
+        assert resp.status_code == 200, (
+            f"pending → shipped should be allowed, got {resp.status_code}"
+        )
+
+    def test_pending_to_cancelled_allowed(self, api, seeded_data):
+        resp = api.request("POST", "/api/orders", json={
+            "customerId": "transition-002",
+            "items": [{"productId": "p1", "productName": "T2", "quantity": 1, "unitPrice": 10.00}],
+        })
+        order_id = resp.json()["orderId"]
+
+        resp = api.request("PATCH", f"/api/orders/{order_id}/status", json={"status": "cancelled"})
+        assert resp.status_code == 200, (
+            f"pending → cancelled should be allowed, got {resp.status_code}"
+        )
+
+    def test_shipped_to_delivered_allowed(self, api, seeded_data):
+        resp = api.request("POST", "/api/orders", json={
+            "customerId": "transition-003",
+            "items": [{"productId": "p1", "productName": "T3", "quantity": 1, "unitPrice": 10.00}],
+        })
+        order_id = resp.json()["orderId"]
+        api.request("PATCH", f"/api/orders/{order_id}/status", json={"status": "shipped"})
+
+        resp = api.request("PATCH", f"/api/orders/{order_id}/status", json={"status": "delivered"})
+        assert resp.status_code == 200, (
+            f"shipped → delivered should be allowed, got {resp.status_code}"
+        )
+
+    def test_shipped_to_pending_rejected(self, api, seeded_data):
+        """Can't un-ship an order."""
+        resp = api.request("POST", "/api/orders", json={
+            "customerId": "transition-004",
+            "items": [{"productId": "p1", "productName": "T4", "quantity": 1, "unitPrice": 10.00}],
+        })
+        order_id = resp.json()["orderId"]
+        api.request("PATCH", f"/api/orders/{order_id}/status", json={"status": "shipped"})
+
+        resp = api.request("PATCH", f"/api/orders/{order_id}/status", json={"status": "pending"})
+        assert resp.status_code == 409, (
+            f"shipped → pending should return 409 Conflict, got {resp.status_code}. "
+            f"Orders cannot be un-shipped."
+        )
+
+    def test_delivered_to_anything_rejected(self, api, seeded_data):
+        """Delivered is a terminal state."""
+        resp = api.request("POST", "/api/orders", json={
+            "customerId": "transition-005",
+            "items": [{"productId": "p1", "productName": "T5", "quantity": 1, "unitPrice": 10.00}],
+        })
+        order_id = resp.json()["orderId"]
+        api.request("PATCH", f"/api/orders/{order_id}/status", json={"status": "shipped"})
+        api.request("PATCH", f"/api/orders/{order_id}/status", json={"status": "delivered"})
+
+        for target in ["pending", "shipped", "cancelled"]:
+            resp = api.request("PATCH", f"/api/orders/{order_id}/status", json={"status": target})
+            assert resp.status_code == 409, (
+                f"delivered → {target} should return 409 Conflict, got {resp.status_code}. "
+                f"Delivered is a terminal state — no further transitions allowed."
+            )
+
+    def test_cancelled_to_anything_rejected(self, api, seeded_data):
+        """Cancelled is a terminal state."""
+        resp = api.request("POST", "/api/orders", json={
+            "customerId": "transition-006",
+            "items": [{"productId": "p1", "productName": "T6", "quantity": 1, "unitPrice": 10.00}],
+        })
+        order_id = resp.json()["orderId"]
+        api.request("PATCH", f"/api/orders/{order_id}/status", json={"status": "cancelled"})
+
+        for target in ["pending", "shipped", "delivered"]:
+            resp = api.request("PATCH", f"/api/orders/{order_id}/status", json={"status": target})
+            assert resp.status_code == 409, (
+                f"cancelled → {target} should return 409 Conflict, got {resp.status_code}. "
+                f"Cancelled is a terminal state — no further transitions allowed."
+            )
+
+
+# ===================================================================
+# CUSTOMER SUMMARY CONSISTENCY
+# ===================================================================
+
+class TestCustomerSummaryConsistency:
+    """
+    Verify that the customer summary accurately reflects order data.
+    This tests cross-document aggregation which is sensitive to
+    partition key design and query patterns in Cosmos DB.
+    """
+
+    def test_summary_updates_after_new_order(self, api, seeded_data):
+        """Creating a new order should update the customer summary."""
+        cust_id = "summary-test-001"
+
+        # Create first order
+        api.request("POST", "/api/orders", json={
+            "customerId": cust_id,
+            "items": [{"productId": "p1", "productName": "Sum1", "quantity": 1, "unitPrice": 50.00}],
+        })
+
+        resp = api.request("GET", f"/api/customers/{cust_id}/orders/summary")
+        assert resp.status_code == 200
+        s1 = resp.json()
+        assert s1["totalOrders"] >= 1
+        assert abs(s1["totalSpent"] - 50.00) < 0.02
+
+        # Create second order
+        api.request("POST", "/api/orders", json={
+            "customerId": cust_id,
+            "items": [{"productId": "p2", "productName": "Sum2", "quantity": 2, "unitPrice": 25.00}],
+        })
+
+        resp = api.request("GET", f"/api/customers/{cust_id}/orders/summary")
+        assert resp.status_code == 200
+        s2 = resp.json()
+        assert s2["totalOrders"] >= 2, (
+            f"After 2 orders, totalOrders should be >= 2, got {s2['totalOrders']}"
+        )
+        assert abs(s2["totalSpent"] - 100.00) < 0.02, (
+            f"After orders of $50 + $50, totalSpent should be ~100.00, "
+            f"got {s2['totalSpent']}"
+        )
+        assert abs(s2["averageOrderValue"] - 50.00) < 0.02, (
+            f"averageOrderValue should be ~50.00, got {s2['averageOrderValue']}"
+        )
+
+    def test_summary_reflects_deleted_order(self, api, seeded_data):
+        """Deleting a pending order should update the summary."""
+        cust_id = "summary-delete-001"
+
+        # Create two orders
+        resp1 = api.request("POST", "/api/orders", json={
+            "customerId": cust_id,
+            "items": [{"productId": "p1", "productName": "Keep", "quantity": 1, "unitPrice": 100.00}],
+        })
+        order1_id = resp1.json()["orderId"]
+
+        resp2 = api.request("POST", "/api/orders", json={
+            "customerId": cust_id,
+            "items": [{"productId": "p2", "productName": "Delete", "quantity": 1, "unitPrice": 50.00}],
+        })
+        order2_id = resp2.json()["orderId"]
+
+        # Delete second order
+        api.request("DELETE", f"/api/orders/{order2_id}")
+
+        # Summary should reflect only the remaining order
+        resp = api.request("GET", f"/api/customers/{cust_id}/orders/summary")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["totalOrders"] >= 1
+        assert abs(body["totalSpent"] - 100.00) < 0.02, (
+            f"After deleting $50 order, totalSpent should be ~100.00, "
+            f"got {body['totalSpent']}"
         )

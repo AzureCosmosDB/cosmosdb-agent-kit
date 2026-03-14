@@ -532,3 +532,237 @@ class TestRapidOperations:
             f"This suggests score submissions aren't updating stats atomically "
             f"(possible read-modify-write race condition)."
         )
+
+    def test_concurrent_score_submissions_all_counted(self, api, seeded_data):
+        """
+        Submit 15 scores CONCURRENTLY for the same player.
+        totalGames should increase by exactly 15.
+
+        This catches missing optimistic concurrency (ETag) handling:
+        without ETags, concurrent read-modify-write on the player document
+        will lose updates (two threads read totalGames=5, both write 6,
+        instead of 6 then 7).
+        """
+        # Create a fresh player for this test to avoid interference
+        player_id = "concurrent-test-001"
+        resp = api.request("POST", "/api/players", json={
+            "playerId": player_id,
+            "displayName": "ConcurrentTest",
+            "region": "US",
+        })
+        assert resp.status_code == 201
+
+        num_concurrent = 15
+
+        def submit_score(i):
+            return api.request("POST", "/api/scores", json={
+                "playerId": player_id,
+                "score": 2000 + i,
+            })
+
+        # Submit all scores concurrently
+        with ThreadPoolExecutor(max_workers=num_concurrent) as executor:
+            futures = [executor.submit(submit_score, i) for i in range(num_concurrent)]
+            results = [f.result() for f in as_completed(futures)]
+
+        succeeded = sum(1 for r in results if r.status_code == 201)
+        assert succeeded == num_concurrent, (
+            f"Only {succeeded}/{num_concurrent} concurrent submissions succeeded. "
+            f"Status codes: {[r.status_code for r in results]}"
+        )
+
+        # Verify all were counted
+        resp = api.request("GET", f"/api/players/{player_id}")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        assert body["totalGames"] == num_concurrent, (
+            f"After {num_concurrent} concurrent submissions, totalGames should be "
+            f"{num_concurrent}, got {body['totalGames']}. "
+            f"Lost {num_concurrent - body['totalGames']} updates. "
+            f"This is the classic read-modify-write race condition — "
+            f"use ETags/optimistic concurrency to prevent lost writes."
+        )
+
+        assert body["bestScore"] == 2000 + num_concurrent - 1, (
+            f"bestScore should be {2000 + num_concurrent - 1} (highest submitted), "
+            f"got {body['bestScore']}"
+        )
+
+
+# ===================================================================
+# LEADERBOARD TIEBREAKING
+# ===================================================================
+
+class TestLeaderboardTiebreaking:
+    """
+    When players have the same score, the leaderboard must use
+    deterministic tiebreaking (displayName ascending).
+
+    This tests multi-field sort which requires a composite index
+    in Cosmos DB (ORDER BY score DESC, displayName ASC).
+    Without a composite index, the query either fails or returns
+    non-deterministic order.
+    """
+
+    def test_tied_scores_sorted_by_display_name_ascending(self, api, seeded_data):
+        """
+        player-002 (Bob) and player-006 (Adam) both have score 6500.
+        player-005 (Eve) and player-007 (Zara) both have score 7800.
+        Tiebreaking by displayName ascending means Adam before Bob, Eve before Zara.
+        """
+        resp = api.request("GET", "/api/leaderboards/global")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        # Find the two players with score 7800
+        tied_7800 = [e for e in body if e["score"] == 7800]
+        assert len(tied_7800) >= 2, (
+            f"Expected at least 2 players with score 7800, found {len(tied_7800)}. "
+            f"Scores: {[(e['playerId'], e['score']) for e in body]}"
+        )
+        names_7800 = [e["displayName"] for e in tied_7800]
+        assert names_7800 == sorted(names_7800), (
+            f"Tied players at score 7800 should be sorted by displayName ascending. "
+            f"Got: {names_7800}, expected: {sorted(names_7800)}. "
+            f"Tiebreaking rule: when scores are equal, sort by displayName ASC."
+        )
+
+        # Find the two players with score 6500
+        tied_6500 = [e for e in body if e["score"] == 6500]
+        assert len(tied_6500) >= 2, (
+            f"Expected at least 2 players with score 6500, found {len(tied_6500)}"
+        )
+        names_6500 = [e["displayName"] for e in tied_6500]
+        assert names_6500 == sorted(names_6500), (
+            f"Tied players at score 6500 should be sorted by displayName ascending. "
+            f"Got: {names_6500}, expected: {sorted(names_6500)}. "
+            f"Tiebreaking rule: when scores are equal, sort by displayName ASC."
+        )
+
+    def test_tied_scores_have_sequential_ranks(self, api, seeded_data):
+        """Even with tied scores, ranks must be sequential (no gaps or duplicates)."""
+        resp = api.request("GET", "/api/leaderboards/global")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        ranks = [e["rank"] for e in body]
+        expected = list(range(1, len(ranks) + 1))
+        assert ranks == expected, (
+            f"Ranks must be sequential even with tied scores. "
+            f"Got: {ranks}, expected: {expected}"
+        )
+
+
+# ===================================================================
+# UPDATE AND DELETE CONSISTENCY
+# ===================================================================
+
+class TestUpdateDeleteConsistency:
+    """
+    Verify that player updates and deletions are reflected
+    consistently across all related endpoints.
+    """
+
+    def test_updated_region_reflected_in_regional_leaderboard(self, api, seeded_data):
+        """
+        Update a player's region and verify they appear in the new
+        regional leaderboard and not the old one.
+        """
+        # Create a player in US
+        player_id = "region-change-001"
+        api.request("POST", "/api/players", json={
+            "playerId": player_id,
+            "displayName": "RegionChanger",
+            "region": "US",
+        })
+        api.request("POST", "/api/scores", json={
+            "playerId": player_id,
+            "score": 3000,
+        })
+
+        # Verify in US leaderboard
+        resp = api.request("GET", "/api/leaderboards/regional/US")
+        us_ids = {e["playerId"] for e in resp.json()}
+        assert player_id in us_ids, (
+            f"{player_id} should appear in US leaderboard after creation"
+        )
+
+        # Move to EU
+        resp = api.request("PATCH", f"/api/players/{player_id}", json={
+            "region": "EU",
+        })
+        assert resp.status_code == 200
+
+        # Verify in EU leaderboard
+        resp = api.request("GET", "/api/leaderboards/regional/EU")
+        eu_ids = {e["playerId"] for e in resp.json()}
+        assert player_id in eu_ids, (
+            f"{player_id} should appear in EU leaderboard after region change to EU"
+        )
+
+        # Verify NOT in US leaderboard anymore
+        resp = api.request("GET", "/api/leaderboards/regional/US")
+        us_ids = {e["playerId"] for e in resp.json()}
+        assert player_id not in us_ids, (
+            f"{player_id} should no longer appear in US leaderboard after moving to EU"
+        )
+
+    def test_deleted_player_removed_from_leaderboard(self, api, seeded_data):
+        """After deleting a player, they must not appear in any leaderboard."""
+        player_id = "delete-lb-001"
+        api.request("POST", "/api/players", json={
+            "playerId": player_id,
+            "displayName": "DeleteLB",
+            "region": "US",
+        })
+        api.request("POST", "/api/scores", json={
+            "playerId": player_id,
+            "score": 4000,
+        })
+
+        # Confirm in leaderboard
+        resp = api.request("GET", "/api/leaderboards/global")
+        assert player_id in {e["playerId"] for e in resp.json()}, (
+            f"{player_id} should appear in leaderboard after scoring"
+        )
+
+        # Delete
+        resp = api.request("DELETE", f"/api/players/{player_id}")
+        assert resp.status_code == 204
+
+        # Confirm removed from global leaderboard
+        resp = api.request("GET", "/api/leaderboards/global")
+        assert player_id not in {e["playerId"] for e in resp.json()}, (
+            f"{player_id} should not appear in global leaderboard after deletion"
+        )
+
+        # Confirm removed from regional leaderboard
+        resp = api.request("GET", "/api/leaderboards/regional/US")
+        assert player_id not in {e["playerId"] for e in resp.json()}, (
+            f"{player_id} should not appear in regional leaderboard after deletion"
+        )
+
+    def test_deleted_player_scores_not_in_history(self, api, seeded_data):
+        """After deleting a player, their score history should return 404."""
+        player_id = "delete-scores-001"
+        api.request("POST", "/api/players", json={
+            "playerId": player_id,
+            "displayName": "DeleteScores",
+            "region": "JP",
+        })
+        api.request("POST", "/api/scores", json={
+            "playerId": player_id,
+            "score": 3500,
+        })
+
+        # Delete
+        resp = api.request("DELETE", f"/api/players/{player_id}")
+        assert resp.status_code == 204
+
+        # Score history should return 404
+        resp = api.request("GET", f"/api/players/{player_id}/scores")
+        assert resp.status_code == 404, (
+            f"Score history for deleted player should return 404, "
+            f"got {resp.status_code}"
+        )

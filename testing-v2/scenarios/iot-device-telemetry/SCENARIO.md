@@ -80,12 +80,15 @@ This scenario has a **fixed API contract** defined in `api-contract.yaml`. All i
 | Health check | GET | `/health` |
 | Register device | POST | `/api/devices` |
 | Get device | GET | `/api/devices/{deviceId}` |
+| Update device | PATCH | `/api/devices/{deviceId}` |
+| Delete device | DELETE | `/api/devices/{deviceId}` |
 | Get devices by location | GET | `/api/devices?location=X` |
 | Ingest telemetry | POST | `/api/telemetry` |
 | Batch ingest | POST | `/api/telemetry/batch` |
 | Latest reading | GET | `/api/devices/{deviceId}/telemetry/latest` |
 | Time range query | GET | `/api/devices/{deviceId}/telemetry?start=X&end=Y` |
 | Device stats | GET | `/api/devices/{deviceId}/telemetry/stats?period=24h` |
+| Location summary | GET | `/api/locations/{location}/telemetry/latest` |
 
 Each language prompt below includes the contract requirements and an `iteration-config.yaml` block.
 
@@ -123,16 +126,21 @@ Endpoints:
 - GET  /health                                              → Returns 200 when app is ready
 - POST /api/devices                                         → Body: {deviceId, name, location, deviceType} → 201 with device object
 - GET  /api/devices/{deviceId}                              → 200 with device object or 404
+- PATCH /api/devices/{deviceId}                             → Body: {name?, location?, deviceType?} → 200 with updated device or 404
+- DELETE /api/devices/{deviceId}                            → 204 on success, 404 if not found
 - GET  /api/devices?location=X                              → 200 with array of devices at location
 - POST /api/telemetry                                       → Body: {deviceId, temperature, humidity, batteryLevel, timestamp?} → 201 with {readingId, deviceId, temperature, humidity, batteryLevel, timestamp}
 - POST /api/telemetry/batch                                 → Body: array of readings → 201 with {ingested: count}
 - GET  /api/devices/{deviceId}/telemetry/latest              → 200 with latest reading or 404
 - GET  /api/devices/{deviceId}/telemetry?start=X&end=Y       → 200 with array of readings in time range (ISO-8601)
 - GET  /api/devices/{deviceId}/telemetry/stats?period=24h    → 200 with {deviceId, period, temperature:{min,max,avg}, humidity:{min,max,avg}, batteryLevel:{min,max,avg}}
+- GET  /api/locations/{location}/telemetry/latest            → 200 with array of {deviceId, temperature, humidity, batteryLevel, timestamp} (latest reading per device at location)
 
 Field naming: use camelCase (deviceId, deviceType, readingId, temperature, humidity, batteryLevel, timestamp).
 If no timestamp is provided on ingestion, the server MUST generate one (ISO-8601).
 TTL: configure 30-day automatic expiration on telemetry readings.
+Deleting a device must also make its telemetry inaccessible (latest returns 404).
+Location summary: returns the most recent reading for each device at the specified location.
 
 **You MUST also create a file called `iteration-config.yaml`** in your iteration folder with:
 ```yaml
@@ -185,16 +193,21 @@ Endpoints:
 - GET  /health                                              → Returns 200 when app is ready
 - POST /api/devices                                         → Body: {deviceId, name, location, deviceType} → 201 with device object
 - GET  /api/devices/{deviceId}                              → 200 with device object or 404
+- PATCH /api/devices/{deviceId}                             → Body: {name?, location?, deviceType?} → 200 with updated device or 404
+- DELETE /api/devices/{deviceId}                            → 204 on success, 404 if not found
 - GET  /api/devices?location=X                              → 200 with array of devices at location
 - POST /api/telemetry                                       → Body: {deviceId, temperature, humidity, batteryLevel, timestamp?} → 201 with {readingId, deviceId, temperature, humidity, batteryLevel, timestamp}
 - POST /api/telemetry/batch                                 → Body: array of readings → 201 with {ingested: count}
 - GET  /api/devices/{deviceId}/telemetry/latest              → 200 with latest reading or 404
 - GET  /api/devices/{deviceId}/telemetry?start=X&end=Y       → 200 with array of readings in time range (ISO-8601)
 - GET  /api/devices/{deviceId}/telemetry/stats?period=24h    → 200 with {deviceId, period, temperature:{min,max,avg}, humidity:{min,max,avg}, batteryLevel:{min,max,avg}}
+- GET  /api/locations/{location}/telemetry/latest            → 200 with array of {deviceId, temperature, humidity, batteryLevel, timestamp} (latest reading per device at location)
 
 Field naming: use camelCase (deviceId, deviceType, readingId, temperature, humidity, batteryLevel, timestamp).
 If no timestamp is provided on ingestion, the server MUST generate one (ISO-8601).
 TTL: configure 30-day automatic expiration on telemetry readings.
+Deleting a device must also make its telemetry inaccessible (latest returns 404).
+Location summary: returns the most recent reading for each device at the specified location.
 
 **You MUST also create a file called `iteration-config.yaml`** in your iteration folder with:
 ```yaml
@@ -247,16 +260,21 @@ Endpoints:
 - GET  /health                                              → Returns 200 when app is ready
 - POST /api/devices                                         → Body: {deviceId, name, location, deviceType} → 201 with device object
 - GET  /api/devices/{deviceId}                              → 200 with device object or 404
+- PATCH /api/devices/{deviceId}                             → Body: {name?, location?, deviceType?} → 200 with updated device or 404
+- DELETE /api/devices/{deviceId}                            → 204 on success, 404 if not found
 - GET  /api/devices?location=X                              → 200 with array of devices at location
 - POST /api/telemetry                                       → Body: {deviceId, temperature, humidity, batteryLevel, timestamp?} → 201 with {readingId, deviceId, temperature, humidity, batteryLevel, timestamp}
 - POST /api/telemetry/batch                                 → Body: array of readings → 201 with {ingested: count}
 - GET  /api/devices/{deviceId}/telemetry/latest              → 200 with latest reading or 404
 - GET  /api/devices/{deviceId}/telemetry?start=X&end=Y       → 200 with array of readings in time range (ISO-8601)
 - GET  /api/devices/{deviceId}/telemetry/stats?period=24h    → 200 with {deviceId, period, temperature:{min,max,avg}, humidity:{min,max,avg}, batteryLevel:{min,max,avg}}
+- GET  /api/locations/{location}/telemetry/latest            → 200 with array of {deviceId, temperature, humidity, batteryLevel, timestamp} (latest reading per device at location)
 
 Field naming: use camelCase (deviceId, deviceType, readingId, temperature, humidity, batteryLevel, timestamp).
 If no timestamp is provided on ingestion, the server MUST generate one (ISO-8601).
 TTL: configure 30-day automatic expiration on telemetry readings.
+Deleting a device must also make its telemetry inaccessible (latest returns 404).
+Location summary: returns the most recent reading for each device at the specified location.
 
 **You MUST also create a file called `iteration-config.yaml`** in your iteration folder with:
 ```yaml
@@ -309,16 +327,21 @@ Endpoints:
 - GET  /health                                              → Returns 200 when app is ready
 - POST /api/devices                                         → Body: {deviceId, name, location, deviceType} → 201 with device object
 - GET  /api/devices/{deviceId}                              → 200 with device object or 404
+- PATCH /api/devices/{deviceId}                             → Body: {name?, location?, deviceType?} → 200 with updated device or 404
+- DELETE /api/devices/{deviceId}                            → 204 on success, 404 if not found
 - GET  /api/devices?location=X                              → 200 with array of devices at location
 - POST /api/telemetry                                       → Body: {deviceId, temperature, humidity, batteryLevel, timestamp?} → 201 with {readingId, deviceId, temperature, humidity, batteryLevel, timestamp}
 - POST /api/telemetry/batch                                 → Body: array of readings → 201 with {ingested: count}
 - GET  /api/devices/{deviceId}/telemetry/latest              → 200 with latest reading or 404
 - GET  /api/devices/{deviceId}/telemetry?start=X&end=Y       → 200 with array of readings in time range (ISO-8601)
 - GET  /api/devices/{deviceId}/telemetry/stats?period=24h    → 200 with {deviceId, period, temperature:{min,max,avg}, humidity:{min,max,avg}, batteryLevel:{min,max,avg}}
+- GET  /api/locations/{location}/telemetry/latest            → 200 with array of {deviceId, temperature, humidity, batteryLevel, timestamp} (latest reading per device at location)
 
 Field naming: use camelCase (deviceId, deviceType, readingId, temperature, humidity, batteryLevel, timestamp).
 If no timestamp is provided on ingestion, the server MUST generate one (ISO-8601).
 TTL: configure 30-day automatic expiration on telemetry readings.
+Deleting a device must also make its telemetry inaccessible (latest returns 404).
+Location summary: returns the most recent reading for each device at the specified location.
 
 **You MUST also create a file called `iteration-config.yaml`** in your iteration folder with:
 ```yaml
@@ -371,16 +394,21 @@ Endpoints:
 - GET  /health                                              → Returns 200 when app is ready
 - POST /api/devices                                         → Body: {deviceId, name, location, deviceType} → 201 with device object
 - GET  /api/devices/{deviceId}                              → 200 with device object or 404
+- PATCH /api/devices/{deviceId}                             → Body: {name?, location?, deviceType?} → 200 with updated device or 404
+- DELETE /api/devices/{deviceId}                            → 204 on success, 404 if not found
 - GET  /api/devices?location=X                              → 200 with array of devices at location
 - POST /api/telemetry                                       → Body: {deviceId, temperature, humidity, batteryLevel, timestamp?} → 201 with {readingId, deviceId, temperature, humidity, batteryLevel, timestamp}
 - POST /api/telemetry/batch                                 → Body: array of readings → 201 with {ingested: count}
 - GET  /api/devices/{deviceId}/telemetry/latest              → 200 with latest reading or 404
 - GET  /api/devices/{deviceId}/telemetry?start=X&end=Y       → 200 with array of readings in time range (ISO-8601)
 - GET  /api/devices/{deviceId}/telemetry/stats?period=24h    → 200 with {deviceId, period, temperature:{min,max,avg}, humidity:{min,max,avg}, batteryLevel:{min,max,avg}}
+- GET  /api/locations/{location}/telemetry/latest            → 200 with array of {deviceId, temperature, humidity, batteryLevel, timestamp} (latest reading per device at location)
 
 Field naming: use camelCase (deviceId, deviceType, readingId, temperature, humidity, batteryLevel, timestamp).
 If no timestamp is provided on ingestion, the server MUST generate one (ISO-8601).
 TTL: configure 30-day automatic expiration on telemetry readings.
+Deleting a device must also make its telemetry inaccessible (latest returns 404).
+Location summary: returns the most recent reading for each device at the specified location.
 
 **You MUST also create a file called `iteration-config.yaml`** in your iteration folder with:
 ```yaml

@@ -29,6 +29,9 @@ def test_players():
         {"playerId": "player-003", "displayName": "Charlie", "region": "EU"},
         {"playerId": "player-004", "displayName": "Diana", "region": "EU"},
         {"playerId": "player-005", "displayName": "Eve", "region": "JP"},
+        # Tiebreaking test data: Adam ties with Bob (6500), Zara ties with Eve (7800)
+        {"playerId": "player-006", "displayName": "Adam", "region": "US"},
+        {"playerId": "player-007", "displayName": "Zara", "region": "EU"},
     ]
 
 
@@ -36,8 +39,12 @@ def test_players():
 def test_scores():
     """
     Standard scores to submit. Designed so ranking order is deterministic:
-    player-003 (9500) > player-001 (8200) > player-005 (7800) >
-    player-002 (6500) > player-004 (5000)
+    player-003 (9500) > player-001 (8200) > player-005 & player-007 (7800) >
+    player-002 & player-006 (6500) > player-004 (5000)
+
+    Tiebreaking by displayName ascending:
+    - Eve (7800) before Zara (7800)
+    - Adam (6500) before Bob (6500)
     """
     return [
         {"playerId": "player-001", "score": 8200},
@@ -49,6 +56,9 @@ def test_scores():
         {"playerId": "player-001", "score": 7000},
         {"playerId": "player-001", "score": 8200},  # duplicate of best
         {"playerId": "player-003", "score": 9000},
+        # Tiebreaking scores
+        {"playerId": "player-006", "score": 6500},  # ties with player-002 (Bob)
+        {"playerId": "player-007", "score": 7800},  # ties with player-005 (Eve)
     ]
 
 

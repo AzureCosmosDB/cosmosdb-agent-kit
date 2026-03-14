@@ -229,7 +229,11 @@ endpoints:
   update_order_status:
     method: PATCH
     path: /api/orders/{orderId}/status
-    description: Update the status of an order
+    description: >
+      Update the status of an order. Valid transitions:
+      pending → shipped, pending → cancelled, shipped → delivered.
+      Invalid transitions (e.g. shipped → pending, delivered → anything,
+      cancelled → anything) must return 409 Conflict.
     parameters:
       orderId:
         in: path
@@ -258,3 +262,60 @@ endpoints:
     errors:
       - status: 404
         description: Order not found
+      - status: 409
+        description: Invalid status transition
+
+  # ----------------------------------------------------------
+  # Customer Summary
+  # ----------------------------------------------------------
+
+  get_customer_summary:
+    method: GET
+    path: /api/customers/{customerId}/orders/summary
+    description: Get aggregated order statistics for a customer
+    parameters:
+      customerId:
+        in: path
+        type: string
+        required: true
+    response:
+      status: 200
+      body:
+        required:
+          - customerId
+          - totalOrders
+          - totalSpent
+          - averageOrderValue
+        properties:
+          customerId:
+            type: string
+          totalOrders:
+            type: integer
+            description: Count of all orders for this customer
+          totalSpent:
+            type: number
+            description: Sum of all order totals for this customer
+          averageOrderValue:
+            type: number
+            description: totalSpent / totalOrders
+
+  # ----------------------------------------------------------
+  # Order Deletion
+  # ----------------------------------------------------------
+
+  delete_order:
+    method: DELETE
+    path: /api/orders/{orderId}
+    description: Delete an order (only pending orders can be deleted)
+    parameters:
+      orderId:
+        in: path
+        type: string
+        required: true
+    response:
+      status: 204
+    errors:
+      - status: 404
+        description: Order not found
+      - status: 409
+        description: Only pending orders can be deleted

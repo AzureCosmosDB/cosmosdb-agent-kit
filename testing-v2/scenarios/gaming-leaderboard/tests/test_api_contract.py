@@ -378,3 +378,206 @@ class TestPlayerRank:
             f"Rank for nonexistent player should return 404, "
             f"got {resp.status_code}"
         )
+
+
+# ===================================================================
+# SCORE HISTORY
+# ===================================================================
+
+class TestGetPlayerScores:
+    """GET /api/players/{playerId}/scores — Player score history."""
+
+    def test_score_history_returns_200(self, api, seeded_data):
+        resp = api.request("GET", "/api/players/player-001/scores")
+        assert resp.status_code == 200, (
+            f"GET /api/players/player-001/scores should return 200, "
+            f"got {resp.status_code}. "
+            f"Response: {resp.text[:500]}"
+        )
+
+    def test_score_history_returns_array(self, api, seeded_data):
+        resp = api.request("GET", "/api/players/player-001/scores")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert isinstance(body, list), (
+            f"Score history should return an array, got {type(body).__name__}"
+        )
+
+    def test_score_history_entries_have_required_fields(self, api, seeded_data):
+        resp = api.request("GET", "/api/players/player-001/scores")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body) > 0, "player-001 submitted scores, history should not be empty"
+
+        entry = body[0]
+        required = ["scoreId", "playerId", "score", "timestamp"]
+        missing = [f for f in required if f not in entry]
+        assert not missing, (
+            f"Score history entry missing required fields: {missing}. "
+            f"Got: {list(entry.keys())}. "
+            f"See api-contract.yaml get_player_scores.response"
+        )
+
+    def test_score_history_contains_all_player_scores(self, api, seeded_data):
+        """player-001 submitted 3 scores in seed data: 8200, 7000, 8200."""
+        resp = api.request("GET", "/api/players/player-001/scores")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        scores = [entry["score"] for entry in body]
+        assert len(scores) >= 3, (
+            f"player-001 submitted 3 scores in seed data but history has {len(scores)} entries"
+        )
+
+    def test_score_history_ordered_by_most_recent_first(self, api, seeded_data):
+        """Scores should be returned with most recent first (timestamp descending)."""
+        resp = api.request("GET", "/api/players/player-001/scores")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        timestamps = [entry["timestamp"] for entry in body]
+        assert timestamps == sorted(timestamps, reverse=True), (
+            f"Score history should be ordered by timestamp descending (most recent first). "
+            f"Got timestamps: {timestamps[:5]}"
+        )
+
+    def test_score_history_respects_limit(self, api, seeded_data):
+        """limit=2 should return at most 2 scores."""
+        resp = api.request("GET", "/api/players/player-001/scores?limit=2")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body) <= 2, (
+            f"Requested limit=2 but got {len(body)} entries"
+        )
+
+    def test_score_history_for_nonexistent_player_returns_404(self, api):
+        resp = api.request("GET", "/api/players/nonexistent-xyz/scores")
+        assert resp.status_code == 404, (
+            f"Score history for nonexistent player should return 404, "
+            f"got {resp.status_code}"
+        )
+
+    def test_score_history_only_shows_own_scores(self, api, seeded_data):
+        """player-004 submitted exactly 1 score. History should only contain their scores."""
+        resp = api.request("GET", "/api/players/player-004/scores")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        for entry in body:
+            assert entry["playerId"] == "player-004", (
+                f"Score history for player-004 contains score from {entry['playerId']}. "
+                f"History must only contain the requested player's scores."
+            )
+
+
+# ===================================================================
+# UPDATE PLAYER
+# ===================================================================
+
+class TestUpdatePlayer:
+    """PATCH /api/players/{playerId} — Update player profile."""
+
+    def test_update_player_returns_200(self, api, seeded_data):
+        resp = api.request("PATCH", "/api/players/player-005", json={
+            "displayName": "Eve Updated",
+        })
+        assert resp.status_code == 200, (
+            f"PATCH /api/players/player-005 should return 200, "
+            f"got {resp.status_code}. Response: {resp.text[:500]}"
+        )
+
+    def test_update_player_response_has_required_fields(self, api, seeded_data):
+        resp = api.request("PATCH", "/api/players/player-005", json={
+            "displayName": "Eve V2",
+        })
+        assert resp.status_code == 200
+        body = resp.json()
+
+        required = ["playerId", "displayName", "region", "totalGames", "bestScore", "averageScore"]
+        missing = [f for f in required if f not in body]
+        assert not missing, (
+            f"Update response missing required fields: {missing}. "
+            f"Got: {list(body.keys())}"
+        )
+
+    def test_update_player_reflects_new_display_name(self, api, seeded_data):
+        resp = api.request("PATCH", "/api/players/player-004", json={
+            "displayName": "Diana Renamed",
+        })
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["displayName"] == "Diana Renamed", (
+            f"Updated displayName should be 'Diana Renamed', got '{body['displayName']}'"
+        )
+
+        # Verify GET also returns the updated name
+        get_resp = api.request("GET", "/api/players/player-004")
+        assert get_resp.status_code == 200
+        assert get_resp.json()["displayName"] == "Diana Renamed", (
+            f"GET after PATCH should return updated displayName"
+        )
+
+    def test_update_player_preserves_stats(self, api, seeded_data):
+        """Updating displayName should not reset stats."""
+        before = api.request("GET", "/api/players/player-004").json()
+
+        api.request("PATCH", "/api/players/player-004", json={
+            "displayName": "Diana Stats Check",
+        })
+
+        after = api.request("GET", "/api/players/player-004").json()
+        assert after["totalGames"] == before["totalGames"], (
+            f"PATCH should not reset totalGames. Before: {before['totalGames']}, After: {after['totalGames']}"
+        )
+        assert after["bestScore"] == before["bestScore"], (
+            f"PATCH should not reset bestScore. Before: {before['bestScore']}, After: {after['bestScore']}"
+        )
+
+    def test_update_nonexistent_player_returns_404(self, api):
+        resp = api.request("PATCH", "/api/players/nonexistent-xyz", json={
+            "displayName": "Ghost",
+        })
+        assert resp.status_code == 404, (
+            f"PATCH nonexistent player should return 404, got {resp.status_code}"
+        )
+
+
+# ===================================================================
+# DELETE PLAYER
+# ===================================================================
+
+class TestDeletePlayer:
+    """DELETE /api/players/{playerId} — Delete player and their data."""
+
+    def test_delete_player_returns_204(self, api, seeded_data):
+        # Create a disposable player for deletion
+        api.request("POST", "/api/players", json={
+            "playerId": "delete-me-001",
+            "displayName": "DeleteMe",
+            "region": "US",
+        })
+        resp = api.request("DELETE", "/api/players/delete-me-001")
+        assert resp.status_code == 204, (
+            f"DELETE /api/players/delete-me-001 should return 204, "
+            f"got {resp.status_code}"
+        )
+
+    def test_deleted_player_returns_404_on_get(self, api, seeded_data):
+        """After deletion, GET should return 404."""
+        api.request("POST", "/api/players", json={
+            "playerId": "delete-me-002",
+            "displayName": "DeleteMe2",
+            "region": "US",
+        })
+        api.request("DELETE", "/api/players/delete-me-002")
+
+        resp = api.request("GET", "/api/players/delete-me-002")
+        assert resp.status_code == 404, (
+            f"Deleted player should return 404 on GET, got {resp.status_code}"
+        )
+
+    def test_delete_nonexistent_player_returns_404(self, api):
+        resp = api.request("DELETE", "/api/players/nonexistent-xyz")
+        assert resp.status_code == 404, (
+            f"DELETE nonexistent player should return 404, got {resp.status_code}"
+        )

@@ -18,6 +18,7 @@ mismatches, and device data leakage.
 
 import pytest
 from datetime import datetime, timezone, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 # ===================================================================
@@ -132,7 +133,7 @@ class TestComputedFieldAccuracy:
         device-001 readings: 22.5, 23.1, 21.8
         min temperature should be 21.8
         """
-        resp = api.request("GET", "/api/devices/device-001/stats")
+        resp = api.request("GET", "/api/devices/device-001/telemetry/stats")
         assert resp.status_code == 200
         body = resp.json()
 
@@ -148,7 +149,7 @@ class TestComputedFieldAccuracy:
 
     def test_stats_temperature_max_correct(self, api, seeded_data):
         """device-001 max temperature should be 23.1"""
-        resp = api.request("GET", "/api/devices/device-001/stats")
+        resp = api.request("GET", "/api/devices/device-001/telemetry/stats")
         assert resp.status_code == 200
         body = resp.json()
 
@@ -166,7 +167,7 @@ class TestComputedFieldAccuracy:
         """
         device-001 avg temperature should be (22.5 + 23.1 + 21.8) / 3 ≈ 22.47
         """
-        resp = api.request("GET", "/api/devices/device-001/stats")
+        resp = api.request("GET", "/api/devices/device-001/telemetry/stats")
         assert resp.status_code == 200
         body = resp.json()
 
@@ -186,7 +187,7 @@ class TestComputedFieldAccuracy:
         device-001 humidity readings: 45.0, 44.0, 46.5
         min=44.0, max=46.5, avg≈45.17
         """
-        resp = api.request("GET", "/api/devices/device-001/stats")
+        resp = api.request("GET", "/api/devices/device-001/telemetry/stats")
         assert resp.status_code == 200
         body = resp.json()
 
@@ -208,7 +209,7 @@ class TestComputedFieldAccuracy:
 
     def test_stats_values_are_consistent(self, api, seeded_data):
         """min <= avg <= max for both temperature and humidity."""
-        resp = api.request("GET", "/api/devices/device-001/stats")
+        resp = api.request("GET", "/api/devices/device-001/telemetry/stats")
         assert resp.status_code == 200
         body = resp.json()
 
@@ -257,7 +258,7 @@ class TestDataTypeCorrectness:
 
     def test_telemetry_values_are_numbers(self, api, seeded_data):
         """Telemetry readings should be numeric, not strings."""
-        resp = api.request("GET", "/api/devices/device-001/readings/latest")
+        resp = api.request("GET", "/api/devices/device-001/telemetry/latest")
         assert resp.status_code == 200
         body = resp.json()
 
@@ -274,7 +275,7 @@ class TestDataTypeCorrectness:
 
     def test_stats_values_are_numeric(self, api, seeded_data):
         """Stats min/max/avg should be numbers."""
-        resp = api.request("GET", "/api/devices/device-001/stats")
+        resp = api.request("GET", "/api/devices/device-001/telemetry/stats")
         assert resp.status_code == 200
         body = resp.json()
 
@@ -357,7 +358,7 @@ class TestWriteReadConsistency:
         ingest_resp = api.request("POST", "/api/telemetry", json=reading)
         assert ingest_resp.status_code == 201
 
-        latest_resp = api.request("GET", "/api/devices/device-003/readings/latest")
+        latest_resp = api.request("GET", "/api/devices/device-003/telemetry/latest")
         assert latest_resp.status_code == 200
         body = latest_resp.json()
 
@@ -386,7 +387,7 @@ class TestDataIsolation:
 
         resp = api.request(
             "GET",
-            f"/api/devices/device-001/readings?start={start}&end={end}"
+            f"/api/devices/device-001/telemetry?start={start}&end={end}"
         )
         assert resp.status_code == 200
         readings = resp.json()
@@ -436,7 +437,7 @@ class TestEdgeCases:
         device-001 has readings at -3h, -2h, -1h.
         Latest should be the -1h reading (temp=21.8).
         """
-        resp = api.request("GET", "/api/devices/device-001/readings/latest")
+        resp = api.request("GET", "/api/devices/device-001/telemetry/latest")
         assert resp.status_code == 200
         body = resp.json()
 
@@ -466,7 +467,7 @@ class TestEdgeCases:
         assert resp.status_code == 201
         body = resp.json()
 
-        count = body.get("count", body.get("inserted", body.get("total")))
+        count = body.get("ingested", body.get("count", body.get("inserted", body.get("total"))))
         assert count == 3, (
             f"Batch ingest of 3 readings should report count=3, got {count}. "
             f"Response: {body}"
@@ -478,7 +479,7 @@ class TestEdgeCases:
         end = "2099-12-31T23:59:59Z"
         resp = api.request(
             "GET",
-            f"/api/devices/device-001/readings?start={start}&end={end}"
+            f"/api/devices/device-001/telemetry?start={start}&end={end}"
         )
         assert resp.status_code == 200
         body = resp.json()
@@ -491,7 +492,7 @@ class TestEdgeCases:
         device-003 has exactly 1 seeded reading (temp=25.0, humidity=40.0).
         Stats should return min=max=avg for each field.
         """
-        resp = api.request("GET", "/api/devices/device-003/stats")
+        resp = api.request("GET", "/api/devices/device-003/telemetry/stats")
         assert resp.status_code == 200
         body = resp.json()
 
@@ -502,3 +503,135 @@ class TestEdgeCases:
             assert temp_stats["min"] <= temp_stats["max"], (
                 f"temperature min ({temp_stats['min']}) > max ({temp_stats['max']})"
             )
+
+
+# ===================================================================
+# CONCURRENT TELEMETRY INGESTION
+# ===================================================================
+
+class TestConcurrentIngestion:
+    """
+    Verify the application handles concurrent telemetry writes correctly.
+    All readings submitted concurrently must be persisted — none lost.
+    """
+
+    def test_concurrent_ingestion_all_persisted(self, api, seeded_data):
+        """
+        Submit 15 readings concurrently for the same device.
+        All should be persisted and retrievable via time range query.
+        """
+        device_id = "concurrent-ingest-001"
+        api.request("POST", "/api/devices", json={
+            "deviceId": device_id,
+            "name": "ConcurrentTest",
+            "location": "building-A",
+            "deviceType": "sensor",
+        })
+
+        now = datetime.now(timezone.utc)
+        num_concurrent = 15
+
+        def ingest_reading(i):
+            return api.request("POST", "/api/telemetry", json={
+                "deviceId": device_id,
+                "temperature": 20.0 + i * 0.1,
+                "humidity": 50.0,
+                "batteryLevel": 90.0,
+                "timestamp": (now - timedelta(seconds=num_concurrent - i)).isoformat(),
+            })
+
+        with ThreadPoolExecutor(max_workers=num_concurrent) as executor:
+            futures = [executor.submit(ingest_reading, i) for i in range(num_concurrent)]
+            results = [f.result() for f in as_completed(futures)]
+
+        succeeded = sum(1 for r in results if r.status_code == 201)
+        assert succeeded == num_concurrent, (
+            f"Only {succeeded}/{num_concurrent} concurrent ingestions succeeded. "
+            f"Status codes: {[r.status_code for r in results]}"
+        )
+
+        # Verify all readings are retrievable
+        start = (now - timedelta(minutes=5)).isoformat()
+        end = (now + timedelta(minutes=5)).isoformat()
+        resp = api.request(
+            "GET",
+            f"/api/devices/{device_id}/telemetry?start={start}&end={end}"
+        )
+        assert resp.status_code == 200
+        readings = resp.json()
+        assert len(readings) >= num_concurrent, (
+            f"After {num_concurrent} concurrent ingestions, expected at least "
+            f"{num_concurrent} readings in time range, got {len(readings)}. "
+            f"Some concurrent writes may have been lost."
+        )
+
+
+# ===================================================================
+# UPDATE AND DELETE CONSISTENCY
+# ===================================================================
+
+class TestUpdateDeleteConsistency:
+    """
+    Verify that device updates and deletions are reflected
+    consistently across all related endpoints.
+    """
+
+    def test_deleted_device_telemetry_returns_404(self, api, seeded_data):
+        """After deleting a device, its telemetry endpoints should return 404."""
+        device_id = "delete-tel-001"
+        api.request("POST", "/api/devices", json={
+            "deviceId": device_id,
+            "name": "DeleteTelemetry",
+            "location": "building-B",
+            "deviceType": "sensor",
+        })
+        api.request("POST", "/api/telemetry", json={
+            "deviceId": device_id,
+            "temperature": 22.0,
+            "humidity": 45.0,
+            "batteryLevel": 90.0,
+        })
+
+        # Delete device
+        api.request("DELETE", f"/api/devices/{device_id}")
+
+        # Latest should return 404
+        resp = api.request("GET", f"/api/devices/{device_id}/telemetry/latest")
+        assert resp.status_code == 404, (
+            f"Latest telemetry for deleted device should return 404, "
+            f"got {resp.status_code}"
+        )
+
+    def test_updated_device_preserves_telemetry(self, api, seeded_data):
+        """Updating device metadata should not affect its telemetry readings."""
+        device_id = "update-preserve-001"
+        api.request("POST", "/api/devices", json={
+            "deviceId": device_id,
+            "name": "PreserveTelemetry",
+            "location": "building-A",
+            "deviceType": "sensor",
+        })
+        now = datetime.now(timezone.utc)
+        api.request("POST", "/api/telemetry", json={
+            "deviceId": device_id,
+            "temperature": 33.3,
+            "humidity": 55.5,
+            "batteryLevel": 80.0,
+            "timestamp": now.isoformat(),
+        })
+
+        # Update device name
+        api.request("PATCH", f"/api/devices/{device_id}", json={
+            "name": "PreserveTelemetry Updated",
+        })
+
+        # Telemetry should still be accessible
+        resp = api.request("GET", f"/api/devices/{device_id}/telemetry/latest")
+        assert resp.status_code == 200, (
+            f"Telemetry should still be accessible after device update, "
+            f"got {resp.status_code}"
+        )
+        body = resp.json()
+        assert abs(body.get("temperature", 0) - 33.3) < 0.1, (
+            f"Telemetry data should be preserved after device update"
+        )

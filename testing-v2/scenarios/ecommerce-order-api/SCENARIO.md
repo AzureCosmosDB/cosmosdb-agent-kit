@@ -83,9 +83,11 @@ Automated tests in the [`tests/`](tests/) directory validate implementations aga
 | POST | `/api/orders` | Create a new order with items (auto-calculates total) |
 | GET | `/api/orders/{orderId}` | Get order by ID |
 | GET | `/api/customers/{customerId}/orders` | Get all orders for a customer |
+| GET | `/api/customers/{customerId}/orders/summary` | Customer order summary (totals, averages) |
 | GET | `/api/orders?status=X` | Query orders by status |
 | GET | `/api/orders?startDate=X&endDate=Y` | Query orders by date range |
-| PATCH | `/api/orders/{orderId}/status` | Update order status |
+| PATCH | `/api/orders/{orderId}/status` | Update order status (409 on invalid transition) |
+| DELETE | `/api/orders/{orderId}` | Delete order (pending only, else 409) |
 
 **The agent MUST also create `iteration-config.yaml`** in the iteration folder.
 See `testing-v2/scenarios/_iteration-config-template.yaml` for the template.
@@ -129,14 +131,19 @@ Endpoints:
 - POST /api/orders                          → Body: {customerId, items[{productId, productName, quantity, unitPrice}]} → 201 with {orderId, customerId, items, totalAmount, status, orderDate}
 - GET  /api/orders/{orderId}                → 200 with full order object or 404
 - GET  /api/customers/{customerId}/orders   → 200 with array of orders
+- GET  /api/customers/{customerId}/orders/summary → 200 with {customerId, totalOrders, totalSpent, averageOrderValue}
 - GET  /api/orders?status=X                 → 200 with array of orders matching status
 - GET  /api/orders?startDate=X&endDate=Y    → 200 with array of orders in date range (ISO-8601)
-- PATCH /api/orders/{orderId}/status        → Body: {status} → 200 with updated order
+- PATCH /api/orders/{orderId}/status        → Body: {status} → 200 with updated order, or 409 for invalid transition
+- DELETE /api/orders/{orderId}              → 204 on success, 404 if not found, 409 if not pending
 
 Field naming: use camelCase (orderId, customerId, productId, productName, unitPrice, totalAmount, orderDate).
 Order totalAmount MUST be auto-calculated as sum of (quantity × unitPrice) for all items.
 Status values: pending, shipped, delivered, cancelled. New orders default to "pending".
+Status transitions: only pending→shipped, pending→cancelled, shipped→delivered are valid. All others return 409.
 orderDate must be ISO-8601 format.
+Only orders in "pending" status can be deleted; non-pending returns 409.
+Customer summary: totalSpent = sum of totalAmount, averageOrderValue = totalSpent / totalOrders.
 
 **You MUST also create a file called `iteration-config.yaml`** in your iteration folder with:
 ```yaml
@@ -189,14 +196,19 @@ Endpoints:
 - POST /api/orders                          → Body: {customerId, items[{productId, productName, quantity, unitPrice}]} → 201 with {orderId, customerId, items, totalAmount, status, orderDate}
 - GET  /api/orders/{orderId}                → 200 with full order object or 404
 - GET  /api/customers/{customerId}/orders   → 200 with array of orders
+- GET  /api/customers/{customerId}/orders/summary → 200 with {customerId, totalOrders, totalSpent, averageOrderValue}
 - GET  /api/orders?status=X                 → 200 with array of orders matching status
 - GET  /api/orders?startDate=X&endDate=Y    → 200 with array of orders in date range (ISO-8601)
-- PATCH /api/orders/{orderId}/status        → Body: {status} → 200 with updated order
+- PATCH /api/orders/{orderId}/status        → Body: {status} → 200 with updated order, or 409 for invalid transition
+- DELETE /api/orders/{orderId}              → 204 on success, 404 if not found, 409 if not pending
 
 Field naming: use camelCase (orderId, customerId, productId, productName, unitPrice, totalAmount, orderDate).
 Order totalAmount MUST be auto-calculated as sum of (quantity × unitPrice) for all items.
 Status values: pending, shipped, delivered, cancelled. New orders default to "pending".
+Status transitions: only pending→shipped, pending→cancelled, shipped→delivered are valid. All others return 409.
 orderDate must be ISO-8601 format.
+Only orders in "pending" status can be deleted; non-pending returns 409.
+Customer summary: totalSpent = sum of totalAmount, averageOrderValue = totalSpent / totalOrders.
 
 **You MUST also create a file called `iteration-config.yaml`** in your iteration folder with:
 ```yaml
@@ -249,14 +261,19 @@ Endpoints:
 - POST /api/orders                          → Body: {customerId, items[{productId, productName, quantity, unitPrice}]} → 201 with {orderId, customerId, items, totalAmount, status, orderDate}
 - GET  /api/orders/{orderId}                → 200 with full order object or 404
 - GET  /api/customers/{customerId}/orders   → 200 with array of orders
+- GET  /api/customers/{customerId}/orders/summary → 200 with {customerId, totalOrders, totalSpent, averageOrderValue}
 - GET  /api/orders?status=X                 → 200 with array of orders matching status
 - GET  /api/orders?startDate=X&endDate=Y    → 200 with array of orders in date range (ISO-8601)
-- PATCH /api/orders/{orderId}/status        → Body: {status} → 200 with updated order
+- PATCH /api/orders/{orderId}/status        → Body: {status} → 200 with updated order, or 409 for invalid transition
+- DELETE /api/orders/{orderId}              → 204 on success, 404 if not found, 409 if not pending
 
 Field naming: use camelCase (orderId, customerId, productId, productName, unitPrice, totalAmount, orderDate).
 Order totalAmount MUST be auto-calculated as sum of (quantity × unitPrice) for all items.
 Status values: pending, shipped, delivered, cancelled. New orders default to "pending".
+Status transitions: only pending→shipped, pending→cancelled, shipped→delivered are valid. All others return 409.
 orderDate must be ISO-8601 format.
+Only orders in "pending" status can be deleted; non-pending returns 409.
+Customer summary: totalSpent = sum of totalAmount, averageOrderValue = totalSpent / totalOrders.
 
 **You MUST also create a file called `iteration-config.yaml`** in your iteration folder with:
 ```yaml
@@ -309,14 +326,19 @@ Endpoints:
 - POST /api/orders                          → Body: {customerId, items[{productId, productName, quantity, unitPrice}]} → 201 with {orderId, customerId, items, totalAmount, status, orderDate}
 - GET  /api/orders/{orderId}                → 200 with full order object or 404
 - GET  /api/customers/{customerId}/orders   → 200 with array of orders
+- GET  /api/customers/{customerId}/orders/summary → 200 with {customerId, totalOrders, totalSpent, averageOrderValue}
 - GET  /api/orders?status=X                 → 200 with array of orders matching status
 - GET  /api/orders?startDate=X&endDate=Y    → 200 with array of orders in date range (ISO-8601)
-- PATCH /api/orders/{orderId}/status        → Body: {status} → 200 with updated order
+- PATCH /api/orders/{orderId}/status        → Body: {status} → 200 with updated order, or 409 for invalid transition
+- DELETE /api/orders/{orderId}              → 204 on success, 404 if not found, 409 if not pending
 
 Field naming: use camelCase (orderId, customerId, productId, productName, unitPrice, totalAmount, orderDate).
 Order totalAmount MUST be auto-calculated as sum of (quantity × unitPrice) for all items.
 Status values: pending, shipped, delivered, cancelled. New orders default to "pending".
+Status transitions: only pending→shipped, pending→cancelled, shipped→delivered are valid. All others return 409.
 orderDate must be ISO-8601 format.
+Only orders in "pending" status can be deleted; non-pending returns 409.
+Customer summary: totalSpent = sum of totalAmount, averageOrderValue = totalSpent / totalOrders.
 
 **You MUST also create a file called `iteration-config.yaml`** in your iteration folder with:
 ```yaml
@@ -369,14 +391,19 @@ Endpoints:
 - POST /api/orders                          → Body: {customerId, items[{productId, productName, quantity, unitPrice}]} → 201 with {orderId, customerId, items, totalAmount, status, orderDate}
 - GET  /api/orders/{orderId}                → 200 with full order object or 404
 - GET  /api/customers/{customerId}/orders   → 200 with array of orders
+- GET  /api/customers/{customerId}/orders/summary → 200 with {customerId, totalOrders, totalSpent, averageOrderValue}
 - GET  /api/orders?status=X                 → 200 with array of orders matching status
 - GET  /api/orders?startDate=X&endDate=Y    → 200 with array of orders in date range (ISO-8601)
-- PATCH /api/orders/{orderId}/status        → Body: {status} → 200 with updated order
+- PATCH /api/orders/{orderId}/status        → Body: {status} → 200 with updated order, or 409 for invalid transition
+- DELETE /api/orders/{orderId}              → 204 on success, 404 if not found, 409 if not pending
 
 Field naming: use camelCase (orderId, customerId, productId, productName, unitPrice, totalAmount, orderDate).
 Order totalAmount MUST be auto-calculated as sum of (quantity × unitPrice) for all items.
 Status values: pending, shipped, delivered, cancelled. New orders default to "pending".
+Status transitions: only pending→shipped, pending→cancelled, shipped→delivered are valid. All others return 409.
 orderDate must be ISO-8601 format.
+Only orders in "pending" status can be deleted; non-pending returns 409.
+Customer summary: totalSpent = sum of totalAmount, averageOrderValue = totalSpent / totalOrders.
 
 **You MUST also create a file called `iteration-config.yaml`** in your iteration folder with:
 ```yaml

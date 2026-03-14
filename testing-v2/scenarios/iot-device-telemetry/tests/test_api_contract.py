@@ -391,3 +391,210 @@ class TestDeviceStats:
         assert body.get("period") in ["24h", "24H", "1d", "1D", "24 hours"], (
             f"Stats period should reflect the requested period, got '{body.get('period')}'"
         )
+
+
+# ===================================================================
+# UPDATE DEVICE
+# ===================================================================
+
+class TestUpdateDevice:
+    """PATCH /api/devices/{deviceId} — Update device metadata."""
+
+    def test_update_device_returns_200(self, api, seeded_data):
+        resp = api.request("PATCH", "/api/devices/device-005", json={
+            "name": "Sensor C1 Updated",
+        })
+        assert resp.status_code == 200, (
+            f"PATCH /api/devices/device-005 should return 200, "
+            f"got {resp.status_code}. Response: {resp.text[:500]}"
+        )
+
+    def test_update_device_response_has_required_fields(self, api, seeded_data):
+        resp = api.request("PATCH", "/api/devices/device-005", json={
+            "name": "Sensor C1 V2",
+        })
+        assert resp.status_code == 200
+        body = resp.json()
+
+        required = ["deviceId", "name", "location", "deviceType"]
+        missing = [f for f in required if f not in body]
+        assert not missing, (
+            f"Update response missing required fields: {missing}. "
+            f"Got: {list(body.keys())}"
+        )
+
+    def test_update_device_reflects_new_name(self, api, seeded_data):
+        resp = api.request("PATCH", "/api/devices/device-004", json={
+            "name": "Gateway B1 Renamed",
+        })
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["name"] == "Gateway B1 Renamed"
+
+        # Verify GET also returns updated name
+        get_resp = api.request("GET", "/api/devices/device-004")
+        assert get_resp.status_code == 200
+        assert get_resp.json()["name"] == "Gateway B1 Renamed"
+
+    def test_update_device_location_reflected_in_queries(self, api, seeded_data):
+        """Moving a device to a new location should update location queries."""
+        # Create disposable device
+        api.request("POST", "/api/devices", json={
+            "deviceId": "move-test-001",
+            "name": "MovableDevice",
+            "location": "building-A",
+            "deviceType": "sensor",
+        })
+
+        # Move to building-B
+        resp = api.request("PATCH", "/api/devices/move-test-001", json={
+            "location": "building-B",
+        })
+        assert resp.status_code == 200
+
+        # Verify in building-B device list
+        resp = api.request("GET", "/api/devices?location=building-B")
+        device_ids = {d["deviceId"] for d in resp.json()}
+        assert "move-test-001" in device_ids, (
+            "Device should appear in building-B after location update"
+        )
+
+        # Verify NOT in building-A anymore
+        resp = api.request("GET", "/api/devices?location=building-A")
+        device_ids = {d["deviceId"] for d in resp.json()}
+        assert "move-test-001" not in device_ids, (
+            "Device should no longer appear in building-A after moving to building-B"
+        )
+
+    def test_update_nonexistent_device_returns_404(self, api):
+        resp = api.request("PATCH", "/api/devices/nonexistent-xyz", json={
+            "name": "Ghost",
+        })
+        assert resp.status_code == 404
+
+
+# ===================================================================
+# DELETE DEVICE
+# ===================================================================
+
+class TestDeleteDevice:
+    """DELETE /api/devices/{deviceId} — Delete device and its data."""
+
+    def test_delete_device_returns_204(self, api, seeded_data):
+        api.request("POST", "/api/devices", json={
+            "deviceId": "delete-me-001",
+            "name": "DeleteMe",
+            "location": "building-A",
+            "deviceType": "sensor",
+        })
+        resp = api.request("DELETE", "/api/devices/delete-me-001")
+        assert resp.status_code == 204, (
+            f"DELETE device should return 204, got {resp.status_code}"
+        )
+
+    def test_deleted_device_returns_404_on_get(self, api, seeded_data):
+        api.request("POST", "/api/devices", json={
+            "deviceId": "delete-me-002",
+            "name": "DeleteMe2",
+            "location": "building-A",
+            "deviceType": "sensor",
+        })
+        api.request("DELETE", "/api/devices/delete-me-002")
+
+        resp = api.request("GET", "/api/devices/delete-me-002")
+        assert resp.status_code == 404
+
+    def test_delete_nonexistent_device_returns_404(self, api):
+        resp = api.request("DELETE", "/api/devices/nonexistent-xyz")
+        assert resp.status_code == 404
+
+    def test_deleted_device_removed_from_location_query(self, api, seeded_data):
+        """After deletion, device should not appear in location queries."""
+        api.request("POST", "/api/devices", json={
+            "deviceId": "delete-loc-001",
+            "name": "DeleteLoc",
+            "location": "warehouse-1",
+            "deviceType": "sensor",
+        })
+
+        # Verify it's in the location list
+        resp = api.request("GET", "/api/devices?location=warehouse-1")
+        assert "delete-loc-001" in {d["deviceId"] for d in resp.json()}
+
+        # Delete
+        api.request("DELETE", "/api/devices/delete-loc-001")
+
+        # Verify removed
+        resp = api.request("GET", "/api/devices?location=warehouse-1")
+        assert "delete-loc-001" not in {d["deviceId"] for d in resp.json()}, (
+            "Deleted device should not appear in location queries"
+        )
+
+
+# ===================================================================
+# LOCATION TELEMETRY SUMMARY
+# ===================================================================
+
+class TestLocationSummary:
+    """GET /api/locations/{location}/telemetry/latest — Latest reading per device."""
+
+    def test_location_summary_returns_200(self, api, seeded_data):
+        resp = api.request("GET", "/api/locations/building-A/telemetry/latest")
+        assert resp.status_code == 200, (
+            f"GET location summary should return 200, got {resp.status_code}. "
+            f"Response: {resp.text[:500]}"
+        )
+
+    def test_location_summary_returns_array(self, api, seeded_data):
+        resp = api.request("GET", "/api/locations/building-A/telemetry/latest")
+        body = resp.json()
+        assert isinstance(body, list), (
+            f"Location summary should return an array, got {type(body).__name__}"
+        )
+
+    def test_location_summary_has_required_fields(self, api, seeded_data):
+        resp = api.request("GET", "/api/locations/building-A/telemetry/latest")
+        body = resp.json()
+        assert len(body) > 0, "building-A has devices with readings"
+
+        entry = body[0]
+        required = ["deviceId", "temperature", "humidity", "batteryLevel", "timestamp"]
+        missing = [f for f in required if f not in entry]
+        assert not missing, (
+            f"Location summary entry missing required fields: {missing}. "
+            f"Got: {list(entry.keys())}"
+        )
+
+    def test_location_summary_contains_correct_devices(self, api, seeded_data):
+        """building-A has device-001 and device-002 with readings."""
+        resp = api.request("GET", "/api/locations/building-A/telemetry/latest")
+        body = resp.json()
+        device_ids = {e["deviceId"] for e in body}
+
+        assert "device-001" in device_ids, (
+            "device-001 (building-A) should have a latest reading in the summary"
+        )
+        assert "device-002" in device_ids, (
+            "device-002 (building-A) should have a latest reading in the summary"
+        )
+        # device-003 is in building-B, should NOT be here
+        assert "device-003" not in device_ids, (
+            "device-003 (building-B) should not appear in building-A summary"
+        )
+
+    def test_location_summary_one_entry_per_device(self, api, seeded_data):
+        """Each device should appear at most once (latest reading only)."""
+        resp = api.request("GET", "/api/locations/building-A/telemetry/latest")
+        body = resp.json()
+        device_ids = [e["deviceId"] for e in body]
+        duplicates = [d for d in set(device_ids) if device_ids.count(d) > 1]
+        assert not duplicates, (
+            f"Devices appear multiple times in location summary: {duplicates}. "
+            f"Each device should have exactly one entry (its latest reading)."
+        )
+
+    def test_empty_location_returns_empty_array(self, api, seeded_data):
+        resp = api.request("GET", "/api/locations/nonexistent-location/telemetry/latest")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert isinstance(body, list) and len(body) == 0
