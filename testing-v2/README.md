@@ -111,7 +111,8 @@ testing-v2/
 │   │   └── tests/                         # pytest suite
 │   │       ├── conftest.py                # Fixtures and test data
 │   │       ├── test_api_contract.py       # HTTP contract tests
-│   │       └── test_data_integrity.py     # Cosmos DB verification tests
+│   │       ├── test_data_integrity.py     # Cosmos DB verification tests
+│   │       └── test_cosmos_infrastructure.py  # Infrastructure & SDK tests
 │   ├── ecommerce-order-api/               # 7 endpoints, order lifecycle
 │   ├── iot-device-telemetry/              # 9 endpoints, time-series + aggregation
 │   ├── ai-chat-rag/                       # 8 endpoints, RAG with vector search
@@ -177,6 +178,44 @@ These are machine-readable instruction documents. The coding agent follows them 
 Each scenario has an `api-contract.yaml` defining every endpoint, field name, type, status code,
 and error response. Tests are written against this contract. Agent prompts include it verbatim
 in a **CRITICAL: API Contract Requirements** block.
+
+### Test Categories
+
+Each scenario has up to 4 categories of tests, each measuring a different layer:
+
+| Category | File | What It Measures | Signal Source |
+|----------|------|-----------------|---------------|
+| **API Contract** | `test_api_contract.py` | HTTP endpoints match the contract: correct paths, status codes, field names, types | Functional correctness — catches wrong routes, missing fields |
+| **Data Integrity** | `test_data_integrity.py` | Data round-trips correctly through the API: writes match reads, relationships hold | Logical correctness — catches inconsistent data, orphaned refs |
+| **Robustness** | `test_robustness.py` | Error handling and edge cases: bad input, missing items, concurrent updates | Defensive coding — catches missing validation, bad error codes |
+| **Cosmos Infrastructure** | `test_cosmos_infrastructure.py` | Below-the-HTTP-surface quality: partition keys, indexing, serialization, SDK patterns | **Skills effectiveness** — catches anti-patterns that HTTP tests miss |
+
+The first three categories test what the API does; the fourth tests _how_ the app is built.
+
+#### Why Cosmos Infrastructure Tests Matter
+
+A cross-partition fan-out query returns the same correct JSON response as an optimized point read.
+HTTP contract tests can't tell the difference. Similarly, default indexing policies, Gateway
+connection mode, integer enum serialization, and missing ETag concurrency controls all produce
+correct HTTP responses but indicate the agent didn't apply Cosmos DB best practices.
+
+Cosmos infrastructure tests connect directly to Cosmos DB via the Python SDK to inspect:
+- **Container configuration**: partition keys, indexing policies, throughput settings
+- **Document structure**: type discriminators, schema versioning, embedded vs. referenced data
+- **Serialization correctness**: enums as strings (not integers), timestamps as ISO 8601, numbers not stored as strings
+- **Cross-boundary consistency**: write through the API, read directly from Cosmos DB — values must match
+
+These tests are the primary differentiator between skills-loaded and no-skills control runs.
+
+### Build & Startup Signals
+
+In addition to test results, CI captures build and startup signals:
+- **Build signal** (`build-signal.json`): Whether the first build attempt succeeded or failed, with stdout/stderr output
+- **Startup signal** (`startup-signal.json`): Whether the app started and passed the health check
+
+Build failures indicate missing dependencies, wrong API signatures, or SDK misconfiguration.
+These failures are penalized in the score even if the agent later fixes them, because they
+reveal gaps in the agent's knowledge that the skills should have prevented.
 
 ---
 
@@ -259,6 +298,9 @@ pytest tests/test_api_contract.py -v
 # Run only data integrity tests
 pytest tests/test_data_integrity.py -v
 
+# Run only infrastructure/SDK tests
+pytest tests/test_cosmos_infrastructure.py -v
+
 # Run a specific test class
 pytest tests/test_api_contract.py::TestGlobalLeaderboard -v
 ```
@@ -312,8 +354,9 @@ Configure per-iteration via `iteration-config.yaml`.
 | `testing-v2/CREATE-SCENARIO.md` | Recipe for scenario creation | Maintainer |
 | `testing-v2/EVALUATE.md` | Recipe for failure evaluation + rule creation | Maintainer |
 | `testing-v2/IMPROVEMENTS-LOG.md` | Log of discovered gaps and rules created | Agent + Human |
-| `testing-v2/harness/conftest_base.py` | Shared pytest fixtures | Maintainer |
-| `testing-v2/harness/report.py` | Structured JSON + Markdown test reports | Maintainer |
+| `testing-v2/harness/conftest_base.py` | Shared pytest fixtures (including Cosmos DB direct access) | Maintainer |
+| `testing-v2/harness/evaluate.py` | Automated evaluation and ITERATION.md generation | Maintainer |
+| `testing-v2/harness/report.py` | Structured JSON + Markdown test reports with category breakdowns | Maintainer |
 | `scenarios/<name>/api-contract.yaml` | API spec (tests validate against this) | Created at scenario setup |
 | `scenarios/<name>/tests/*.py` | pytest test suite | Created at scenario setup |
 | `scenarios/<name>/SCENARIO.md` | Requirements + agent prompts | Created at scenario setup |
