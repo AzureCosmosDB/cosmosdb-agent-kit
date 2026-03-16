@@ -30,7 +30,8 @@ testing-v2/scenarios/<scenario-name>/
 ├── tests/
 │   ├── conftest.py
 │   ├── test_api_contract.py
-│   └── test_data_integrity.py
+│   ├── test_data_integrity.py
+│   └── test_cosmos_infrastructure.py
 └── iterations/
     └── .gitkeep
 ```
@@ -224,7 +225,94 @@ class TestPartitionKeyDesign:
 **Keep these tests generic.** They check Cosmos DB design regardless of the scenario.
 Add scenario-specific data integrity tests only when relevant (e.g., checking multi-tenant isolation).
 
-### 6. Generate `SCENARIO.md`
+### 6. Generate `tests/test_cosmos_infrastructure.py`
+
+This file tests BELOW the HTTP API surface — it connects directly to Cosmos DB
+via the Python SDK to verify infrastructure decisions and SDK patterns.
+
+**Use existing scenario files as reference:**
+- `gaming-leaderboard/tests/test_cosmos_infrastructure.py`
+- `ecommerce-order-api/tests/test_cosmos_infrastructure.py`
+
+**Required test classes (adapt to the scenario's domain):**
+
+```python
+"""
+Cosmos DB Infrastructure & SDK Behavior Tests — <Scenario Name>
+"""
+
+import pytest
+
+
+class TestContainerPartitionKeys:
+    """Verify the primary container uses a domain-appropriate partition key."""
+
+    def test_main_container_partition_key(self, cosmos_containers):
+        """The main container should use the scenario's natural partition key."""
+        # Check cosmos_containers for the expected partition key path
+        # e.g., /customerId for orders, /userId for sessions, /tenantId for SaaS
+        ...
+
+    def test_no_id_only_partition_key(self, cosmos_containers):
+        """No container should use /id as its sole partition key."""
+        for c in cosmos_containers:
+            paths = c.get("partitionKey", {}).get("paths", [])
+            assert paths != ["/id"], (
+                f"Container '{c['id']}' uses /id as sole partition key"
+            )
+
+
+class TestIndexingPolicies:
+    """At least one container should have custom indexing."""
+
+    def test_custom_indexing_policy(self, cosmos_containers):
+        ...
+
+
+class TestThroughputConfiguration:
+    """Database or containers should have throughput configured."""
+
+    def test_throughput_is_set(self, cosmos_database, cosmos_containers):
+        ...
+
+
+class TestDocumentStructure:
+    """Documents should have type discriminators and schema versions."""
+
+    def test_type_discriminator_present(self, cosmos_container_map, seeded_data):
+        ...
+
+    def test_schema_version_present(self, cosmos_container_map, seeded_data):
+        ...
+
+
+class TestEnumSerialization:
+    """Enum/status fields should be stored as strings, not integers."""
+
+    def test_status_stored_as_string(self, cosmos_container_map, seeded_data):
+        # Read directly from Cosmos DB, check type(value) is str
+        ...
+
+
+class TestCrossBoundaryConsistency:
+    """Write via API, read from Cosmos DB — values must match."""
+
+    def test_entity_stored_with_correct_fields(self, cosmos_container_map, seeded_data):
+        # Query Cosmos DB for an entity created by seeded_data
+        # Compare field values with what the API returned
+        ...
+```
+
+**Key principles for infrastructure tests:**
+- Use `cosmos_containers` fixture for config checks (partition keys, indexing, throughput)
+- Use `cosmos_container_map` fixture for reading stored documents
+- Include at least one cross-boundary test: write via HTTP API, read from Cosmos DB directly
+- For enum fields (status, role, priority, type), verify they're stored as **strings** not integers
+- For timestamps, verify they're stored as **ISO 8601 strings** not epoch numbers
+- Always include actionable assertion messages that reference the relevant rule name
+- These tests should be the ones most likely to **fail without** the best practices skills loaded
+
+### 7. Generate `SCENARIO.md`
 
 Follow the exact structure of `gaming-leaderboard/SCENARIO.md`. It must contain:
 
@@ -270,7 +358,7 @@ The Cosmos DB connection uses environment variables:
 Do NOT hardcode connection strings. Read them from environment variables or configuration.
 ```
 
-### 7. Create `iterations/.gitkeep`
+### 8. Create `iterations/.gitkeep`
 
 Create an empty file at `testing-v2/scenarios/<scenario-name>/iterations/.gitkeep` to ensure
 the directory is tracked by git.
@@ -283,6 +371,10 @@ Before opening the PR, verify:
 - [ ] Every endpoint in the contract has at least one test in `test_api_contract.py`
 - [ ] All field names are camelCase throughout (contract, tests, prompts)
 - [ ] `conftest.py` imports `from conftest_base import *` and has a `seeded_data` fixture
+- [ ] `test_cosmos_infrastructure.py` exists with partition key, indexing, serialization, and cross-boundary tests
+- [ ] Infrastructure tests use `cosmos_containers`, `cosmos_container_map`, and `cosmos_database` fixtures
+- [ ] At least one cross-boundary test exists (write via API, read from Cosmos DB directly)
+- [ ] Enum/status fields are validated to be stored as strings (not integers)
 - [ ] `SCENARIO.md` has prompts for at least Python, .NET, Java, Node.js, and Go
 - [ ] Every prompt ends with the CRITICAL API Contract Requirements block
 - [ ] Every prompt includes the `iteration-config.yaml` requirement

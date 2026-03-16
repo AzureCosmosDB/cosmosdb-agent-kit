@@ -116,6 +116,7 @@ body:
         testing-v2/scenarios/gaming-leaderboard/tests/conftest.py
         testing-v2/scenarios/gaming-leaderboard/tests/test_api_contract.py
         testing-v2/scenarios/gaming-leaderboard/tests/test_data_integrity.py
+        testing-v2/scenarios/gaming-leaderboard/tests/test_cosmos_infrastructure.py
         testing-v2/scenarios/gaming-leaderboard/SCENARIO.md
         ```
 
