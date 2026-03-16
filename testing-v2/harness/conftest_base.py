@@ -230,3 +230,18 @@ def cosmos_database(cosmos_client, iteration_config):
     """The Cosmos DB database used by the app."""
     db_name = iteration_config.get("database", "gaming-leaderboard-db")
     return cosmos_client.get_database_client(db_name)
+
+
+@pytest.fixture(scope="session")
+def cosmos_containers(cosmos_database):
+    """All container properties in the database, cached for the session."""
+    return list(cosmos_database.list_containers())
+
+
+@pytest.fixture(scope="session")
+def cosmos_container_map(cosmos_database, cosmos_containers):
+    """Map of container name → container client for direct queries."""
+    return {
+        c["id"]: cosmos_database.get_container_client(c["id"])
+        for c in cosmos_containers
+    }

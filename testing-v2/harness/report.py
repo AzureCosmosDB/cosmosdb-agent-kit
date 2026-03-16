@@ -244,11 +244,97 @@ def _cli_main():
     passed = total - failures - errors - skipped
     pass_rate = round(passed / total * 100, 1) if total > 0 else 0
 
+    # --- Categorize test results by file for better signal reporting ---
+    category_counts = {}
+    for tc in root.iter("testcase"):
+        classname = tc.get("classname", "")
+        name = tc.get("name", "")
+        failure = tc.find("failure")
+        error = tc.find("error")
+        skipped_el = tc.find("skipped")
+
+        # Determine category from classname or test file
+        if "cosmos_infrastructure" in classname or "cosmos_infrastructure" in name:
+            cat = "cosmos_infrastructure"
+        elif "data_integrity" in classname:
+            cat = "data_integrity"
+        elif "robustness" in classname:
+            cat = "robustness"
+        elif "api_contract" in classname:
+            cat = "api_contract"
+        else:
+            cat = "other"
+
+        if cat not in category_counts:
+            category_counts[cat] = {"passed": 0, "failed": 0, "errors": 0, "skipped": 0}
+
+        if failure is not None:
+            category_counts[cat]["failed"] += 1
+        elif error is not None:
+            category_counts[cat]["errors"] += 1
+        elif skipped_el is not None:
+            category_counts[cat]["skipped"] += 1
+        else:
+            category_counts[cat]["passed"] += 1
+
+    # --- Load build signal if available ---
+    build_signal = None
+    for signal_path in [
+        Path("build-signal.json"),
+        Path(iteration_dir) / "build-signal.json" if iteration_dir else None,
+    ]:
+        if signal_path and signal_path.exists():
+            try:
+                build_signal = json.loads(signal_path.read_text(errors="replace"))
+            except Exception:
+                pass
+            break
+
+    # --- Load startup signal if available ---
+    startup_signal = None
+    signal_path = Path("startup-signal.json")
+    if signal_path.exists():
+        try:
+            startup_signal = json.loads(signal_path.read_text(errors="replace"))
+        except Exception:
+            pass
+
     lines = [
         f"## [Test] Test Results: {scenario} / {iteration}",
         "",
         f"**Pass rate: {pass_rate}%** ({passed}/{total} tests passed)",
         "",
+    ]
+
+    # --- Build/Startup Signal Section ---
+    if build_signal or startup_signal:
+        lines.extend([
+            "### Build & Startup Signals",
+            "",
+        ])
+        if build_signal:
+            build_ok = build_signal.get("succeeded", True)
+            lines.append(f"- **Build**: {'PASS' if build_ok else 'FAIL'} (exit code: {build_signal.get('exit_code', '?')})")
+            if not build_ok:
+                stderr = build_signal.get("stderr_tail", "")
+                if stderr:
+                    lines.extend([
+                        "  <details>",
+                        "  <summary>Build error output</summary>",
+                        "",
+                        "  ```",
+                        f"  {stderr[:1000]}",
+                        "  ```",
+                        "",
+                        "  </details>",
+                    ])
+        if startup_signal:
+            start_ok = startup_signal.get("startup_succeeded", True)
+            lines.append(f"- **Startup**: {'PASS' if start_ok else 'FAIL'}")
+        lines.append("")
+
+    # --- Test Results Table ---
+    lines.extend([
         "| Status | Count |",
         "|--------|-------|",
         f"| [PASS] Passed | {passed} |",
@@ -256,7 +342,28 @@ def _cli_main():
         f"| [ERR] Errors | {errors} |",
         f"| [SKIP] Skipped | {skipped} |",
         "",
-    ]
+    ])
+
+    # --- Category Breakdown ---
+    if category_counts:
+        cat_labels = {
+            "api_contract": "API Contract",
+            "data_integrity": "Data Integrity",
+            "robustness": "Robustness",
+            "cosmos_infrastructure": "Cosmos DB Infrastructure & SDK",
+            "other": "Other",
+        }
+        lines.extend([
+            "### Results by Category",
+            "",
+            "| Category | Passed | Failed | Skipped |",
+            "|----------|--------|--------|---------|",
+        ])
+        for cat, counts in sorted(category_counts.items()):
+            label = cat_labels.get(cat, cat)
+            f_count = counts["failed"] + counts["errors"]
+            lines.append(f"| {label} | {counts['passed']} | {f_count} | {counts['skipped']} |")
+        lines.append("")
 
     failure_details = []
     for tc in root.iter("testcase"):
@@ -303,6 +410,9 @@ def _cli_main():
             "skipped": skipped,
             "pass_rate": pass_rate,
         },
+        "categories": category_counts,
+        "build_signal": build_signal,
+        "startup_signal": startup_signal,
         "failures": failure_details,
     }
     Path("test-report.json").write_text(json.dumps(report_json, indent=2), encoding="utf-8")

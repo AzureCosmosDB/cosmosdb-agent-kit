@@ -309,10 +309,51 @@ jobs:
       # Build the iteration app
       # ------------------------------------------------------------------
       - name: Build application
+        id: build_app
         if: steps.config.outputs.build_cmd != ''
         working-directory: ${{ env.ITERATION_DIR }}
         shell: pwsh
-        run: ${{ steps.config.outputs.build_cmd }}
+        run: |
+          $buildCmd = "${{ steps.config.outputs.build_cmd }}"
+          Write-Host "Running build: $buildCmd"
+
+          # Capture build output for signal recording
+          $buildLog = Join-Path $PWD "build-output.log"
+          $buildErr = Join-Path $PWD "build-error.log"
+
+          & cmd /c "$buildCmd > `"$buildLog`" 2> `"$buildErr`""
+          $exitCode = $LASTEXITCODE
+
+          # Record build signal: first-attempt result
+          $signal = @{
+            build_command   = $buildCmd
+            exit_code       = $exitCode
+            succeeded       = ($exitCode -eq 0)
+            stdout_tail     = ""
+            stderr_tail     = ""
+          }
+          if (Test-Path $buildLog) {
+            $signal.stdout_tail = (Get-Content $buildLog -Tail 30 -ErrorAction SilentlyContinue) -join "`n"
+          }
+          if (Test-Path $buildErr) {
+            $signal.stderr_tail = (Get-Content $buildErr -Tail 30 -ErrorAction SilentlyContinue) -join "`n"
+          }
+          $signal | ConvertTo-Json -Depth 3 | Set-Content "build-signal.json" -Encoding utf8
+          Write-Host "Build signal recorded (exit code: $exitCode)"
+
+          # Also write to the workflow artifact location
+          Copy-Item "build-signal.json" (Join-Path $env:GITHUB_WORKSPACE "build-signal.json") -ErrorAction SilentlyContinue
+
+          "build_succeeded=$($exitCode -eq 0)" >> $env:GITHUB_OUTPUT
+
+          if ($exitCode -ne 0) {
+            Write-Host "--- Build stdout (last 50 lines) ---"
+            if (Test-Path $buildLog) { Get-Content $buildLog -Tail 50 }
+            Write-Host "--- Build stderr (last 50 lines) ---"
+            if (Test-Path $buildErr) { Get-Content $buildErr -Tail 50 }
+            Write-Error "Build failed with exit code $exitCode"
+            exit $exitCode
+          }
 
       # ------------------------------------------------------------------
       # Trust the Cosmos DB Emulator self-signed certificate
@@ -480,8 +521,26 @@ jobs:
             Write-Host "--- stderr (last 80 lines) ---"
             if (Test-Path $stderrLog) { Get-Content $stderrLog -Tail 80 }
             & taskkill /PID $process.Id /T /F 2>$null
+
+            # Record startup failure signal
+            $signal = @{
+              startup_succeeded = $false
+              error = "App did not start within 120 seconds"
+              stderr_tail = if (Test-Path $stderrLog) { (Get-Content $stderrLog -Tail 30) -join "`n" } else { "" }
+              stdout_tail = if (Test-Path $stdoutLog) { (Get-Content $stdoutLog -Tail 30) -join "`n" } else { "" }
+            }
+            $signal | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $env:GITHUB_WORKSPACE "startup-signal.json") -Encoding utf8
+
             exit 1
           }
+
+          # Record startup success signal
+          $signal = @{
+            startup_succeeded = $true
+            port = ${{ steps.config.outputs.port }}
+            health_url = $healthUrl
+          }
+          $signal | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $env:GITHUB_WORKSPACE "startup-signal.json") -Encoding utf8
 
       - name: Setup test environment
         if: steps.start_app.outcome == 'success'
@@ -1020,8 +1079,13 @@ jobs:
             test-report.json
             test-report.md
             test-output.txt
+            build-signal.json
+            startup-signal.json
             ${{ env.ITERATION_DIR }}/app-output.log
             ${{ env.ITERATION_DIR }}/app-error.log
+            ${{ env.ITERATION_DIR }}/build-output.log
+            ${{ env.ITERATION_DIR }}/build-error.log
+            ${{ env.ITERATION_DIR }}/build-signal.json
 
       - name: Fail if tests failed
         if: steps.tests.outputs.exit_code != '0' || steps.start_app.outcome != 'success' || steps.start_emulator.outcome != 'success'

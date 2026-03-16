@@ -27,11 +27,24 @@ from pathlib import Path
 
 
 def load_test_results():
-    """Load test-report.json from the current directory."""
+    """Load test-report.json and signal files from the current directory."""
     path = Path("test-report.json")
     if not path.exists():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    report = json.loads(path.read_text(encoding="utf-8"))
+
+    # Load build/startup signals if not already in the report
+    if "build_signal" not in report:
+        bs = Path("build-signal.json")
+        if bs.exists():
+            report["build_signal"] = json.loads(bs.read_text(encoding="utf-8"))
+
+    if "startup_signal" not in report:
+        ss = Path("startup-signal.json")
+        if ss.exists():
+            report["startup_signal"] = json.loads(ss.read_text(encoding="utf-8"))
+
+    return report
 
 
 def list_source_files(iteration_dir):
@@ -83,29 +96,53 @@ def scan_code_patterns(iteration_dir):
 
 
 def compute_score(report):
-    """Map pass rate to a 1-10 score."""
+    """
+    Map pass rate to a 1-10 score, factoring in build/startup signals.
+
+    Build failures and infrastructure test failures are weighted:
+    - Build failure on first attempt: -1 from score
+    - Startup failure: score capped at 1
+    - Cosmos infrastructure test failures: -1 per 3 failures
+    """
     if report is None or report.get("startup_failed"):
         return 1
     rate = report.get("summary", {}).get("pass_rate", 0)
+
     if rate == 100:
-        return 10
-    if rate >= 90:
-        return 9
-    if rate >= 80:
-        return 8
-    if rate >= 70:
-        return 7
-    if rate >= 60:
-        return 6
-    if rate >= 50:
-        return 5
-    if rate >= 40:
-        return 4
-    if rate >= 25:
-        return 3
-    if rate > 0:
-        return 2
-    return 1
+        base = 10
+    elif rate >= 90:
+        base = 9
+    elif rate >= 80:
+        base = 8
+    elif rate >= 70:
+        base = 7
+    elif rate >= 60:
+        base = 6
+    elif rate >= 50:
+        base = 5
+    elif rate >= 40:
+        base = 4
+    elif rate >= 25:
+        base = 3
+    elif rate > 0:
+        base = 2
+    else:
+        base = 1
+
+    # Penalize for build failure (first attempt) if signal is available
+    build_signal = report.get("build_signal")
+    if build_signal and not build_signal.get("succeeded", True):
+        base = max(1, base - 1)
+
+    # Penalize for cosmos infrastructure test failures
+    categories = report.get("categories", {})
+    infra = categories.get("cosmos_infrastructure", {})
+    infra_failures = infra.get("failed", 0) + infra.get("errors", 0)
+    if infra_failures > 0:
+        penalty = (infra_failures + 2) // 3  # -1 per 3 failures
+        base = max(1, base - penalty)
+
+    return base
 
 
 def generate_iteration_md(scenario, iteration, report, patterns, source_files, skills_loaded):
@@ -221,12 +258,59 @@ def generate_iteration_md(scenario, iteration, report, patterns, source_files, s
         "",
     ])
 
+    # Build & Startup Signals section
+    build_signal = report.get("build_signal") if report else None
+    startup_signal = report.get("startup_signal") if report else None
+    if build_signal or startup_signal:
+        lines.extend(["## Build & Startup Signals", ""])
+        if build_signal:
+            build_ok = build_signal.get("succeeded", True)
+            lines.append(f"- **Build**: {'PASS' if build_ok else 'FAIL'}")
+            if not build_ok:
+                stderr = build_signal.get("stderr_tail", "")
+                if stderr:
+                    lines.extend(["  ```", f"  {stderr[:500]}", "  ```"])
+        if startup_signal:
+            start_ok = startup_signal.get("startup_succeeded", True)
+            lines.append(f"- **Startup**: {'PASS' if start_ok else 'FAIL'}")
+            if not start_ok:
+                err = startup_signal.get("error", "")
+                if err:
+                    lines.append(f"  > {err[:300]}")
+        lines.append("")
+
+    # Results by Category section
+    categories = report.get("categories", {}) if report else {}
+    if categories:
+        lines.extend([
+            "## Results by Category",
+            "",
+            "| Category | Passed | Failed | Skipped |",
+            "|----------|--------|--------|---------|",
+        ])
+        for cat, counts in sorted(categories.items()):
+            lines.append(
+                f"| {cat} | {counts.get('passed', 0)} | "
+                f"{counts.get('failed', 0) + counts.get('errors', 0)} | "
+                f"{counts.get('skipped', 0)} |"
+            )
+        lines.append("")
+
+    # Score Summary
+    score_notes = [f"{pass_rate}% pass rate"]
+    if build_signal and not build_signal.get("succeeded", True):
+        score_notes.append("build failure penalty")
+    infra = categories.get("cosmos_infrastructure", {})
+    infra_failures = infra.get("failed", 0) + infra.get("errors", 0)
+    if infra_failures > 0:
+        score_notes.append(f"{infra_failures} infrastructure failures")
+
     lines.extend([
         "## Score Summary",
         "",
         "| Category | Score | Notes |",
         "|----------|-------|-------|",
-        f"| API Conformance | {score}/10 | {pass_rate}% pass rate |",
+        f"| API Conformance | {score}/10 | {'; '.join(score_notes)} |",
         f"| **Overall** | **{score}/10** | **{result_text}** |",
         "",
     ])
@@ -269,6 +353,24 @@ def update_improvements_log(scenario, iteration, report, skills_loaded):
         f"- **Score**: {score}/10",
         "",
     ]
+
+    # Add category breakdown if available
+    categories = report.get("categories", {}) if report else {}
+    if categories:
+        entry_lines.append("**Results by Category**:")
+        for cat, counts in sorted(categories.items()):
+            cat_failed = counts.get("failed", 0) + counts.get("errors", 0)
+            entry_lines.append(
+                f"- {cat}: {counts.get('passed', 0)} passed, "
+                f"{cat_failed} failed, {counts.get('skipped', 0)} skipped"
+            )
+        entry_lines.append("")
+
+    # Add build signal if available
+    build_signal = report.get("build_signal") if report else None
+    if build_signal and not build_signal.get("succeeded", True):
+        entry_lines.append("**Build failure on first attempt**")
+        entry_lines.append("")
 
     failures = report.get("failures", []) if report else []
     if failures:
