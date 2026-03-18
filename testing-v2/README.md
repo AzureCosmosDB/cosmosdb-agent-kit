@@ -194,28 +194,78 @@ The first three categories test what the API does; the fourth tests _how_ the ap
 
 #### Why Cosmos Infrastructure Tests Matter
 
-A cross-partition fan-out query returns the same correct JSON response as an optimized point read.
-HTTP contract tests can't tell the difference. Similarly, default indexing policies, Gateway
-connection mode, integer enum serialization, and missing ETag concurrency controls all produce
-correct HTTP responses but indicate the agent didn't apply Cosmos DB best practices.
+HTTP contract tests only verify *what* the API returns — correct routes, status codes, and field names.
+An agent can produce a working API that passes every contract test yet still be poorly built: using
+`/id` as the partition key, missing composite indexes, storing enums as integers, or not using ETag
+concurrency. Infrastructure tests catch these problems by connecting directly to Cosmos DB and
+inspecting the containers, indexing policies, and stored documents.
 
-Cosmos infrastructure tests connect directly to Cosmos DB via the Python SDK to inspect:
-- **Container configuration**: partition keys, indexing policies, throughput settings
-- **Document structure**: type discriminators, schema versioning, embedded vs. referenced data
-- **Serialization correctness**: enums as strings (not integers), timestamps as ISO 8601, numbers not stored as strings
-- **Cross-boundary consistency**: write through the API, read directly from Cosmos DB — values must match
+**How this creates differentiation between control and skills runs:**
 
-These tests are the primary differentiator between skills-loaded and no-skills control runs.
+The key insight is that an agent without skills doesn't know Cosmos DB best practices, so it makes
+reasonable-but-wrong choices that HTTP tests can't detect. Infrastructure tests expose these gaps:
+
+| What Infrastructure Tests Check | Without Skills (typical) | With Skills (typical) |
+|--------------------------------|--------------------------|----------------------|
+| Composite indexes for filter+sort queries | ❌ Missing — agent doesn't know `WHERE x ORDER BY y` needs a composite index | ✅ Present — `index-composite` rule explicitly says to add them |
+| `type` discriminator field in documents | ❌ Missing — agent only adds polymorphism fields for multi-type containers | ✅ Present — `model-type-discriminator` rule says to add to ALL containers |
+| `schemaVersion` field in documents | ❌ Missing or wrong name (e.g., `_schemaVersion`) | ✅ Present with correct name — `model-schema-versioning` rule specifies `schemaVersion` |
+| Jackson/JSON serialization of Cosmos system fields | ❌ Crashes on `_rid`, `_self`, `_ts` — agent forgets `FAIL_ON_UNKNOWN_PROPERTIES=false` | ✅ Configured correctly — `sdk-java-cosmos-config` rule covers this |
+| Enums stored as strings (not integers) | ❌ Sometimes stored as ordinals | ✅ Always strings — `model-json-serialization` rule covers enum handling |
+| ETag-based optimistic concurrency | ❌ Often missing | ✅ Present — `sdk-etag-concurrency` rule provides patterns |
+
+**Concrete example from real test runs (ecommerce-order-api, Java):**
+
+- **Control run (no skills)**: 39/91 tests passed (42.9%). The agent produced a working Spring Boot
+  app with correct routes, but Jackson `ObjectMapper` without `FAIL_ON_UNKNOWN_PROPERTIES=false`
+  caused all Cosmos DB read operations to crash on system fields (`_rid`, `_self`, `_etag`, `_ts`).
+  This single missing SDK configuration cascaded into ~40 test failures across all categories.
+  Infrastructure tests also caught: no composite indexes, no type discriminator, no schema version.
+
+- **With-skills run**: 86/91 tests passed (94.5%). The same scenario with skills loaded produced
+  correct SDK configuration, proper indexing, and document structure. The 5 remaining failures were
+  minor (3 infrastructure gaps fixed post-evaluation, 1 test isolation issue, 1 skip).
+
+The infrastructure tests are what make the 42.9% → 94.5% gap visible. Without them, both runs
+would have similar pass rates on HTTP-only tests (since the core HTTP contract logic is not the
+differentiator — it's the Cosmos DB configuration underneath).
 
 ### Build & Startup Signals
 
-In addition to test results, CI captures build and startup signals:
-- **Build signal** (`build-signal.json`): Whether the first build attempt succeeded or failed, with stdout/stderr output
-- **Startup signal** (`startup-signal.json`): Whether the app started and passed the health check
+CI captures build and startup attempt results as structured JSON files, independent of whether
+the build ultimately succeeds (after retries). These signals measure first-attempt quality.
 
-Build failures indicate missing dependencies, wrong API signatures, or SDK misconfiguration.
-These failures are penalized in the score even if the agent later fixes them, because they
-reveal gaps in the agent's knowledge that the skills should have prevented.
+**How build signals are collected:**
+
+1. The CI workflow runs the build command from `iteration-config.yaml` (e.g., `mvn package -DskipTests`)
+2. It captures stdout, stderr, and exit code into `build-signal.json`:
+   ```json
+   {
+     "build_command": "mvn package -DskipTests",
+     "exit_code": 0,
+     "succeeded": true,
+     "stdout_tail": "... BUILD SUCCESS ...",
+     "stderr_tail": ""
+   }
+   ```
+3. Similarly, `startup-signal.json` records whether the app started and responded to `/health`
+
+**How signals affect scoring:**
+
+- A **build failure** on the first attempt incurs a -1 point penalty in the overall score.
+  Even if the Copilot agent fixes the build in a subsequent commit, the penalty remains because
+  the initial failure reveals a gap in the agent's knowledge (missing dependency, wrong version,
+  SDK misconfiguration) that the skills should have prevented.
+- A **startup failure** similarly incurs a -1 point penalty.
+- These signals are recorded in `ITERATION.md` alongside test results for comparison across iterations.
+
+**Why this matters for differentiation:**
+
+An agent with skills loaded gets explicit guidance on Maven dependencies, SSL configuration,
+Spring Boot properties, and SDK versions. An agent without skills may produce code that compiles
+but fails at startup due to missing SSL trust configuration for the Cosmos DB emulator, or uses
+an incompatible dependency version. The build/startup signal captures these first-attempt failures
+even when the agent eventually self-corrects.
 
 ---
 
@@ -242,6 +292,36 @@ follows this recipe when asked to evaluate failures on a PR.
 3. **Rule created**: `rules/partition-avoid-id-only.md`, `npm run build` regenerates AGENTS.md
 4. **Iteration 002 (Python)**: Agent loads the updated rules → partition key test passes
 5. **Logged**: Entry added to `testing-v2/IMPROVEMENTS-LOG.md`
+
+### Control Run vs Skills Run — Different Workflows
+
+The framework treats control runs and skills runs differently:
+
+**Control run (no skills loaded):**
+```
+Agent generates code → CI runs tests → CI posts results
+→ User triggers deep evaluation → Copilot analyzes code
+→ Copilot identifies which EXISTING rules would have helped
+→ Copilot commits analysis with [skip ci] → DONE (no iteration)
+```
+- Source code is **always zipped immediately** — no iteration will follow
+- Deep evaluation is analysis-only: Copilot does NOT fix code or create rules
+- The commit includes `[skip ci]` to prevent CI from re-running
+
+**Skills run (skills loaded):**
+```
+Agent generates code → CI runs tests → CI posts results
+→ User triggers deep evaluation → Copilot analyzes code
+→ Copilot fixes code + creates new rules + runs npm run build
+→ Copilot commits → CI re-runs tests automatically
+→ Repeat until all tests pass → Source code gets zipped
+```
+- Source code is **only zipped when all tests pass** — Copilot needs the raw files to iterate
+- Deep evaluation includes code fixes and rule creation
+- The commit does NOT include `[skip ci]` — we want CI to re-test the fixes
+- When new rules are created, `npm run build` regenerates `AGENTS.md` (the compiled rules file)
+- `SKILL.md` does not need updating — it's a static entry point; new rules are picked up
+  automatically through the build process
 
 ---
 

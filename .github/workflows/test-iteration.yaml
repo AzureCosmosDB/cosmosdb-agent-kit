@@ -644,15 +644,23 @@ jobs:
           python testing-v2/harness/evaluate.py
 
       - name: Archive source code
-        if: steps.tests.outputs.exit_code == '0'
+        if: |
+          always() && steps.start_app.outcome == 'success' && (
+            steps.config.outputs.skills_loaded != 'True' ||
+            steps.tests.outputs.exit_code == '0'
+          )
         shell: pwsh
         run: |
+          # Control runs: always archive (no iteration expected)
+          # Skills runs: only archive when all tests pass (iteration may follow)
           $iterDir = $env:ITERATION_DIR
           $zipPath = Join-Path $iterDir "source-code.zip"
 
           # Files to keep outside the zip
           $keep = @("ITERATION.md", "iteration-config.yaml", "source-code.zip",
-                    "app-output.log", "app-error.log", "_start-app.cmd")
+                    "app-output.log", "app-error.log", "_start-app.cmd",
+                    "build-signal.json", "startup-signal.json",
+                    "build-output.log", "build-error.log", ".gitignore")
 
           # Collect files to archive
           $toArchive = Get-ChildItem $iterDir -Recurse -File |
@@ -807,7 +815,10 @@ jobs:
                 `   - **Score Summary**: per-category scores (both as-is and estimated with-skills)\n` +
                 `7. Do NOT create or update any rules — this is a control run\n` +
                 `8. Update \`testing-v2/IMPROVEMENTS-LOG.md\` noting this was a control run\n` +
-                `9. Commit all changes to this PR branch`;
+                `9. Commit all changes to this PR branch. **IMPORTANT**: Include \`[skip ci]\` ` +
+                `in your commit message to prevent CI from re-running (e.g., ` +
+                `"Deep evaluation for iteration-NNN [skip ci]"). This is a control run — ` +
+                `no code fixes or iteration is expected.`;
             }
 
             const modeLabel = skillsLoaded ? '' : ' (CONTROL RUN)';
