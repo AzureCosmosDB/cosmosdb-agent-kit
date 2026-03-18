@@ -49,9 +49,34 @@ new rules to prevent them in future iterations.
 
 **Your manual work per iteration:**
 1. Create an issue and assign to Copilot (step 1)
-2. After CI runs, copy-paste one comment to trigger evaluation (step 4)
+2. After CI runs, copy-paste comment(s) to trigger Copilot (steps 3–4)
 
-Everything else — code generation, testing, failure analysis, rule creation — is automated.
+Most of the loop is automated, but **some copy-paste steps are unavoidable** due to a
+GitHub platform limitation:
+
+> **Why can't this be fully automated?** The Copilot coding agent only responds to
+> `@copilot` mentions posted by a **human user**. Bot-posted mentions (from CI workflows
+> using `GITHUB_TOKEN`) are ignored — GitHub designed this to prevent infinite bot loops.
+> A Personal Access Token (PAT) could work around this, but PATs carry security risks
+> (broad repo access, no fine-grained scoping for PR comments) and would need to be
+> stored as a repository secret. For now, the copy-paste approach is safer and more
+> transparent.
+
+**What you may need to copy-paste:**
+- **Build/startup failure**: CI posts a `@copilot` fix prompt → copy-paste it as a new comment.
+  (Copilot may also auto-retry by reading the failed CI check logs, but copy-paste is the
+  reliable fallback.)
+- **Test failures (skills run)**: CI posts a `@copilot` evaluation prompt → copy-paste it.
+  Copilot fixes code + creates rules, CI re-runs automatically.
+- **Deep evaluation**: CI posts a `@copilot` deep evaluation prompt → copy-paste it.
+  This produces a thorough ITERATION.md with per-category analysis.
+- **Test failures (control run)**: CI posts a `@copilot` fix prompt → copy-paste it.
+  Copilot fixes code only (no rule creation).
+
+**Automated re-triggering**: When Copilot pushes fixes to the PR branch, CI re-runs
+automatically via `pull_request_target`. You don't need to manually re-trigger the workflow —
+the `auto-trigger-tests.yaml` bridge handles this. However, for control runs the deep
+evaluation commit includes `[skip ci]` to prevent unnecessary re-runs.
 
 ### The Key Insight
 
