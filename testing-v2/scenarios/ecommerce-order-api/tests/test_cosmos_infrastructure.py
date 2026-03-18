@@ -227,26 +227,33 @@ class TestEnumSerialization:
 
         pytest.skip("Could not locate order document in Cosmos DB to verify serialization")
 
-    def test_status_query_returns_correct_results(self, api, seeded_data):
+    def test_status_query_returns_correct_results(self, api):
         """
-        Create orders, update one to 'shipped', then query by status.
+        Create a FRESH order, update it to 'shipped', then query by status.
         If enum serialization is wrong, the status query will return empty.
+        Uses its own order to avoid conflicts with other tests that mutate
+        seeded_data order statuses.
         """
-        # Update first order to shipped
-        order = seeded_data["orders"][0]
-        order_id = order["orderId"]
-        customer_id = order["customerId"]
+        # Create a fresh order specifically for this test
+        resp = api.request("POST", "/api/orders", json={
+            "customerId": "customer-infra-enum",
+            "items": [{"productId": "p-enum", "productName": "EnumTest", "quantity": 1, "unitPrice": 10.00}],
+        })
+        assert resp.status_code == 201, (
+            f"Failed to create test order: {resp.status_code} {resp.text}"
+        )
+        order_id = resp.json()["orderId"]
 
+        # Transition pending → shipped
         resp = api.request("PATCH", f"/api/orders/{order_id}/status",
-                           json={"status": "shipped"},
-                           params={"customerId": customer_id})
-        # Accept either 200 or other success codes
+                           json={"status": "shipped"})
         assert resp.status_code in (200, 204), (
             f"Status update failed: {resp.status_code} {resp.text}"
         )
 
         # Now query by status — this is where enum serialization bugs surface
-        resp = api.request("GET", "/api/orders/status/shipped")
+        # API contract: GET /api/orders?status=shipped (query parameter)
+        resp = api.request("GET", "/api/orders", params={"status": "shipped"})
         assert resp.status_code == 200, (
             f"Status query failed: {resp.status_code} {resp.text}"
         )
