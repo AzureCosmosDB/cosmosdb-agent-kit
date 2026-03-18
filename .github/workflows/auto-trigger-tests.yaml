@@ -23,13 +23,34 @@ on:
     paths:
       - 'testing-v2/scenarios/*/iterations/**'
 
-permissions:
-  contents: write
-  pull-requests: write
-  actions: write
-
 jobs:
+  # Check if the latest commit is a CI evaluation commit (which should not
+  # re-trigger the test suite). pull_request_target ignores [skip ci] in
+  # commit messages, so we must filter manually.
+  check-skip:
+    name: Check if tests should run
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - name: Check latest commit message
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          MSG=$(gh api "repos/${{ github.repository }}/commits/${HEAD_SHA}" --jq '.commit.message' 2>/dev/null || echo "")
+          echo "Latest commit: $MSG"
+          if echo "$MSG" | grep -qi '\[skip ci\]'; then
+            echo "Commit contains [skip ci] — skipping tests"
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   test:
+    needs: check-skip
+    if: needs.check-skip.outputs.should_run == 'true'
     uses: ./.github/workflows/test-iteration.yaml
     with:
       pr_number: ${{ github.event.pull_request.number }}
