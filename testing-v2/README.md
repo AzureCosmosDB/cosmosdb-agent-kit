@@ -62,7 +62,11 @@ GitHub platform limitation:
 > stored as a repository secret. For now, the copy-paste approach is safer and more
 > transparent.
 
-**What you may need to copy-paste:**
+**What you must do manually:**
+- **Approve workflow runs**: Every time Copilot pushes a commit to the PR, GitHub requires
+  you to click **"Approve workflows to run"** on the PR's Checks tab. This is a GitHub
+  Actions security feature for `pull_request_target` workflows — it treats the Copilot app
+  as an external contributor whose workflows need manual approval each time.
 - **Build/startup failure**: CI posts a `@copilot` fix prompt → copy-paste it as a new comment.
   (Copilot may also auto-retry by reading the failed CI check logs, but copy-paste is the
   reliable fallback.)
@@ -74,9 +78,10 @@ GitHub platform limitation:
   Copilot fixes code only (no rule creation).
 
 **Automated re-triggering**: When Copilot pushes fixes to the PR branch, CI re-runs
-automatically via `pull_request_target`. You don't need to manually re-trigger the workflow —
-the `auto-trigger-tests.yaml` bridge handles this. However, for control runs the deep
-evaluation commit includes `[skip ci]` to prevent unnecessary re-runs.
+automatically via `pull_request_target` — but you still need to **approve the workflow**
+each time. The `auto-trigger-tests.yaml` bridge handles the trigger; the approval gate is
+the manual step. For control runs the deep evaluation commit includes `[skip ci]` to
+prevent unnecessary re-runs.
 
 ### The Key Insight
 
