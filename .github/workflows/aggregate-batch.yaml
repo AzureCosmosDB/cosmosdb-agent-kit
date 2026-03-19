@@ -178,44 +178,35 @@ jobs:
             HEAD_BRANCH=$(gh pr view "$PR_NUM" --json headRefName --jq '.headRefName')
             echo "  Head branch: $HEAD_BRANCH"
 
-            # Find the latest completed workflow run for this PR
-            # Search by head_sha from the PR
-            HEAD_SHA=$(gh pr view "$PR_NUM" --json headRefOid --jq '.headRefOid')
-            echo "  Head SHA: $HEAD_SHA"
+            # Find the workflow run that has test-results artifacts
+            # We search by branch name and iterate through completed runs
+            # because pull_request_target runs don't match the PR's head SHA,
+            # and Copilot agent runs also appear on the same branch without artifacts.
+            ARTIFACT_ID=""
+            RUN_ID=""
 
-            # Find workflow runs that match this PR
-            RUN_ID=$(gh api "repos/${{ github.repository }}/actions/runs" \
+            CANDIDATE_RUNS=$(gh api "repos/${{ github.repository }}/actions/runs" \
               --method GET \
-              -f head_sha="$HEAD_SHA" \
+              -f branch="$HEAD_BRANCH" \
               -f status=completed \
-              --jq '.workflow_runs[0].id' 2>/dev/null || echo "")
+              --jq '.workflow_runs[].id' 2>/dev/null || echo "")
 
-            # Fallback: search by branch name
-            if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
-              echo "  No run found by SHA, trying branch name..."
-              RUN_ID=$(gh api "repos/${{ github.repository }}/actions/runs" \
-                --method GET \
-                -f branch="$HEAD_BRANCH" \
-                -f status=completed \
-                --jq '.workflow_runs[0].id' 2>/dev/null || echo "")
-            fi
+            for CANDIDATE_RUN in $CANDIDATE_RUNS; do
+              FOUND_ARTIFACT=$(gh api "repos/${{ github.repository }}/actions/runs/${CANDIDATE_RUN}/artifacts" \
+                --jq '.artifacts[] | select(.name | startswith("test-results-")) | .id' 2>/dev/null || echo "")
+              if [ -n "$FOUND_ARTIFACT" ]; then
+                RUN_ID="$CANDIDATE_RUN"
+                ARTIFACT_ID=$(echo "$FOUND_ARTIFACT" | head -1)
+                echo "  Found test artifact in run $RUN_ID"
+                break
+              fi
+            done
 
-            if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
-              echo "  WARNING: No completed workflow run found for PR #${PR_NUM}"
+            if [ -z "$ARTIFACT_ID" ]; then
+              echo "  WARNING: No test-results artifact found across any runs for PR #${PR_NUM}"
               continue
             fi
             echo "  Workflow run ID: $RUN_ID"
-
-            # List artifacts for this run
-            ARTIFACTS=$(gh api "repos/${{ github.repository }}/actions/runs/${RUN_ID}/artifacts" \
-              --jq '.artifacts[] | select(.name | startswith("test-results-")) | .id' 2>/dev/null || echo "")
-
-            if [ -z "$ARTIFACTS" ]; then
-              echo "  WARNING: No test-results artifact found for run ${RUN_ID}"
-              continue
-            fi
-
-            ARTIFACT_ID=$(echo "$ARTIFACTS" | head -1)
             echo "  Artifact ID: $ARTIFACT_ID"
 
             # Download and extract the artifact
