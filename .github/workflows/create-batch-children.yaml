@@ -5,32 +5,34 @@
 # Copilot. Each child issue contains full agent instructions for generating
 # a Cosmos DB app independently (from scratch, no shared context).
 #
-# Trigger: workflow_dispatch (manual) with the batch issue number.
-# Once merged to the default branch, the `issues: [opened]` trigger will
-# also fire automatically for issues labeled `batch-test`.
+# Trigger: Assign @copilot to a batch-test issue. The workflow detects the
+# assignment, creates N child issues (each assigned to Copilot), and posts
+# a summary with next steps on the parent issue.
 # =============================================================================
 
 name: Create Batch Children
 
 on:
+  issues:
+    types: [assigned]
+
   workflow_dispatch:
     inputs:
       batch_issue:
-        description: 'Batch test issue number'
+        description: 'Batch test issue number (fallback trigger)'
         required: true
         type: number
-
-  issues:
-    types: [opened]
 
 jobs:
   create-children:
     name: Create child iterations
     runs-on: ubuntu-latest
-    # For issues trigger: only run if labeled batch-test
+    # For issues trigger: only run when copilot is assigned to a batch-test issue
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'batch-test'))
+      (github.event_name == 'issues'
+       && contains(github.event.issue.labels.*.name, 'batch-test')
+       && github.event.assignee.login == 'copilot')
     steps:
       - uses: actions/checkout@v4
 

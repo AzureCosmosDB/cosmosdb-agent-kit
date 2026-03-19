@@ -11,9 +11,8 @@ body:
         generates code from scratch in its own PR, eliminating LLM stochasticity
         from single-run comparisons.
 
-        **After submitting**, trigger the `Create Batch Children` workflow from the
-        Actions tab with this issue number. The workflow will create the child issues
-        and assign them to Copilot.
+        **After submitting**, assign **@copilot** to this issue. That automatically
+        creates the child issues and kicks off all N iterations.
 
   - type: dropdown
     id: scenario

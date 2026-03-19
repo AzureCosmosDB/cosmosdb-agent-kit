@@ -382,8 +382,9 @@ these random variations average out, revealing the true signal.
 └──────────────────┬──────────────────────────┘
                    ▼
 ┌─────────────────────────────────────────────┐
-│  2. TRIGGER "Create Batch Children" WORKFLOW │
-│     Creates N child issues assigned to Copilot│
+│  2. ASSIGN @copilot TO THE ISSUE             │
+│     Automatically creates N child issues      │
+│     (each assigned to Copilot)                │
 └──────────────────┬──────────────────────────┘
                    ▼
 ┌─────────────────────────────────────────────┐
@@ -394,10 +395,11 @@ these random variations average out, revealing the true signal.
 └──────────────────┬──────────────────────────┘
                    ▼
 ┌─────────────────────────────────────────────┐
-│  4. TRIGGER "Aggregate Batch Results" WORKFLOW│
+│  4. POST "/aggregate 51,52,53,54,55"         │
+│     Comment on the parent batch issue         │
 │     Downloads artifacts from all N PRs        │
 │     Computes mean/stddev/min/max pass rate    │
-│     Creates 6th summary PR with BATCH-RESULTS │
+│     Creates summary PR with BATCH-RESULTS     │
 │     Closes the N child PRs                    │
 └─────────────────────────────────────────────┘
 ```
@@ -409,10 +411,10 @@ these random variations average out, revealing the true signal.
 Go to **Issues** → **New Issue** → select **"Batch Test (Multiple Iterations)"**.
 Pick scenario, language, skills (yes/no), and number of iterations (3, 5, or 7). Submit.
 
-#### Step 2: Create child issues
+#### Step 2: Assign Copilot
 
-Go to **Actions** → **Create Batch Children** → **Run workflow**.
-Enter the batch issue number. The workflow creates N child issues assigned to Copilot.
+Assign **@copilot** to the batch issue. This automatically creates N child issues,
+each assigned to Copilot with pre-assigned iteration directories.
 
 #### Step 3: Wait for Copilot PRs
 
