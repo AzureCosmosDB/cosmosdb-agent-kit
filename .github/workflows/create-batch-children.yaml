@@ -32,8 +32,9 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issues'
        && contains(github.event.issue.labels.*.name, 'batch-test')
-       && (github.event.assignee.login == 'copilot-swe-agent'
-           || github.event.assignee.login == 'copilot'))
+       && (github.event.assignee.login == 'Copilot'
+           || github.event.assignee.login == 'copilot'
+           || github.event.assignee.login == 'copilot-swe-agent'))
     steps:
       - uses: actions/checkout@v4
 
@@ -218,7 +219,7 @@ jobs:
               --title "$TITLE" \
               --body "$ISSUE_BODY" \
               --label "testing,iteration,batch-child,${BATCH_LABEL}" \
-              --assignee "copilot-swe-agent" \
+              --assignee "Copilot" \
               2>&1 | grep -oP '\d+$') || true
 
             if [ -n "$CHILD_NUM" ]; then
