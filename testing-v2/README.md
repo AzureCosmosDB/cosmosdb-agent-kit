@@ -128,6 +128,7 @@ testing-v2/
 ├── EVALUATE.md                            # Recipe: how to evaluate failures and create rules
 ├── IMPROVEMENTS-LOG.md                    # Log of discovered gaps and new rules
 ├── harness/                               # Shared test infrastructure (Python)
+│   ├── aggregate.py                       # Batch results aggregation (mean/stddev/consistency)
 │   ├── conftest_base.py                   # Shared pytest fixtures
 │   ├── report.py                          # Structured JSON/Markdown report generation
 │   └── requirements.txt                   # Python dependencies for test runner
@@ -169,6 +170,7 @@ scenarios/gaming-leaderboard/iterations/
 | Template | File | Purpose |
 |----------|------|---------|
 | Run Test Iteration | `.github/ISSUE_TEMPLATE/run-iteration.yml` | Trigger code generation for a scenario + language |
+| Batch Test | `.github/ISSUE_TEMPLATE/batch-test.yml` | Run N independent iterations for statistical significance |
 | Create New Scenario | `.github/ISSUE_TEMPLATE/create-scenario.yml` | Trigger scenario creation from a description |
 
 Both templates include an **Agent Instructions** section in the issue body that tells Copilot
@@ -352,6 +354,136 @@ Agent generates code → CI runs tests → CI posts results
 - When new rules are created, `npm run build` regenerates `AGENTS.md` (the compiled rules file)
 - `SKILL.md` does not need updating — it's a static entry point; new rules are picked up
   automatically through the build process
+
+---
+
+## Batch Testing (Statistical Significance)
+
+Single-run comparisons between skills and control are unreliable due to LLM stochasticity —
+the same agent can produce wildly different code quality across runs. Batch testing solves
+this by running N independent iterations of the same scenario and aggregating the results.
+
+### Why Batch Testing?
+
+In real testing, we observed:
+- **Control run**: 96.7% pass rate (agent got lucky — every endpoint worked perfectly)
+- **Skills run**: 89.0% pass rate (agent had a bug in one endpoint — 8 cascading failures)
+
+The skills run was actually *better* on infrastructure tests (composite indexes, document
+structure) but scored lower overall due to one stochastic LLM failure. With N=5 iterations,
+these random variations average out, revealing the true signal.
+
+### Architecture: 5+1 PR Pattern
+
+```
+┌─────────────────────────────────────────────┐
+│  1. CREATE BATCH ISSUE                       │
+│     Fill in scenario, language, skills, N     │
+└──────────────────┬──────────────────────────┘
+                   ▼
+┌─────────────────────────────────────────────┐
+│  2. TRIGGER "Create Batch Children" WORKFLOW │
+│     Creates N child issues assigned to Copilot│
+└──────────────────┬──────────────────────────┘
+                   ▼
+┌─────────────────────────────────────────────┐
+│  3. N INDEPENDENT PRs              [parallel]│
+│     Each Copilot instance generates code from │
+│     scratch → opens PR → CI tests it          │
+│     (approve workflow runs for each PR)        │
+└──────────────────┬──────────────────────────┘
+                   ▼
+┌─────────────────────────────────────────────┐
+│  4. TRIGGER "Aggregate Batch Results" WORKFLOW│
+│     Downloads artifacts from all N PRs        │
+│     Computes mean/stddev/min/max pass rate    │
+│     Creates 6th summary PR with BATCH-RESULTS │
+│     Closes the N child PRs                    │
+└─────────────────────────────────────────────┘
+```
+
+### Running a Batch Test
+
+#### Step 1: Create the batch issue
+
+Go to **Issues** → **New Issue** → select **"Batch Test (Multiple Iterations)"**.
+Pick scenario, language, skills (yes/no), and number of iterations (3, 5, or 7). Submit.
+
+#### Step 2: Create child issues
+
+Go to **Actions** → **Create Batch Children** → **Run workflow**.
+Enter the batch issue number. The workflow creates N child issues assigned to Copilot.
+
+#### Step 3: Wait for Copilot PRs
+
+Copilot picks up each child issue, generates code, and opens a PR. This happens
+automatically — one PR per child issue.
+
+#### Step 4: Approve workflow runs
+
+Each PR triggers CI via `pull_request_target`, which requires manual approval.
+Go to **Actions**, find the pending runs, and approve each one.
+
+#### Step 5: Wait for test results
+
+After approval, CI runs tests and posts results on each PR. Wait until every PR
+shows a test results comment.
+
+#### Step 6: Trigger aggregation
+
+Post a comment **on the parent batch issue** with the PR numbers:
+
+```
+/aggregate 56,57,58,59,60
+```
+
+This triggers the **Aggregate Batch Results** workflow, which:
+- Downloads `test-report.json` artifacts from each child PR's CI run
+- Computes aggregate statistics (mean, stddev, min, max)
+- Creates a summary PR with `BATCH-RESULTS.md`
+- Closes all child PRs and deletes their branches
+- Posts the aggregate summary on the parent batch issue
+
+> **Alternative:** You can also trigger aggregation from **Actions** → **Aggregate Batch
+> Results** → **Run workflow**, entering the batch issue number and PR numbers manually.
+
+### Batch Results Output
+
+The aggregate analysis includes:
+
+| Section | What It Shows |
+|---------|--------------|
+| **Aggregate Summary** | Mean/stddev/min/max for pass rate and score across N iterations |
+| **Per-Iteration Results** | Individual pass rate and score for each run |
+| **Category Breakdown** | Mean/stddev per test category (api_contract, cosmos_infrastructure, etc.) |
+| **Test Consistency** | Classifies each test as always-pass, always-fail, or flaky |
+| **Statistical Assessment** | Confidence level based on standard deviation |
+
+**Test Consistency** is the most valuable output — it separates real gaps from noise:
+
+- **Always-fail tests**: These indicate a genuine skills gap (or contract misunderstanding)
+  that skills should address
+- **Always-pass tests**: Reliable baseline — both skills and control handle these
+- **Flaky tests**: LLM stochasticity — these tests pass in some iterations but not others,
+  indicating the failure is random rather than systematic
+
+### Comparing Skills vs. Control
+
+Run two batch tests for the same scenario + language:
+1. Batch with `skills=yes` (N iterations)
+2. Batch with `skills=no` (N iterations)
+
+Then compare the aggregate means. With N=5, a difference greater than 2× the pooled
+standard deviation is likely a real effect of the skills, not noise.
+
+### Issue Templates and Workflows
+
+| Template/Workflow | File | Purpose |
+|-------------------|------|---------|
+| Batch Test | `.github/ISSUE_TEMPLATE/batch-test.yml` | Create parent tracking issue |
+| Create Batch Children | `.github/workflows/create-batch-children.yaml` | Creates N child issues from a batch issue |
+| Aggregate Batch Results | `.github/workflows/aggregate-batch.yaml` | Collects results, creates summary PR, closes children |
+| Aggregate Script | `testing-v2/harness/aggregate.py` | Computes statistics from multiple test-report.json files |
 
 ---
 

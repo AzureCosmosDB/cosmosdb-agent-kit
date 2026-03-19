@@ -1,0 +1,80 @@
+name: "📊 Batch Test (Multiple Iterations)"
+description: "Run N independent iterations of the same scenario for statistically significant results. Each iteration generates code from scratch."
+labels: ["testing", "batch-test"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Batch Test
+
+        This creates N independent iterations of the same scenario. Each iteration
+        generates code from scratch in its own PR, eliminating LLM stochasticity
+        from single-run comparisons.
+
+        **After submitting**, trigger the `Create Batch Children` workflow from the
+        Actions tab with this issue number. The workflow will create the child issues
+        and assign them to Copilot.
+
+  - type: dropdown
+    id: scenario
+    attributes:
+      label: Scenario
+      description: Which scenario should be tested?
+      options:
+        - gaming-leaderboard
+        - ecommerce-order-api
+        - ai-chat-rag
+        - iot-device-telemetry
+        - multitenant-saas
+    validations:
+      required: true
+
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      description: Which language/framework for all iterations?
+      options:
+        - python
+        - dotnet
+        - java
+        - nodejs
+        - go
+    validations:
+      required: true
+
+  - type: dropdown
+    id: skills
+    attributes:
+      label: Load skills?
+      description: >
+        **Yes** = each iteration reads AGENTS.md before generating code.
+        **No** = control run — each iteration uses only built-in knowledge.
+      options:
+        - "yes"
+        - "no"
+      default: 0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: iterations
+    attributes:
+      label: Number of iterations
+      description: How many independent code generations to run?
+      options:
+        - "3"
+        - "5"
+        - "7"
+      default: 1
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
+      description: Any extra context for this batch (optional).
+      placeholder: "e.g., Testing after adding new indexing rules"
+    validations:
+      required: false
