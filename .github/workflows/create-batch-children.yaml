@@ -277,7 +277,11 @@ jobs:
           SUMMARY+="Once all child PRs have test results, copy and paste this command as a comment **on this issue**:\n\n"
           SUMMARY+="\`\`\`\n"
           SUMMARY+="/aggregate ${CHILD_LIST}\n"
-          SUMMARY+="\`\`\`\n"
+          SUMMARY+="\`\`\`\n\n"
+          SUMMARY+="**Step 5 — Deep evaluation**\n"
+          SUMMARY+="After aggregation completes, it creates a **summary PR** with aggregate results. "
+          SUMMARY+="A ready-to-copy \`@copilot\` evaluation prompt is posted as a comment on that PR. "
+          SUMMARY+="Copy-paste it as a new comment to trigger Copilot to analyze the consistent failures and create/update rules.\n"
 
           gh issue comment "$BATCH_ISSUE" --body "$(echo -e "$SUMMARY")"
           echo "Posted summary on batch issue #${BATCH_ISSUE}"

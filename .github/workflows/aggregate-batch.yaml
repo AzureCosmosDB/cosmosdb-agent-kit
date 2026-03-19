@@ -340,6 +340,7 @@ jobs:
 
           echo "Created summary PR #${SUMMARY_PR}"
           echo "summary_pr=${SUMMARY_PR}" >> "$GITHUB_OUTPUT"
+        id: create_summary
 
       - name: Close child PRs
         env:
@@ -377,6 +378,83 @@ jobs:
 
           gh issue comment "$BATCH_ISSUE" --body "$COMMENT"
           echo "Posted aggregate summary on batch issue #${BATCH_ISSUE}"
+
+      - name: Post deep evaluation prompt on summary PR
+        if: steps.create_summary.outputs.summary_pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SCENARIO: ${{ steps.meta.outputs.scenario }}
+          LANGUAGE: ${{ steps.meta.outputs.language }}
+          SKILLS: ${{ steps.meta.outputs.skills }}
+          BATCH_ISSUE: ${{ steps.inputs.outputs.batch_issue }}
+        run: |
+          SUMMARY_PR=${{ steps.create_summary.outputs.summary_pr }}
+          SKILLS_LABEL=$( [ "$SKILLS" = "yes" ] && echo "skills" || echo "control" )
+          RESULTS_FILE="testing-v2/scenarios/${SCENARIO}/batch-results/batch-${BATCH_ISSUE}-${LANGUAGE}-${SKILLS_LABEL}.md"
+
+          # Build the evaluation comment as a file to avoid escaping issues
+          cat > /tmp/eval-comment.md <<EVALEOF
+          <!-- copilot-batch-eval -->
+          ## 📋 Deep Evaluation Ready$( [ "$SKILLS" = "yes" ] && echo "" || echo " (CONTROL RUN)" )
+
+          Batch aggregation is complete. A deep evaluation is needed to analyze the consistently-failing tests and create or update rules.
+
+          ---
+
+          ### 🔧 Action Required
+
+          > **Copy the prompt below and post it as a new comment** to trigger Copilot to perform the deep evaluation.
+          > (Bot-posted \`@copilot\` mentions do not trigger the agent — it must come from a user.)
+
+          EVALEOF
+
+          # Add the copilot prompt inside a code fence
+          echo '````' >> /tmp/eval-comment.md
+
+          if [ "$SKILLS" = "yes" ]; then
+            cat >> /tmp/eval-comment.md <<PROMPTEOF
+          @copilot **Deep evaluation needed for batch results.** Read the batch aggregate results and analyze the consistently-failing tests.
+
+          Follow these steps:
+
+          1. Read \`${RESULTS_FILE}\` (the batch aggregate results on this PR's branch)
+          2. Read \`testing-v2/EVALUATE.md\` for the evaluation recipe
+          3. Read \`skills/cosmosdb-best-practices/AGENTS.md\` (all current rules)
+          4. Read \`testing-v2/scenarios/${SCENARIO}/api-contract.yaml\`
+          5. Focus on the **Consistent Failures** section — these are tests that failed in EVERY iteration and indicate real gaps
+          6. For each consistent failure, classify it per EVALUATE.md (Cosmos DB anti-pattern, unclear rule, SDK quirk, contract violation, test too strict)
+          7. For failures classified as "Cosmos DB anti-pattern" or "SDK quirk": create new rules in \`skills/cosmosdb-best-practices/rules/\`
+          8. For failures classified as "Unclear existing rule": update the existing rule to be clearer
+          9. Ignore **Flaky Tests** — these are LLM stochasticity, not skill gaps
+          10. Run \`npm run build\` to regenerate AGENTS.md
+          11. Update \`testing-v2/IMPROVEMENTS-LOG.md\` with the batch evaluation results
+          12. Commit all changes to this PR branch
+          PROMPTEOF
+          else
+            cat >> /tmp/eval-comment.md <<PROMPTEOF
+          @copilot **Deep evaluation needed for batch results (CONTROL RUN — no skills loaded).** Read the batch aggregate results and analyze what skills would have helped.
+
+          Follow these steps:
+
+          1. Read \`${RESULTS_FILE}\` (the batch aggregate results on this PR's branch)
+          2. Read \`testing-v2/EVALUATE.md\` for the evaluation recipe
+          3. Read \`skills/cosmosdb-best-practices/AGENTS.md\` (all current rules)
+          4. Read \`testing-v2/scenarios/${SCENARIO}/api-contract.yaml\`
+          5. Focus on the **Consistent Failures** section — tests that failed in EVERY iteration
+          6. For each consistent failure, identify which rules from AGENTS.md WOULD HAVE helped if loaded
+          7. Do NOT create or update any rules — this is a control run
+          8. Update \`testing-v2/IMPROVEMENTS-LOG.md\` noting this was a control batch run, listing the consistent failures and which rules would have prevented them
+          9. Commit all changes to this PR branch with \`[skip ci]\` in the commit message
+          PROMPTEOF
+          fi
+
+          echo '````' >> /tmp/eval-comment.md
+
+          # Strip leading whitespace from heredoc indentation
+          sed -i 's/^          //' /tmp/eval-comment.md
+
+          gh pr comment "$SUMMARY_PR" --body-file /tmp/eval-comment.md
+          echo "Posted deep evaluation prompt on summary PR #${SUMMARY_PR}"
 
       - name: Upload aggregate artifacts
         if: always()

@@ -400,6 +400,13 @@ these random variations average out, revealing the true signal.
 │     Computes mean/stddev/min/max pass rate    │
 │     Creates summary PR with BATCH-RESULTS     │
 │     Closes the N child PRs                    │
+└──────────────────┬──────────────────────────┘
+                   ▼
+┌─────────────────────────────────────────────┐
+│  5. DEEP EVALUATION                          │
+│     Copy-paste @copilot prompt from summary   │
+│     PR → Copilot analyzes consistent failures │
+│     → creates/updates rules → commits to PR   │
 └─────────────────────────────────────────────┘
 ```
 
@@ -446,6 +453,20 @@ The workflow automatically resolves each child issue to its PR, then:
 - Creates a summary PR with `BATCH-RESULTS.md`
 - Closes all child PRs and deletes their branches
 - Posts the aggregate summary on the parent batch issue
+- Posts a ready-to-copy `@copilot` deep evaluation prompt on the summary PR
+
+#### Step 7: Deep evaluation
+
+The aggregation workflow posts a comment on the summary PR with a ready-to-copy
+`@copilot` evaluation prompt. Copy-paste it as a new comment on the summary PR.
+Copilot will:
+
+- Read the `BATCH-RESULTS.md` aggregate data
+- Focus on **consistently-failing tests** (not flaky ones)
+- Classify each failure per `testing-v2/EVALUATE.md`
+- Create or update rules for real skill gaps (skills runs only)
+- Update `testing-v2/IMPROVEMENTS-LOG.md`
+- Commit everything to the summary PR branch
 
 > **Alternative:** You can also trigger aggregation from **Actions** → **Aggregate Batch
 > Results** → **Run workflow**, entering the batch issue number and child issue numbers.

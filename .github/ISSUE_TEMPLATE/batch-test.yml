@@ -89,5 +89,6 @@ body:
         2. Assign **@copilot** to each child issue created by the workflow
         3. Wait for Copilot to open PRs and CI to post test results
         4. Comment `/aggregate <child-issue-numbers>` on this issue to collect results
+        5. Copy-paste the `@copilot` evaluation prompt from the summary PR to trigger deep evaluation
     validations:
       required: false

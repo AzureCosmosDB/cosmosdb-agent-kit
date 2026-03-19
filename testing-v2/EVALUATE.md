@@ -192,3 +192,46 @@ A rule is NOT needed when:
 - The failure is a one-off code bug (typo, wrong variable name)
 - The issue is language-specific boilerplate (not Cosmos DB related)
 - An existing rule already covers the exact issue clearly
+
+---
+
+## Batch Evaluation
+
+When evaluating **batch aggregate results** (from `/aggregate` on a batch issue), the
+process differs from single-iteration evaluation:
+
+### Key Differences
+
+1. **Focus on Consistent Failures** — The `BATCH-RESULTS.md` classifies each test as
+   "always-pass", "always-fail", or "flaky". Only **always-fail** tests indicate real
+   skill gaps that need new or updated rules.
+
+2. **Ignore Flaky Tests** — Tests that pass in some iterations but fail in others are
+   LLM stochasticity, not skill gaps. Do not create rules for flaky tests.
+
+3. **No Code Fixes** — Unlike single-iteration evaluation, you're not fixing generated
+   code. You're analyzing aggregate patterns to improve the skill set.
+
+4. **Statistical Context** — Use the standard deviation and confidence level from
+   BATCH-RESULTS.md to calibrate your assessment.
+
+### Batch Evaluation Steps
+
+1. Read the `BATCH-RESULTS.md` on the summary PR branch
+2. For each **always-fail** test:
+   - Read the test code to understand what it checks
+   - Read the API contract for expected behavior
+   - Classify using the same categories as Step 2 above
+3. Create or update rules only for tests classified as "Cosmos DB anti-pattern",
+   "Unclear existing rule", or "SDK/framework quirk"
+4. Run `npm run build` to regenerate AGENTS.md
+5. Update `testing-v2/IMPROVEMENTS-LOG.md`
+6. Commit to the summary PR branch
+
+### Control Run Batch Evaluation
+
+For control runs (skills=no), do NOT create or update rules. Instead:
+1. List which consistent failures would have been prevented by existing rules
+2. Note any gaps where no existing rule covers the failure
+3. Update IMPROVEMENTS-LOG.md with the analysis
+4. Commit with `[skip ci]` in the message
