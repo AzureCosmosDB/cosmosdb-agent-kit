@@ -382,20 +382,19 @@ these random variations average out, revealing the true signal.
 └──────────────────┬──────────────────────────┘
                    ▼
 ┌─────────────────────────────────────────────┐
-│  2. ASSIGN @copilot TO THE ISSUE             │
+│  2. COMMENT "/batch-start"                   │
 │     Automatically creates N child issues      │
-│     (each assigned to Copilot)                │
 └──────────────────┬──────────────────────────┘
                    ▼
 ┌─────────────────────────────────────────────┐
-│  3. N INDEPENDENT PRs              [parallel]│
-│     Each Copilot instance generates code from │
-│     scratch → opens PR → CI tests it          │
+│  3. ASSIGN @copilot TO EACH CHILD ISSUE      │
+│     Copilot generates code from scratch       │
+│     → opens PR → CI tests it                  │
 │     (approve workflow runs for each PR)        │
 └──────────────────┬──────────────────────────┘
                    ▼
 ┌─────────────────────────────────────────────┐
-│  4. POST "/aggregate 51,52,53,54,55"         │
+│  4. POST "/aggregate 60,61,62,63,64"         │
 │     Comment on the parent batch issue         │
 │     Downloads artifacts from all N PRs        │
 │     Computes mean/stddev/min/max pass rate    │
@@ -411,15 +410,15 @@ these random variations average out, revealing the true signal.
 Go to **Issues** → **New Issue** → select **"Batch Test (Multiple Iterations)"**.
 Pick scenario, language, skills (yes/no), and number of iterations (3, 5, or 7). Submit.
 
-#### Step 2: Assign Copilot
+#### Step 2: Comment `/batch-start`
 
-Assign **@copilot** to the batch issue. This automatically creates N child issues,
-each assigned to Copilot with pre-assigned iteration directories.
+Comment **`/batch-start`** on the batch issue. This creates N child issues,
+each with pre-assigned iteration directories and full instructions.
 
-#### Step 3: Wait for Copilot PRs
+#### Step 3: Assign Copilot to each child issue
 
-Copilot picks up each child issue, generates code, and opens a PR. This happens
-automatically — one PR per child issue.
+Go to each child issue (linked in the summary comment) and assign **@copilot**.
+Copilot generates code and opens a PR for each one.
 
 #### Step 4: Approve workflow runs
 
@@ -434,11 +433,11 @@ shows a test results comment.
 #### Step 6: Trigger aggregation
 
 Post a comment **on the parent batch issue** with the child issue numbers.
-The exact command is pre-filled in the summary comment posted automatically
-when the children were created — just copy and paste it:
+The exact command is pre-filled in the summary comment posted when the
+children were created — just copy and paste it:
 
 ```
-/aggregate 61,62,63,64,65
+/aggregate 60,61,62,63,64
 ```
 
 The workflow automatically resolves each child issue to its PR, then:

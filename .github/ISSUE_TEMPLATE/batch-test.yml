@@ -11,8 +11,9 @@ body:
         generates code from scratch in its own PR, eliminating LLM stochasticity
         from single-run comparisons.
 
-        **After submitting**, assign **@copilot** to this issue. That automatically
-        creates the child issues and kicks off all N iterations.
+        **After submitting**, comment **`/batch-start`** on this issue. That automatically
+        creates N child issues. Then assign **@copilot** to each child issue to kick off
+        the iterations.
 
   - type: dropdown
     id: scenario

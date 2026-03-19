@@ -1,20 +1,20 @@
 # =============================================================================
 # Create Batch Children
 # =============================================================================
-# Reads a "Batch Test" issue and creates N child issues, each assigned to
-# Copilot. Each child issue contains full agent instructions for generating
+# Reads a "Batch Test" issue and creates N child issues for Copilot.
+# Each child issue contains full agent instructions for generating
 # a Cosmos DB app independently (from scratch, no shared context).
 #
-# Trigger: Assign @copilot to a batch-test issue. The workflow detects the
-# assignment, creates N child issues (each assigned to Copilot), and posts
-# a summary with next steps on the parent issue.
+# Trigger: Comment "/batch-start" on a batch-test issue. The workflow
+# creates N child issues and posts a summary with next steps.
+# After creation, manually assign Copilot to each child issue.
 # =============================================================================
 
 name: Create Batch Children
 
 on:
-  issues:
-    types: [assigned]
+  issue_comment:
+    types: [created]
 
   workflow_dispatch:
     inputs:
@@ -27,14 +27,13 @@ jobs:
   create-children:
     name: Create child iterations
     runs-on: ubuntu-latest
-    # For issues trigger: only run when copilot is assigned to a batch-test issue
+    # For issue_comment trigger: only run on /batch-start command on batch-test issues
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issues'
+      (github.event_name == 'issue_comment'
+       && !github.event.issue.pull_request
        && contains(github.event.issue.labels.*.name, 'batch-test')
-       && (github.event.assignee.login == 'Copilot'
-           || github.event.assignee.login == 'copilot'
-           || github.event.assignee.login == 'copilot-swe-agent'))
+       && startsWith(github.event.comment.body, '/batch-start'))
     steps:
       - uses: actions/checkout@v4
 
@@ -50,6 +49,12 @@ jobs:
             BATCH_ISSUE=${{ inputs.batch_issue }}
           else
             BATCH_ISSUE=${{ github.event.issue.number }}
+          fi
+
+          # React to the comment to acknowledge
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            gh api repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
+              --method POST -f content='+1' --silent || true
           fi
           echo "Batch issue: #${BATCH_ISSUE}"
 
@@ -221,8 +226,7 @@ jobs:
             CREATE_OUTPUT=$(gh issue create \
               --title "$TITLE" \
               --body "$ISSUE_BODY" \
-              --label "testing,iteration,batch-child,${BATCH_LABEL}" \
-              --assignee "Copilot" 2>&1) || true
+              --label "testing,iteration,batch-child,${BATCH_LABEL}" 2>&1) || true
             echo "  gh issue create output: ${CREATE_OUTPUT}"
             CHILD_NUM=$(echo "$CREATE_OUTPUT" | grep -oP '\d+$') || true
 
@@ -230,20 +234,7 @@ jobs:
               echo "  Created issue #${CHILD_NUM}"
               CHILD_ISSUES+=("$CHILD_NUM")
             else
-              echo "  WARNING: Could not create or parse issue number for run ${i}"
-              echo "  Attempting without --assignee..."
-              CREATE_OUTPUT=$(gh issue create \
-                --title "$TITLE" \
-                --body "$ISSUE_BODY" \
-                --label "testing,iteration,batch-child,${BATCH_LABEL}" 2>&1) || true
-              echo "  gh issue create output: ${CREATE_OUTPUT}"
-              CHILD_NUM=$(echo "$CREATE_OUTPUT" | grep -oP '\d+$') || true
-              if [ -n "$CHILD_NUM" ]; then
-                echo "  Created issue #${CHILD_NUM} (assign copilot manually)"
-                CHILD_ISSUES+=("$CHILD_NUM")
-              else
-                echo "  ERROR: Failed to create child issue for run ${i}"
-              fi
+              echo "  ERROR: Failed to create child issue for run ${i}"
             fi
 
             # Brief pause between issue creations to avoid rate limiting
@@ -265,16 +256,25 @@ jobs:
           SUMMARY+="| Iterations | ${ITERATIONS} |\n"
           SUMMARY+="| Iteration range | ${ITER_NUM} series starting at $(printf '%03d' $START) |\n\n"
           SUMMARY+="---\n\n"
-          SUMMARY+="### What happens next\n\n"
-          SUMMARY+="**Step 1 — Wait for Copilot to open PRs**\n"
-          SUMMARY+="Copilot will pick up each child issue and generate code. This creates one PR per child issue.\n\n"
+          # Build child issue links for the summary
+          CHILD_LINKS=""
+          for CN in "${CHILD_ISSUES[@]}"; do
+            CHILD_LINKS+="- #${CN}\n"
+          done
+
+          SUMMARY+="### Child issues\n\n"
+          SUMMARY+="${CHILD_LINKS}\n"
+          SUMMARY+="### What to do next\n\n"
+          SUMMARY+="**Step 1 — Assign Copilot to each child issue**\n"
+          SUMMARY+="Go to each child issue above and assign **@copilot**. "
+          SUMMARY+="Copilot will generate code and open a PR for each one.\n\n"
           SUMMARY+="**Step 2 — Approve workflow runs**\n"
-          SUMMARY+="Each PR requires a manual workflow approval (GitHub requirement for \`pull_request_target\`).\n"
+          SUMMARY+="Each PR triggers CI via \`pull_request_target\`, which requires manual approval.\n"
           SUMMARY+="Go to the **Actions** tab, find the pending runs, and approve each one.\n\n"
           SUMMARY+="**Step 3 — Wait for tests to complete**\n"
           SUMMARY+="After approval, CI runs tests and posts results on each PR. Wait until all PRs show test results.\n\n"
           SUMMARY+="**Step 4 — Trigger aggregation**\n"
-          SUMMARY+="Once all child PRs have test results, copy and paste this command as a comment on this issue:\n\n"
+          SUMMARY+="Once all child PRs have test results, copy and paste this command as a comment **on this issue**:\n\n"
           SUMMARY+="\`\`\`\n"
           SUMMARY+="/aggregate ${CHILD_LIST}\n"
           SUMMARY+="\`\`\`\n"
