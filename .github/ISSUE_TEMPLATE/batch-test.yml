@@ -78,3 +78,16 @@ body:
       placeholder: "e.g., Testing after adding new indexing rules"
     validations:
       required: false
+
+  - type: textarea
+    id: next-steps
+    attributes:
+      label: "Next Steps (after submitting)"
+      description: "Instructions for running this batch test — do not edit."
+      value: |
+        1. Comment `/batch-start` on this issue to create the child issues
+        2. Assign **@copilot** to each child issue created by the workflow
+        3. Wait for Copilot to open PRs and CI to post test results
+        4. Comment `/aggregate <child-issue-numbers>` on this issue to collect results
+    validations:
+      required: false
