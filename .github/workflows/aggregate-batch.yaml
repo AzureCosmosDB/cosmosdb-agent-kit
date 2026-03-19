@@ -29,8 +29,8 @@ on:
         description: 'Parent batch issue number'
         required: true
         type: number
-      pr_numbers:
-        description: 'Comma-separated child PR numbers (e.g., 51,52,53,54,55)'
+      child_issues:
+        description: 'Comma-separated child issue numbers (e.g., 61,62,63,64,65)'
         required: true
         type: string
 
@@ -59,20 +59,67 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ "${{ github.event_name }}" = "issue_comment" ]; then
-            # Parse from comment: /aggregate 51,52,53,54,55
+            # Parse from comment: /aggregate 61,62,63,64,65
             COMMENT="${{ github.event.comment.body }}"
-            PR_NUMBERS=$(echo "$COMMENT" | sed 's|/aggregate[[:space:]]*||' | tr -d '[:space:]')
+            CHILD_ISSUES=$(echo "$COMMENT" | sed 's|/aggregate[[:space:]]*||' | tr -d '[:space:]')
             BATCH_ISSUE=${{ github.event.issue.number }}
             echo "Triggered via issue comment on #${BATCH_ISSUE}"
           else
-            PR_NUMBERS="${{ inputs.pr_numbers }}"
+            CHILD_ISSUES="${{ inputs.child_issues }}"
             BATCH_ISSUE=${{ inputs.batch_issue }}
             echo "Triggered via workflow_dispatch"
           fi
 
           echo "batch_issue=${BATCH_ISSUE}" >> "$GITHUB_OUTPUT"
+          echo "child_issues=${CHILD_ISSUES}" >> "$GITHUB_OUTPUT"
+          echo "Batch issue: #${BATCH_ISSUE}, Child issues: ${CHILD_ISSUES}"
+
+      - name: Resolve child issues to PRs
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          IFS=',' read -ra ISSUE_LIST <<< "${{ steps.inputs.outputs.child_issues }}"
+          PR_LIST=()
+
+          for ISSUE_NUM in "${ISSUE_LIST[@]}"; do
+            ISSUE_NUM=$(echo "$ISSUE_NUM" | tr -d '[:space:]')
+            echo "Resolving issue #${ISSUE_NUM} to PR..."
+
+            # Find PRs that reference this issue (Copilot links issues to PRs)
+            PR_NUM=$(gh pr list --state all --search "linked:issue:${ISSUE_NUM}" \
+              --json number --jq '.[0].number' 2>/dev/null || echo "")
+
+            # Fallback: search PR titles for the issue's iteration name
+            if [ -z "$PR_NUM" ] || [ "$PR_NUM" = "null" ]; then
+              ISSUE_TITLE=$(gh issue view "$ISSUE_NUM" --json title --jq '.title')
+              # Extract scenario and iteration info from title like "test: ecommerce-order-api batch-60 run 1/5 (python)"
+              PR_NUM=$(gh pr list --state all --search "is:pr $ISSUE_TITLE" \
+                --json number --jq '.[0].number' 2>/dev/null || echo "")
+            fi
+
+            # Fallback: search for PRs mentioning this issue number in the body
+            if [ -z "$PR_NUM" ] || [ "$PR_NUM" = "null" ]; then
+              PR_NUM=$(gh pr list --state all --search "in:body \"#${ISSUE_NUM}\"" \
+                --json number --jq '.[0].number' 2>/dev/null || echo "")
+            fi
+
+            if [ -n "$PR_NUM" ] && [ "$PR_NUM" != "null" ]; then
+              echo "  Issue #${ISSUE_NUM} → PR #${PR_NUM}"
+              PR_LIST+=("$PR_NUM")
+            else
+              echo "  WARNING: No PR found for issue #${ISSUE_NUM}"
+            fi
+          done
+
+          PR_NUMBERS=$(IFS=','; echo "${PR_LIST[*]}")
           echo "pr_numbers=${PR_NUMBERS}" >> "$GITHUB_OUTPUT"
-          echo "Batch issue: #${BATCH_ISSUE}, PRs: ${PR_NUMBERS}"
+          echo "Resolved PRs: ${PR_NUMBERS}"
+
+          if [ ${#PR_LIST[@]} -eq 0 ]; then
+            echo "ERROR: Could not resolve any child issues to PRs."
+            exit 1
+          fi
 
       - name: Acknowledge aggregation started
         if: github.event_name == 'issue_comment'
@@ -80,7 +127,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh issue comment ${{ steps.inputs.outputs.batch_issue }} \
-            --body "Aggregation started for PRs: #$(echo '${{ steps.inputs.outputs.pr_numbers }}' | sed 's/,/, #/g'). This may take a few minutes..."
+            --body "Aggregation started for child issues: #$(echo '${{ steps.inputs.outputs.child_issues }}' | sed 's/,/, #/g'). Resolving PRs and collecting test results..."
 
       - name: Parse batch issue metadata
         id: meta
@@ -114,7 +161,7 @@ jobs:
         run: |
           mkdir -p batch-results
 
-          IFS=',' read -ra PR_LIST <<< "${{ steps.inputs.outputs.pr_numbers }}"
+          IFS=',' read -ra PR_LIST <<< "${{ steps.resolve.outputs.pr_numbers }}"
           RUN_INDEX=0
 
           for PR_NUM in "${PR_LIST[@]}"; do
@@ -201,7 +248,7 @@ jobs:
           LANGUAGE: ${{ steps.meta.outputs.language }}
           SKILLS: ${{ steps.meta.outputs.skills }}
           BATCH_ISSUE: ${{ steps.inputs.outputs.batch_issue }}
-          PR_NUMBERS: ${{ steps.inputs.outputs.pr_numbers }}
+          PR_NUMBERS: ${{ steps.resolve.outputs.pr_numbers }}
         run: |
           # Collect all test-report.json paths
           REPORTS=$(find batch-results -name "test-report.json" | sort)
@@ -247,7 +294,7 @@ jobs:
 
           # Update IMPROVEMENTS-LOG.md
           LOG_FILE="testing-v2/IMPROVEMENTS-LOG.md"
-          ENTRY="| $(date -u +%Y-%m-%d) | ${SCENARIO} | Batch #${BATCH_ISSUE} (${SKILLS_LABEL}, ${LANGUAGE}) | Aggregated $(echo "${{ steps.inputs.outputs.pr_numbers }}" | tr ',' ' ' | wc -w | tr -d ' ') iterations | See batch-results/ |"
+          ENTRY="| $(date -u +%Y-%m-%d) | ${SCENARIO} | Batch #${BATCH_ISSUE} (${SKILLS_LABEL}, ${LANGUAGE}) | Aggregated $(echo "${{ steps.resolve.outputs.pr_numbers }}" | tr ',' ' ' | wc -w | tr -d ' ') iterations | See batch-results/ |"
 
           if [ -f "$LOG_FILE" ]; then
             # Insert after the header row (line with |---|)
@@ -268,7 +315,7 @@ jobs:
           **Scenario**: ${SCENARIO}
           **Language**: ${LANGUAGE}
           **Skills**: ${SKILLS_TEXT}
-          **Child PRs**: $(echo "${{ steps.inputs.outputs.pr_numbers }}" | sed 's/,/, #/g; s/^/#/')
+          **Child PRs**: $(echo "${{ steps.resolve.outputs.pr_numbers }}" | sed 's/,/, #/g; s/^/#/')
 
           ---
 
@@ -298,7 +345,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          IFS=',' read -ra PR_LIST <<< "${{ steps.inputs.outputs.pr_numbers }}"
+          IFS=',' read -ra PR_LIST <<< "${{ steps.resolve.outputs.pr_numbers }}"
 
           for PR_NUM in "${PR_LIST[@]}"; do
             PR_NUM=$(echo "$PR_NUM" | tr -d '[:space:]')

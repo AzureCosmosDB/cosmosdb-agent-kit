@@ -433,13 +433,15 @@ shows a test results comment.
 
 #### Step 6: Trigger aggregation
 
-Post a comment **on the parent batch issue** with the PR numbers:
+Post a comment **on the parent batch issue** with the child issue numbers.
+The exact command is pre-filled in the summary comment posted automatically
+when the children were created — just copy and paste it:
 
 ```
-/aggregate 56,57,58,59,60
+/aggregate 61,62,63,64,65
 ```
 
-This triggers the **Aggregate Batch Results** workflow, which:
+The workflow automatically resolves each child issue to its PR, then:
 - Downloads `test-report.json` artifacts from each child PR's CI run
 - Computes aggregate statistics (mean, stddev, min, max)
 - Creates a summary PR with `BATCH-RESULTS.md`
@@ -447,7 +449,7 @@ This triggers the **Aggregate Batch Results** workflow, which:
 - Posts the aggregate summary on the parent batch issue
 
 > **Alternative:** You can also trigger aggregation from **Actions** → **Aggregate Batch
-> Results** → **Run workflow**, entering the batch issue number and PR numbers manually.
+> Results** → **Run workflow**, entering the batch issue number and child issue numbers.
 
 ### Batch Results Output
 

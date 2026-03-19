@@ -115,6 +115,7 @@ jobs:
           fi
 
           # Create N child issues
+          CHILD_ISSUES=()
           for i in $(seq 1 "$ITERATIONS"); do
             ITER_NUM=$(printf "%03d" $((START + i - 1)))
             ITER_NAME="iteration-${ITER_NUM}-${LANGUAGE}"
@@ -221,6 +222,7 @@ jobs:
 
             if [ -n "$CHILD_NUM" ]; then
               echo "  Created issue #${CHILD_NUM}"
+              CHILD_ISSUES+=("$CHILD_NUM")
             else
               echo "  WARNING: Could not create or parse issue number for run ${i}"
               echo "  Attempting without --assignee copilot..."
@@ -231,6 +233,7 @@ jobs:
                 2>&1 | grep -oP '\d+$') || true
               if [ -n "$CHILD_NUM" ]; then
                 echo "  Created issue #${CHILD_NUM} (assign copilot manually)"
+                CHILD_ISSUES+=("$CHILD_NUM")
               else
                 echo "  ERROR: Failed to create child issue for run ${i}"
               fi
@@ -239,6 +242,10 @@ jobs:
             # Brief pause between issue creations to avoid rate limiting
             sleep 2
           done
+
+          # Build comma-separated list of child issue numbers
+          CHILD_LIST=$(IFS=','; echo "${CHILD_ISSUES[*]}")
+          echo "Child issues: ${CHILD_LIST}"
 
           # Post summary on parent issue
           SUMMARY="## Batch Children Created\n\n"
@@ -260,17 +267,10 @@ jobs:
           SUMMARY+="**Step 3 — Wait for tests to complete**\n"
           SUMMARY+="After approval, CI runs tests and posts results on each PR. Wait until all PRs show test results.\n\n"
           SUMMARY+="**Step 4 — Trigger aggregation**\n"
-          SUMMARY+="Once all PRs have results, post a comment **on this issue** with the PR numbers:\n\n"
+          SUMMARY+="Once all child PRs have test results, copy and paste this command as a comment on this issue:\n\n"
           SUMMARY+="\`\`\`\n"
-          SUMMARY+="/aggregate <pr1>,<pr2>,<pr3>,...\n"
-          SUMMARY+="\`\`\`\n\n"
-          SUMMARY+="For example: \`/aggregate 56,57,58,59,60\`\n\n"
-          SUMMARY+="This will:\n"
-          SUMMARY+="- Download test results from each PR\n"
-          SUMMARY+="- Compute aggregate statistics (mean, stddev, min, max)\n"
-          SUMMARY+="- Create a summary PR with BATCH-RESULTS.md\n"
-          SUMMARY+="- Close all child PRs\n"
-          SUMMARY+="- Post the aggregate summary back here\n"
+          SUMMARY+="/aggregate ${CHILD_LIST}\n"
+          SUMMARY+="\`\`\`\n"
 
           gh issue comment "$BATCH_ISSUE" --body "$(echo -e "$SUMMARY")"
           echo "Posted summary on batch issue #${BATCH_ISSUE}"
