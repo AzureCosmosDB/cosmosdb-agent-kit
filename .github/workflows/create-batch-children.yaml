@@ -97,12 +97,15 @@ jobs:
           START=$((HIGHEST + 1))
           echo "Starting iteration number: $START"
 
-          # Create the batch label
+          # Ensure required labels exist (gh issue create fails if they don't)
+          for lbl in "testing" "iteration" "batch-child"; do
+            gh label create "$lbl" --color "C2E0C6" 2>/dev/null || true
+          done
           BATCH_LABEL="batch-${BATCH_ISSUE}"
           gh label create "$BATCH_LABEL" \
             --description "Child of batch test #${BATCH_ISSUE}" \
             --color "C2E0C6" \
-            2>/dev/null || echo "Label $BATCH_LABEL already exists"
+            2>/dev/null || true
 
           # Skills-specific instructions
           if [ "$SKILLS" = "yes" ]; then
@@ -215,12 +218,13 @@ jobs:
 
             echo "Creating child issue ${i}/${ITERATIONS}: ${TITLE}"
 
-            CHILD_NUM=$(gh issue create \
+            CREATE_OUTPUT=$(gh issue create \
               --title "$TITLE" \
               --body "$ISSUE_BODY" \
               --label "testing,iteration,batch-child,${BATCH_LABEL}" \
-              --assignee "Copilot" \
-              2>&1 | grep -oP '\d+$') || true
+              --assignee "Copilot" 2>&1) || true
+            echo "  gh issue create output: ${CREATE_OUTPUT}"
+            CHILD_NUM=$(echo "$CREATE_OUTPUT" | grep -oP '\d+$') || true
 
             if [ -n "$CHILD_NUM" ]; then
               echo "  Created issue #${CHILD_NUM}"
@@ -228,11 +232,12 @@ jobs:
             else
               echo "  WARNING: Could not create or parse issue number for run ${i}"
               echo "  Attempting without --assignee..."
-              CHILD_NUM=$(gh issue create \
+              CREATE_OUTPUT=$(gh issue create \
                 --title "$TITLE" \
                 --body "$ISSUE_BODY" \
-                --label "testing,iteration,batch-child,${BATCH_LABEL}" \
-                2>&1 | grep -oP '\d+$') || true
+                --label "testing,iteration,batch-child,${BATCH_LABEL}" 2>&1) || true
+              echo "  gh issue create output: ${CREATE_OUTPUT}"
+              CHILD_NUM=$(echo "$CREATE_OUTPUT" | grep -oP '\d+$') || true
               if [ -n "$CHILD_NUM" ]; then
                 echo "  Created issue #${CHILD_NUM} (assign copilot manually)"
                 CHILD_ISSUES+=("$CHILD_NUM")
