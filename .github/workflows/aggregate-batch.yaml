@@ -86,21 +86,25 @@ jobs:
             ISSUE_NUM=$(echo "$ISSUE_NUM" | tr -d '[:space:]')
             echo "Resolving issue #${ISSUE_NUM} to PR..."
 
-            # Find PRs that reference this issue (Copilot links issues to PRs)
-            PR_NUM=$(gh pr list --state all --search "linked:issue:${ISSUE_NUM}" \
-              --json number --jq '.[0].number' 2>/dev/null || echo "")
-
-            # Fallback: search PR titles for the issue's iteration name
-            if [ -z "$PR_NUM" ] || [ "$PR_NUM" = "null" ]; then
-              ISSUE_TITLE=$(gh issue view "$ISSUE_NUM" --json title --jq '.title')
-              # Extract scenario and iteration info from title like "test: ecommerce-order-api batch-60 run 1/5 (python)"
-              PR_NUM=$(gh pr list --state all --search "is:pr $ISSUE_TITLE" \
-                --json number --jq '.[0].number' 2>/dev/null || echo "")
-            fi
+            # Primary: use timeline API to find cross-referenced PRs
+            # This is the most reliable method — GitHub tracks when Copilot
+            # creates a PR that references an issue (e.g., "Fixes #82")
+            PR_NUM=$(gh api "repos/${{ github.repository }}/issues/${ISSUE_NUM}/timeline" \
+              --jq '[.[] | select(.event == "cross-referenced" and .source.issue.pull_request != null)] | .[0].source.issue.number' \
+              2>/dev/null || echo "")
 
             # Fallback: search for PRs mentioning this issue number in the body
             if [ -z "$PR_NUM" ] || [ "$PR_NUM" = "null" ]; then
-              PR_NUM=$(gh pr list --state all --search "in:body \"#${ISSUE_NUM}\"" \
+              echo "  Timeline API found no PR, trying body search..."
+              PR_NUM=$(gh pr list --state all --search "in:body \"Fixes #${ISSUE_NUM}\"" \
+                --json number --jq '.[0].number' 2>/dev/null || echo "")
+            fi
+
+            # Fallback: search PR titles for the issue's iteration name
+            if [ -z "$PR_NUM" ] || [ "$PR_NUM" = "null" ]; then
+              echo "  Body search found no PR, trying title search..."
+              ISSUE_TITLE=$(gh issue view "$ISSUE_NUM" --json title --jq '.title')
+              PR_NUM=$(gh pr list --state all --search "in:title \"${ISSUE_TITLE}\"" \
                 --json number --jq '.[0].number' 2>/dev/null || echo "")
             fi
 

@@ -246,6 +246,7 @@ def _cli_main():
 
     # --- Categorize test results by file for better signal reporting ---
     category_counts = {}
+    all_tests = []
     for tc in root.iter("testcase"):
         classname = tc.get("classname", "")
         name = tc.get("name", "")
@@ -270,12 +271,18 @@ def _cli_main():
 
         if failure is not None:
             category_counts[cat]["failed"] += 1
+            outcome = "failed"
         elif error is not None:
             category_counts[cat]["errors"] += 1
+            outcome = "error"
         elif skipped_el is not None:
             category_counts[cat]["skipped"] += 1
+            outcome = "skipped"
         else:
             category_counts[cat]["passed"] += 1
+            outcome = "passed"
+
+        all_tests.append({"name": f"{classname}::{name}", "outcome": outcome, "category": cat})
 
     # --- Load build signal if available ---
     build_signal = None
@@ -411,6 +418,7 @@ def _cli_main():
             "pass_rate": pass_rate,
         },
         "categories": category_counts,
+        "tests": all_tests,
         "build_signal": build_signal,
         "startup_signal": startup_signal,
         "failures": failure_details,

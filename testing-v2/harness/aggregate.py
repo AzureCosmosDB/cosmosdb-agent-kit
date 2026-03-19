@@ -53,7 +53,7 @@ def compute_aggregate(reports):
 
     for r in reports:
         summary = r.get("summary", {})
-        if r.get("app_startup_failed"):
+        if r.get("startup_failed") or r.get("app_startup_failed"):
             startup_failures += 1
             pass_rates.append(0.0)
             passed_counts.append(0)
@@ -123,7 +123,11 @@ def compute_aggregate(reports):
         cat_pass_rates = []
         for r in reports:
             cat_data = r.get("categories", {}).get(cat, {})
-            cat_total = cat_data.get("total", 0)
+            cat_total = (
+                cat_data.get("total", 0)
+                or cat_data.get("passed", 0) + cat_data.get("failed", 0)
+                + cat_data.get("errors", 0) + cat_data.get("skipped", 0)
+            )
             cat_passed = cat_data.get("passed", 0)
             if cat_total > 0:
                 cat_pass_rates.append(round(cat_passed / cat_total * 100, 1))
@@ -163,7 +167,7 @@ def compute_aggregate(reports):
 
 def compute_score(report):
     """Compute score from a single test report (mirrors evaluate.py logic)."""
-    if report is None or report.get("app_startup_failed"):
+    if report is None or report.get("startup_failed") or report.get("app_startup_failed"):
         return 1
 
     rate = report.get("summary", {}).get("pass_rate", 0)
