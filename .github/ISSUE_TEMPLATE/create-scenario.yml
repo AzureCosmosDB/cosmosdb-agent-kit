@@ -39,6 +39,21 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: auto-generate
+    attributes:
+      label: Auto-generate entities and endpoints?
+      description: >-
+        If "Yes", Copilot will infer the entities and endpoints from your
+        description above — you can leave the Entities and Endpoints fields
+        empty. If "No", you must fill them in manually.
+      options:
+        - "No — I will specify entities and endpoints below"
+        - "Yes — infer from the description"
+      default: 0
+    validations:
+      required: true
+
   - type: textarea
     id: entities
     attributes:
@@ -46,13 +61,14 @@ body:
       description: >-
         List the main data entities and their key fields.
         One entity per line with fields in parentheses.
+        Leave empty if you selected auto-generate above.
       placeholder: |
         Patient (patientId, name, email, dateOfBirth)
         Provider (providerId, name, specialty, location)
         Appointment (appointmentId, patientId, providerId, dateTime, status, notes)
         TimeSlot (slotId, providerId, dateTime, duration, available)
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: endpoints
@@ -60,7 +76,8 @@ body:
       label: API Endpoints
       description: >-
         List the endpoints the API should expose.
-        Format: METHOD /path — description
+        Format: METHOD /path — description.
+        Leave empty if you selected auto-generate above.
       placeholder: |
         POST /api/patients — Create a patient
         GET /api/patients/{patientId} — Get patient profile
@@ -71,7 +88,7 @@ body:
         PATCH /api/appointments/{appointmentId} — Update appointment (cancel/reschedule)
         GET /api/patients/{patientId}/appointments — Patient appointment history
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: scale
@@ -122,9 +139,19 @@ body:
 
         ### Step 3: Generate the scenario
 
-        Use the **Scenario Name**, **Description**, **Entities**, **Endpoints**, and
-        **Expected Scale** from this issue. Follow the CREATE-SCENARIO.md recipe to produce
-        all required files.
+        Use the **Scenario Name**, **Description**, and **Expected Scale** from this issue.
+
+        **If auto-generate was selected ("Yes — infer from the description"):**
+        - Infer appropriate entities and their key fields from the description
+        - Design a RESTful API with CRUD endpoints, query/filter endpoints, and
+          any aggregation endpoints that make sense for the domain
+        - Include a health endpoint (GET /health)
+        - Use the same patterns you see in the reference scenario
+
+        **If entities and endpoints were provided:**
+        - Use the **Entities** and **Endpoints** from this issue as specified
+
+        Follow the CREATE-SCENARIO.md recipe to produce all required files.
 
         ### Step 4: Open a PR
 

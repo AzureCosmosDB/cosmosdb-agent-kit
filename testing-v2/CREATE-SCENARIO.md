@@ -15,9 +15,26 @@ You need these inputs (from the GitHub issue or the human):
 
 1. **Scenario name** — kebab-case (e.g., `healthcare-appointments`)
 2. **Description** — what the app does
-3. **Entities** — data model with key fields
-4. **Endpoints** — HTTP methods, paths, descriptions
+3. **Entities** — data model with key fields *(optional if auto-generating)*
+4. **Endpoints** — HTTP methods, paths, descriptions *(optional if auto-generating)*
 5. **Expected scale** — data volumes and query patterns (optional)
+
+### Auto-generating entities and endpoints
+
+If the issue has **auto-generate** set to "Yes" (or entities/endpoints are empty),
+infer them from the description:
+
+- **Entities**: Identify the core domain objects and their key fields (IDs, names,
+  statuses, timestamps, foreign keys). Use camelCase field names.
+- **Endpoints**: Design a RESTful API following these patterns:
+  - `POST /api/<entities>` — Create (201)
+  - `GET /api/<entities>/{id}` — Get by ID (200 or 404)
+  - `GET /api/<entities>?<filter>=X` — Query/filter (200)
+  - `PATCH /api/<entities>/{id}/<field>` — Update specific fields (200 or 404/409)
+  - `DELETE /api/<entities>/{id}` — Delete with business rules (204 or 409)
+  - `GET /api/<parent>/{id}/<children>` — Get related entities
+  - `GET /api/<entities>/summary` or `GET /api/<parent>/{id}/<children>/summary` — Aggregations
+  - Always include `GET /health` → 200
 
 ## Step-by-Step
 
