@@ -303,12 +303,12 @@ jobs:
           echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
         id: commit_results
 
-      - name: Create summary PR (skills runs only)
-        if: steps.meta.outputs.skills == 'yes'
+      - name: Create summary PR
         env:
           GH_TOKEN: ${{ github.token }}
           SCENARIO: ${{ steps.meta.outputs.scenario }}
           LANGUAGE: ${{ steps.meta.outputs.language }}
+          SKILLS: ${{ steps.meta.outputs.skills }}
           BATCH_ISSUE: ${{ steps.inputs.outputs.batch_issue }}
           BRANCH: ${{ steps.commit_results.outputs.branch }}
         run: |
@@ -316,8 +316,15 @@ jobs:
           gh label create "batch-aggregate" --description "Batch aggregate summary PR" --color "0e8a16" 2>/dev/null || true
           gh label create "testing" --description "Testing framework" --color "1d76db" 2>/dev/null || true
 
-          SKILLS_TEXT="skills loaded"
+          SKILLS_TEXT=$( [ "$SKILLS" = "yes" ] && echo "skills loaded" || echo "control (no skills)" )
           PR_TITLE="batch: ${SCENARIO} aggregate results — ${SKILLS_TEXT} (${LANGUAGE})"
+
+          if [ "$SKILLS" = "yes" ]; then
+            NEXT_STEPS="Review the **Consistent Failures** section. These tests failed in every iteration and indicate real skill gaps. Use the deep evaluation prompt (posted as a comment) to analyze and create rules."
+          else
+            NEXT_STEPS="This is a **control run** (no skills loaded). Review the consistent failures to identify which existing rules WOULD HAVE helped. Compare with the corresponding skills batch to measure skill effectiveness."
+          fi
+
           PR_BODY=$(cat <<EOF
           ## Batch Test Aggregate Results
 
@@ -335,9 +342,7 @@ jobs:
 
           ### Next Steps
 
-          Review the **Consistent Failures** section below. These are tests that
-          failed in every iteration and indicate real skill gaps. Use the deep
-          evaluation prompt (posted as a comment) to analyze and create rules.
+          ${NEXT_STEPS}
           EOF
           )
 
@@ -378,20 +383,15 @@ jobs:
       - name: Post aggregate summary on parent issue
         env:
           GH_TOKEN: ${{ github.token }}
-          SKILLS: ${{ steps.meta.outputs.skills }}
         run: |
           BATCH_ISSUE=${{ steps.inputs.outputs.batch_issue }}
           RESULTS=$(cat batch-results/BATCH-RESULTS.md)
 
-          if [ "$SKILLS" = "yes" ]; then
-            SUMMARY_PR="${{ steps.create_summary.outputs.summary_pr }}"
-            if [ -n "$SUMMARY_PR" ]; then
-              PR_NOTE="*Summary PR #${SUMMARY_PR} created for deep evaluation. See linked PR for full details.*"
-            else
-              PR_NOTE="*WARNING: Summary PR creation failed. Results are still available in the artifacts.*"
-            fi
+          SUMMARY_PR="${{ steps.create_summary.outputs.summary_pr }}"
+          if [ -n "$SUMMARY_PR" ]; then
+            PR_NOTE="*Summary PR #${SUMMARY_PR} created for deep evaluation. See linked PR for full details.*"
           else
-            PR_NOTE="*Control run — no summary PR created. Compare results with the corresponding skills batch to measure skill effectiveness.*"
+            PR_NOTE="*WARNING: Summary PR creation failed. Results are still available in the artifacts.*"
           fi
 
           COMMENT="## Batch Aggregation Complete
@@ -410,22 +410,24 @@ jobs:
           echo "Posted aggregate summary on batch issue #${BATCH_ISSUE}"
 
       - name: Post deep evaluation prompt on summary PR
-        if: steps.meta.outputs.skills == 'yes' && steps.create_summary.outputs.summary_pr
+        if: steps.create_summary.outputs.summary_pr
         env:
           GH_TOKEN: ${{ github.token }}
           SCENARIO: ${{ steps.meta.outputs.scenario }}
           LANGUAGE: ${{ steps.meta.outputs.language }}
+          SKILLS: ${{ steps.meta.outputs.skills }}
           BATCH_ISSUE: ${{ steps.inputs.outputs.batch_issue }}
         run: |
           SUMMARY_PR=${{ steps.create_summary.outputs.summary_pr }}
-          RESULTS_FILE="testing-v2/scenarios/${SCENARIO}/batch-results/batch-${BATCH_ISSUE}-${LANGUAGE}-skills.md"
+          SKILLS_LABEL=$( [ "$SKILLS" = "yes" ] && echo "skills" || echo "control" )
+          RESULTS_FILE="testing-v2/scenarios/${SCENARIO}/batch-results/batch-${BATCH_ISSUE}-${LANGUAGE}-${SKILLS_LABEL}.md"
 
           # Build the evaluation comment as a file to avoid escaping issues
           cat > /tmp/eval-comment.md <<EVALEOF
           <!-- copilot-batch-eval -->
-          ## 📋 Deep Evaluation Ready
+          ## 📋 Deep Evaluation Ready$( [ "$SKILLS" = "yes" ] && echo "" || echo " (CONTROL RUN)" )
 
-          Batch aggregation is complete. A deep evaluation is needed to analyze the consistently-failing tests and create or update rules.
+          Batch aggregation is complete. A deep evaluation is needed to analyze the consistently-failing tests.
 
           ---
 
@@ -439,7 +441,8 @@ jobs:
           # Add the copilot prompt inside a code fence
           echo '````' >> /tmp/eval-comment.md
 
-          cat >> /tmp/eval-comment.md <<PROMPTEOF
+          if [ "$SKILLS" = "yes" ]; then
+            cat >> /tmp/eval-comment.md <<PROMPTEOF
           @copilot **Deep evaluation needed for batch results.** Read the batch aggregate results and analyze the consistently-failing tests.
 
           Follow these steps:
@@ -457,6 +460,27 @@ jobs:
           11. Update \`testing-v2/IMPROVEMENTS-LOG.md\` with the batch evaluation results
           12. Commit all changes to this PR branch
           PROMPTEOF
+          else
+            cat >> /tmp/eval-comment.md <<PROMPTEOF
+          @copilot **Deep evaluation needed for batch results (CONTROL RUN — no skills loaded).** Read the batch aggregate results and analyze what skills would have helped.
+
+          Follow these steps:
+
+          1. Read \`${RESULTS_FILE}\` (the batch aggregate results on this PR's branch)
+          2. Read \`testing-v2/EVALUATE.md\` for the evaluation recipe
+          3. Read \`skills/cosmosdb-best-practices/AGENTS.md\` (all current rules)
+          4. Read \`testing-v2/scenarios/${SCENARIO}/api-contract.yaml\`
+          5. Focus on the **Consistent Failures** section — tests that failed in EVERY iteration
+          6. Also review any **Build/Startup Failures** — iterations where the app failed to compile or start indicate code generation gaps
+          7. For each consistent failure, identify which rules from AGENTS.md WOULD HAVE helped if loaded
+          8. Do NOT create or update any rules — this is a control run
+          9. Update \`testing-v2/IMPROVEMENTS-LOG.md\` noting this was a control batch run, listing:
+             - Number of build/startup failures out of total iterations
+             - Consistent test failures and which existing rules would have prevented them
+             - Any failures that NO existing rule covers (these are gaps needing new rules)
+          10. Commit all changes to this PR branch with \`[skip ci]\` in the commit message
+          PROMPTEOF
+          fi
 
           echo '````' >> /tmp/eval-comment.md
 
