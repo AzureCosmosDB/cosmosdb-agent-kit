@@ -172,17 +172,67 @@ def _cli_main():
             if err_path.exists():
                 app_err = err_path.read_text(errors="replace")[-3000:]
 
+        # Load build signal to determine build vs startup failure
+        build_signal = None
+        for signal_path in [
+            Path("build-signal.json"),
+            Path(iteration_dir) / "build-signal.json" if iteration_dir else None,
+        ]:
+            if signal_path and signal_path.exists():
+                try:
+                    build_signal = json.loads(signal_path.read_text(errors="replace"))
+                except Exception:
+                    pass
+                break
+
+        build_ok = build_signal.get("succeeded", False) if build_signal else False
+
+        # Build/startup as a visible category
+        build_startup_cat = {"passed": 0, "failed": 0, "errors": 0, "skipped": 0}
+        startup_tests = []
+
+        if build_ok:
+            build_startup_cat["passed"] += 1
+            startup_tests.append({"name": "build_startup::build_compilation", "outcome": "passed", "category": "build_startup"})
+        else:
+            build_startup_cat["failed"] += 1
+            startup_tests.append({"name": "build_startup::build_compilation", "outcome": "failed", "category": "build_startup"})
+
+        # Startup always failed in this path (no test-results.xml)
+        build_startup_cat["failed"] += 1
+        startup_tests.append({"name": "build_startup::app_startup", "outcome": "failed", "category": "build_startup"})
+
+        build_status = "PASS" if build_ok else "FAIL"
+        build_exit = build_signal.get("exit_code", "?") if build_signal else "?"
+
         lines = [
             f"## [Test] Test Results: {scenario} / {iteration}",
             "",
-            "**Pass rate: N/A** -- application failed to start, no tests ran",
+            "**Pass rate: N/A** -- application failed to start, no functional tests ran",
             "",
-            "### [FAIL] Application Failed to Start",
+            "### Build & Startup Status",
             "",
-            "The application did not start successfully, so no tests could run.",
-            "This typically means a missing dependency, import error, or configuration issue.",
+            "| Phase | Status |",
+            "|-------|--------|",
+            f"| Build | {build_status} (exit code: {build_exit}) |",
+            "| Startup | FAIL |",
             "",
         ]
+
+        if build_signal and not build_ok:
+            stderr = build_signal.get("stderr_tail", "")
+            if stderr:
+                lines.extend([
+                    "<details>",
+                    "<summary>Build error output</summary>",
+                    "",
+                    "```",
+                    stderr[:2000],
+                    "```",
+                    "",
+                    "</details>",
+                    "",
+                ])
 
         if app_log:
             lines.extend([
@@ -220,6 +270,9 @@ def _cli_main():
                 "total": 0, "passed": 0, "failed": 0,
                 "errors": 1, "skipped": 0, "pass_rate": 0,
             },
+            "categories": {"build_startup": build_startup_cat},
+            "tests": startup_tests,
+            "build_signal": build_signal,
             "failures": [{
                 "test": "startup",
                 "message": "Application failed to start. "
@@ -306,6 +359,27 @@ def _cli_main():
         except Exception:
             pass
 
+    # --- Add build/startup as a visible test category ---
+    build_startup_cat = {"passed": 0, "failed": 0, "errors": 0, "skipped": 0}
+
+    # Build: use signal if available; otherwise assume success (tests ran)
+    if build_signal and not build_signal.get("succeeded", True):
+        build_startup_cat["failed"] += 1
+        all_tests.append({"name": "build_startup::build_compilation", "outcome": "failed", "category": "build_startup"})
+    else:
+        build_startup_cat["passed"] += 1
+        all_tests.append({"name": "build_startup::build_compilation", "outcome": "passed", "category": "build_startup"})
+
+    # Startup: use signal if available; otherwise assume success (tests ran)
+    if startup_signal and not startup_signal.get("startup_succeeded", True):
+        build_startup_cat["failed"] += 1
+        all_tests.append({"name": "build_startup::app_startup", "outcome": "failed", "category": "build_startup"})
+    else:
+        build_startup_cat["passed"] += 1
+        all_tests.append({"name": "build_startup::app_startup", "outcome": "passed", "category": "build_startup"})
+
+    category_counts["build_startup"] = build_startup_cat
+
     lines = [
         f"## [Test] Test Results: {scenario} / {iteration}",
         "",
@@ -354,6 +428,7 @@ def _cli_main():
     # --- Category Breakdown ---
     if category_counts:
         cat_labels = {
+            "build_startup": "Build & Startup",
             "api_contract": "API Contract",
             "data_integrity": "Data Integrity",
             "robustness": "Robustness",

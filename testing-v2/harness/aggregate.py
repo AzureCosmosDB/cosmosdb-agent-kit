@@ -50,11 +50,34 @@ def compute_aggregate(reports):
     failed_counts = []
     total_counts = []
     startup_failures = 0
+    build_failures = 0
+    build_startup_status = []  # per-iteration: {"build": bool, "startup": bool}
 
     for r in reports:
         summary = r.get("summary", {})
-        if r.get("startup_failed") or r.get("app_startup_failed"):
+
+        # Determine build/startup status from signals or categories
+        bs = r.get("build_signal")
+        build_ok = bs.get("succeeded", True) if bs else True
+        startup_ok = not (r.get("startup_failed") or r.get("app_startup_failed"))
+
+        # Also check build_startup category for consistency
+        bs_cat = r.get("categories", {}).get("build_startup", {})
+        if bs_cat:
+            build_test = next((t for t in r.get("tests", []) if t.get("name") == "build_startup::build_compilation"), None)
+            startup_test = next((t for t in r.get("tests", []) if t.get("name") == "build_startup::app_startup"), None)
+            if build_test:
+                build_ok = build_test["outcome"] == "passed"
+            if startup_test:
+                startup_ok = startup_test["outcome"] == "passed"
+
+        if not build_ok:
+            build_failures += 1
+        if not startup_ok:
             startup_failures += 1
+        build_startup_status.append({"build": build_ok, "startup": startup_ok})
+
+        if r.get("startup_failed") or r.get("app_startup_failed"):
             pass_rates.append(0.0)
             passed_counts.append(0)
             failed_counts.append(summary.get("total", 0))
@@ -143,6 +166,8 @@ def compute_aggregate(reports):
     return {
         "iterations": n,
         "startup_failures": startup_failures,
+        "build_failures": build_failures,
+        "build_startup_status": build_startup_status,
         "pass_rate": {
             "mean": round(statistics.mean(pass_rates), 1),
             "stddev": round(statistics.stdev(pass_rates), 1) if n > 1 else 0.0,
@@ -224,6 +249,8 @@ def format_markdown(aggregate, scenario, language, skills, batch_issue, pr_numbe
     lines.append(f"- **Iterations**: {n}")
     lines.append(f"- **Batch issue**: #{batch_issue}")
     lines.append(f"- **Child PRs**: {pr_numbers}")
+    if aggregate["build_failures"] > 0:
+        lines.append(f"- **Build failures**: {aggregate['build_failures']}/{n}")
     if aggregate["startup_failures"] > 0:
         lines.append(f"- **Startup failures**: {aggregate['startup_failures']}/{n}")
     lines.append("")
@@ -246,27 +273,43 @@ def format_markdown(aggregate, scenario, language, skills, batch_issue, pr_numbe
     lines.append("")
 
     # Per-iteration breakdown
+    bs_status = aggregate.get("build_startup_status", [])
     lines.append("## Per-Iteration Results")
     lines.append("")
-    lines.append("| Run | Passed | Total | Pass Rate | Score |")
-    lines.append("|-----|--------|-------|-----------|-------|")
+    lines.append("| Run | Build | Startup | Passed | Total | Pass Rate | Score |")
+    lines.append("|-----|-------|---------|--------|-------|-----------|-------|")
     for i in range(n):
         p = aggregate["passed"]["values"][i]
         t = aggregate["total"]["values"][i]
         r = aggregate["pass_rate"]["values"][i]
         s = aggregate["score"]["values"][i]
-        lines.append(f"| {i + 1} | {p} | {t} | {r}% | {s}/10 |")
+        if i < len(bs_status):
+            b_icon = "PASS" if bs_status[i]["build"] else "FAIL"
+            s_icon = "PASS" if bs_status[i]["startup"] else "FAIL"
+        else:
+            b_icon = "?"
+            s_icon = "?"
+        lines.append(f"| {i + 1} | {b_icon} | {s_icon} | {p} | {t} | {r}% | {s}/10 |")
     lines.append("")
 
     # Category breakdown
     if aggregate["category_stats"]:
+        cat_labels = {
+            "build_startup": "Build & Startup",
+            "api_contract": "API Contract",
+            "data_integrity": "Data Integrity",
+            "robustness": "Robustness",
+            "cosmos_infrastructure": "Cosmos Infrastructure",
+            "other": "Other",
+        }
         lines.append("## Category Breakdown")
         lines.append("")
         lines.append("| Category | Mean | Std Dev | Min | Max |")
         lines.append("|----------|------|---------|-----|-----|")
         for cat, stats in sorted(aggregate["category_stats"].items()):
+            label = cat_labels.get(cat, cat)
             lines.append(
-                f"| {cat} | {stats['mean']}% | {stats['stddev']}% "
+                f"| {label} | {stats['mean']}% | {stats['stddev']}% "
                 f"| {stats['min']}% | {stats['max']}% |"
             )
         lines.append("")
