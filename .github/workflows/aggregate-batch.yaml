@@ -1,0 +1,501 @@
+# =============================================================================
+# Aggregate Batch Results
+# =============================================================================
+# Collects test results from multiple child PRs in a batch, computes aggregate
+# statistics (mean, stddev, min, max), and creates a summary PR with the
+# analysis. Closes the child PRs after collecting results.
+#
+# Triggers:
+#   - issue_comment: Post "/aggregate 51,52,53,54,55" on the parent batch issue
+#   - workflow_dispatch: Manual trigger from the Actions tab
+#
+# What it does:
+#   1. Downloads test-report.json artifacts from each child PR
+#   2. Runs aggregate.py to compute statistics
+#   3. Creates a summary branch and PR with BATCH-RESULTS.md
+#   4. Closes child PRs
+#   5. Posts aggregate summary on the parent batch issue
+# =============================================================================
+
+name: Aggregate Batch Results
+
+on:
+  issue_comment:
+    types: [created]
+
+  workflow_dispatch:
+    inputs:
+      batch_issue:
+        description: 'Parent batch issue number'
+        required: true
+        type: number
+      child_issues:
+        description: 'Comma-separated child issue numbers (e.g., 61,62,63,64,65)'
+        required: true
+        type: string
+
+jobs:
+  aggregate:
+    name: Aggregate batch results
+    runs-on: ubuntu-latest
+    # For issue_comment: only run on /aggregate commands on batch-test issues
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment'
+       && startsWith(github.event.comment.body, '/aggregate')
+       && contains(github.event.issue.labels.*.name, 'batch-test'))
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Parse trigger inputs
+        id: inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            # Parse from comment: /aggregate 61,62,63,64,65
+            COMMENT="${{ github.event.comment.body }}"
+            CHILD_ISSUES=$(echo "$COMMENT" | sed 's|/aggregate[[:space:]]*||' | tr -d '[:space:]')
+            BATCH_ISSUE=${{ github.event.issue.number }}
+            echo "Triggered via issue comment on #${BATCH_ISSUE}"
+          else
+            CHILD_ISSUES="${{ inputs.child_issues }}"
+            BATCH_ISSUE=${{ inputs.batch_issue }}
+            echo "Triggered via workflow_dispatch"
+          fi
+
+          echo "batch_issue=${BATCH_ISSUE}" >> "$GITHUB_OUTPUT"
+          echo "child_issues=${CHILD_ISSUES}" >> "$GITHUB_OUTPUT"
+          echo "Batch issue: #${BATCH_ISSUE}, Child issues: ${CHILD_ISSUES}"
+
+      - name: Resolve child issues to PRs
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          IFS=',' read -ra ISSUE_LIST <<< "${{ steps.inputs.outputs.child_issues }}"
+          PR_LIST=()
+
+          for ISSUE_NUM in "${ISSUE_LIST[@]}"; do
+            ISSUE_NUM=$(echo "$ISSUE_NUM" | tr -d '[:space:]')
+            echo "Resolving issue #${ISSUE_NUM} to PR..."
+
+            # Primary: use timeline API to find cross-referenced PRs
+            # This is the most reliable method — GitHub tracks when Copilot
+            # creates a PR that references an issue (e.g., "Fixes #82")
+            PR_NUM=$(gh api "repos/${{ github.repository }}/issues/${ISSUE_NUM}/timeline" \
+              --jq '[.[] | select(.event == "cross-referenced" and .source.issue.pull_request != null)] | .[0].source.issue.number' \
+              2>/dev/null || echo "")
+
+            # Fallback: search for PRs mentioning this issue number in the body
+            if [ -z "$PR_NUM" ] || [ "$PR_NUM" = "null" ]; then
+              echo "  Timeline API found no PR, trying body search..."
+              PR_NUM=$(gh pr list --state all --search "in:body \"Fixes #${ISSUE_NUM}\"" \
+                --json number --jq '.[0].number' 2>/dev/null || echo "")
+            fi
+
+            # Fallback: search PR titles for the issue's iteration name
+            if [ -z "$PR_NUM" ] || [ "$PR_NUM" = "null" ]; then
+              echo "  Body search found no PR, trying title search..."
+              ISSUE_TITLE=$(gh issue view "$ISSUE_NUM" --json title --jq '.title')
+              PR_NUM=$(gh pr list --state all --search "in:title \"${ISSUE_TITLE}\"" \
+                --json number --jq '.[0].number' 2>/dev/null || echo "")
+            fi
+
+            if [ -n "$PR_NUM" ] && [ "$PR_NUM" != "null" ]; then
+              echo "  Issue #${ISSUE_NUM} → PR #${PR_NUM}"
+              PR_LIST+=("$PR_NUM")
+            else
+              echo "  WARNING: No PR found for issue #${ISSUE_NUM}"
+            fi
+          done
+
+          PR_NUMBERS=$(IFS=','; echo "${PR_LIST[*]}")
+          echo "pr_numbers=${PR_NUMBERS}" >> "$GITHUB_OUTPUT"
+          echo "Resolved PRs: ${PR_NUMBERS}"
+
+          if [ ${#PR_LIST[@]} -eq 0 ]; then
+            echo "ERROR: Could not resolve any child issues to PRs."
+            exit 1
+          fi
+
+      - name: Acknowledge aggregation started
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment ${{ steps.inputs.outputs.batch_issue }} \
+            --body "Aggregation started for child issues: #$(echo '${{ steps.inputs.outputs.child_issues }}' | sed 's/,/, #/g'). Resolving PRs and collecting test results..."
+
+      - name: Parse batch issue metadata
+        id: meta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BATCH_ISSUE=${{ steps.inputs.outputs.batch_issue }}
+          BODY=$(gh issue view "$BATCH_ISSUE" --json body --jq '.body')
+
+          # Parse form fields
+          parse_field() {
+            local label="$1"
+            echo "$BODY" | sed -n "/### ${label}/,/### /{/### ${label}/d;/### /d;/^$/d;p;}" | head -1 | tr -d '[:space:]'
+          }
+
+          SCENARIO=$(parse_field "Scenario")
+          LANGUAGE=$(parse_field "Language")
+          SKILLS=$(parse_field "Load skills?")
+          ITERATIONS=$(parse_field "Number of iterations")
+
+          echo "scenario=$SCENARIO" >> "$GITHUB_OUTPUT"
+          echo "language=$LANGUAGE" >> "$GITHUB_OUTPUT"
+          echo "skills=$SKILLS" >> "$GITHUB_OUTPUT"
+          echo "iterations=$ITERATIONS" >> "$GITHUB_OUTPUT"
+
+          echo "Parsed: scenario=$SCENARIO language=$LANGUAGE skills=$SKILLS iterations=$ITERATIONS"
+
+      - name: Download artifacts from child PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p batch-results
+
+          IFS=',' read -ra PR_LIST <<< "${{ steps.resolve.outputs.pr_numbers }}"
+          RUN_INDEX=0
+
+          for PR_NUM in "${PR_LIST[@]}"; do
+            PR_NUM=$(echo "$PR_NUM" | tr -d '[:space:]')
+            RUN_INDEX=$((RUN_INDEX + 1))
+            echo ""
+            echo "=== Processing PR #${PR_NUM} (run ${RUN_INDEX}) ==="
+
+            # Get the PR's head branch
+            HEAD_BRANCH=$(gh pr view "$PR_NUM" --json headRefName --jq '.headRefName')
+            echo "  Head branch: $HEAD_BRANCH"
+
+            # Find the workflow run that has test-results artifacts
+            # We search by branch name and iterate through completed runs
+            # because pull_request_target runs don't match the PR's head SHA,
+            # and Copilot agent runs also appear on the same branch without artifacts.
+            ARTIFACT_ID=""
+            RUN_ID=""
+
+            CANDIDATE_RUNS=$(gh api "repos/${{ github.repository }}/actions/runs" \
+              --method GET \
+              -f branch="$HEAD_BRANCH" \
+              -f status=completed \
+              --jq '.workflow_runs[].id' 2>/dev/null || echo "")
+
+            for CANDIDATE_RUN in $CANDIDATE_RUNS; do
+              FOUND_ARTIFACT=$(gh api "repos/${{ github.repository }}/actions/runs/${CANDIDATE_RUN}/artifacts" \
+                --jq '.artifacts[] | select(.name | startswith("test-results-")) | .id' 2>/dev/null || echo "")
+              if [ -n "$FOUND_ARTIFACT" ]; then
+                RUN_ID="$CANDIDATE_RUN"
+                ARTIFACT_ID=$(echo "$FOUND_ARTIFACT" | head -1)
+                echo "  Found test artifact in run $RUN_ID"
+                break
+              fi
+            done
+
+            if [ -z "$ARTIFACT_ID" ]; then
+              echo "  WARNING: No test-results artifact found across any runs for PR #${PR_NUM}"
+              continue
+            fi
+            echo "  Workflow run ID: $RUN_ID"
+            echo "  Artifact ID: $ARTIFACT_ID"
+
+            # Download and extract the artifact
+            RUN_DIR="batch-results/run-${RUN_INDEX}"
+            mkdir -p "$RUN_DIR"
+
+            gh api "repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}/zip" > "${RUN_DIR}/artifact.zip"
+            unzip -o "${RUN_DIR}/artifact.zip" -d "$RUN_DIR" 2>/dev/null || true
+            rm -f "${RUN_DIR}/artifact.zip"
+
+            # Verify we got test-report.json
+            if [ -f "${RUN_DIR}/test-report.json" ]; then
+              echo "  Downloaded test-report.json"
+            else
+              echo "  WARNING: test-report.json not found in artifact"
+              ls -la "$RUN_DIR/" || true
+            fi
+          done
+
+          # Count successful downloads
+          FOUND=$(find batch-results -name "test-report.json" | wc -l)
+          echo ""
+          echo "Downloaded ${FOUND} test-report.json files from ${#PR_LIST[@]} PRs"
+
+          if [ "$FOUND" -eq 0 ]; then
+            echo "ERROR: No test results found. Cannot aggregate."
+            exit 1
+          fi
+
+      - name: Run aggregation
+        id: aggregate
+        env:
+          SCENARIO: ${{ steps.meta.outputs.scenario }}
+          LANGUAGE: ${{ steps.meta.outputs.language }}
+          SKILLS: ${{ steps.meta.outputs.skills }}
+          BATCH_ISSUE: ${{ steps.inputs.outputs.batch_issue }}
+          PR_NUMBERS: ${{ steps.resolve.outputs.pr_numbers }}
+        run: |
+          # Collect all test-report.json paths
+          REPORTS=$(find batch-results -name "test-report.json" | sort)
+          echo "Found reports:"
+          echo "$REPORTS"
+
+          # Run the aggregation script
+          python testing-v2/harness/aggregate.py \
+            --reports $REPORTS \
+            --scenario "$SCENARIO" \
+            --language "$LANGUAGE" \
+            --skills "$SKILLS" \
+            --batch-issue "$BATCH_ISSUE" \
+            --pr-numbers "$PR_NUMBERS" \
+            --output-md batch-results/BATCH-RESULTS.md \
+            --output-json batch-results/batch-results.json
+
+          echo "Aggregation complete"
+          cat batch-results/BATCH-RESULTS.md
+
+      - name: Commit batch results to branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SCENARIO: ${{ steps.meta.outputs.scenario }}
+          LANGUAGE: ${{ steps.meta.outputs.language }}
+          SKILLS: ${{ steps.meta.outputs.skills }}
+          BATCH_ISSUE: ${{ steps.inputs.outputs.batch_issue }}
+        run: |
+          SKILLS_LABEL=$( [ "$SKILLS" = "yes" ] && echo "skills" || echo "control" )
+          BRANCH="batch-${BATCH_ISSUE}-${SCENARIO}-${SKILLS_LABEL}"
+          RESULTS_DIR="testing-v2/scenarios/${SCENARIO}/batch-results"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Create branch from the current branch
+          git checkout -b "$BRANCH"
+
+          # Copy batch results to the repo
+          mkdir -p "$RESULTS_DIR"
+          cp batch-results/BATCH-RESULTS.md "$RESULTS_DIR/batch-${BATCH_ISSUE}-${LANGUAGE}-${SKILLS_LABEL}.md"
+          cp batch-results/batch-results.json "$RESULTS_DIR/batch-${BATCH_ISSUE}-${LANGUAGE}-${SKILLS_LABEL}.json"
+
+          # Update IMPROVEMENTS-LOG.md
+          LOG_FILE="testing-v2/IMPROVEMENTS-LOG.md"
+          ENTRY="| $(date -u +%Y-%m-%d) | ${SCENARIO} | Batch #${BATCH_ISSUE} (${SKILLS_LABEL}, ${LANGUAGE}) | Aggregated $(echo "${{ steps.resolve.outputs.pr_numbers }}" | tr ',' ' ' | wc -w | tr -d ' ') iterations | See batch-results/ |"
+
+          if [ -f "$LOG_FILE" ]; then
+            # Insert after the header row (line with |---|)
+            sed -i "/^|.*---|/a\\${ENTRY}" "$LOG_FILE"
+          fi
+
+          git add "$RESULTS_DIR/" "$LOG_FILE"
+          git commit -m "Batch #${BATCH_ISSUE}: aggregate results for ${SCENARIO} (${SKILLS_LABEL}, ${LANGUAGE}) [skip ci]"
+          git push origin "$BRANCH"
+
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+        id: commit_results
+
+      - name: Create summary PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SCENARIO: ${{ steps.meta.outputs.scenario }}
+          LANGUAGE: ${{ steps.meta.outputs.language }}
+          SKILLS: ${{ steps.meta.outputs.skills }}
+          BATCH_ISSUE: ${{ steps.inputs.outputs.batch_issue }}
+          BRANCH: ${{ steps.commit_results.outputs.branch }}
+        run: |
+          # Ensure labels exist
+          gh label create "batch-aggregate" --description "Batch aggregate summary PR" --color "0e8a16" 2>/dev/null || true
+          gh label create "testing" --description "Testing framework" --color "1d76db" 2>/dev/null || true
+
+          SKILLS_TEXT=$( [ "$SKILLS" = "yes" ] && echo "skills loaded" || echo "control (no skills)" )
+          PR_TITLE="batch: ${SCENARIO} aggregate results — ${SKILLS_TEXT} (${LANGUAGE})"
+
+          if [ "$SKILLS" = "yes" ]; then
+            NEXT_STEPS="Review the **Consistent Failures** section. These tests failed in every iteration and indicate real skill gaps. Use the deep evaluation prompt (posted as a comment) to analyze and create rules."
+          else
+            NEXT_STEPS="This is a **control run** (no skills loaded). Review the consistent failures to identify which existing rules WOULD HAVE helped. Compare with the corresponding skills batch to measure skill effectiveness."
+          fi
+
+          PR_BODY=$(cat <<EOF
+          ## Batch Test Aggregate Results
+
+          **Parent issue**: #${BATCH_ISSUE}
+          **Scenario**: ${SCENARIO}
+          **Language**: ${LANGUAGE}
+          **Skills**: ${SKILLS_TEXT}
+          **Child PRs**: $(echo "${{ steps.resolve.outputs.pr_numbers }}" | sed 's/,/, #/g; s/^/#/')
+
+          ---
+
+          $(cat batch-results/BATCH-RESULTS.md)
+
+          ---
+
+          ### Next Steps
+
+          ${NEXT_STEPS}
+          EOF
+          )
+
+          # Create PR and capture output separately from errors
+          PR_URL=$(gh pr create \
+            --title "$PR_TITLE" \
+            --body "$PR_BODY" \
+            --label "testing" \
+            --label "batch-aggregate" \
+            --head "$BRANCH") || true
+
+          if [ -n "$PR_URL" ]; then
+            SUMMARY_PR=$(echo "$PR_URL" | grep -oP '\d+$')
+            echo "Created summary PR #${SUMMARY_PR}: ${PR_URL}"
+          else
+            echo "WARNING: Failed to create summary PR"
+            SUMMARY_PR=""
+          fi
+
+          echo "summary_pr=${SUMMARY_PR}" >> "$GITHUB_OUTPUT"
+        id: create_summary
+
+      - name: Close child PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          IFS=',' read -ra PR_LIST <<< "${{ steps.resolve.outputs.pr_numbers }}"
+
+          for PR_NUM in "${PR_LIST[@]}"; do
+            PR_NUM=$(echo "$PR_NUM" | tr -d '[:space:]')
+            echo "Closing child PR #${PR_NUM}..."
+            gh pr close "$PR_NUM" \
+              --comment "Closed as part of batch aggregation. Results aggregated in batch #${{ steps.inputs.outputs.batch_issue }}." \
+              --delete-branch \
+              2>/dev/null || echo "  WARNING: Could not close PR #${PR_NUM}"
+          done
+
+      - name: Post aggregate summary on parent issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BATCH_ISSUE=${{ steps.inputs.outputs.batch_issue }}
+          RESULTS=$(cat batch-results/BATCH-RESULTS.md)
+
+          SUMMARY_PR="${{ steps.create_summary.outputs.summary_pr }}"
+          if [ -n "$SUMMARY_PR" ]; then
+            PR_NOTE="*Summary PR #${SUMMARY_PR} created for deep evaluation. See linked PR for full details.*"
+          else
+            PR_NOTE="*WARNING: Summary PR creation failed. Results are still available in the artifacts.*"
+          fi
+
+          COMMENT="## Batch Aggregation Complete
+
+          All child PRs have been processed and closed. Results:
+
+          ---
+
+          ${RESULTS}
+
+          ---
+
+          ${PR_NOTE}"
+
+          gh issue comment "$BATCH_ISSUE" --body "$COMMENT"
+          echo "Posted aggregate summary on batch issue #${BATCH_ISSUE}"
+
+      - name: Post deep evaluation prompt on summary PR
+        if: steps.create_summary.outputs.summary_pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SCENARIO: ${{ steps.meta.outputs.scenario }}
+          LANGUAGE: ${{ steps.meta.outputs.language }}
+          SKILLS: ${{ steps.meta.outputs.skills }}
+          BATCH_ISSUE: ${{ steps.inputs.outputs.batch_issue }}
+        run: |
+          SUMMARY_PR=${{ steps.create_summary.outputs.summary_pr }}
+          SKILLS_LABEL=$( [ "$SKILLS" = "yes" ] && echo "skills" || echo "control" )
+          RESULTS_FILE="testing-v2/scenarios/${SCENARIO}/batch-results/batch-${BATCH_ISSUE}-${LANGUAGE}-${SKILLS_LABEL}.md"
+
+          # Build the evaluation comment as a file to avoid escaping issues
+          cat > /tmp/eval-comment.md <<EVALEOF
+          <!-- copilot-batch-eval -->
+          ## 📋 Deep Evaluation Ready$( [ "$SKILLS" = "yes" ] && echo "" || echo " (CONTROL RUN)" )
+
+          Batch aggregation is complete. A deep evaluation is needed to analyze the consistently-failing tests.
+
+          ---
+
+          ### 🔧 Action Required
+
+          > **Copy the prompt below and post it as a new comment** to trigger Copilot to perform the deep evaluation.
+          > (Bot-posted \`@copilot\` mentions do not trigger the agent — it must come from a user.)
+
+          EVALEOF
+
+          # Add the copilot prompt inside a code fence
+          echo '````' >> /tmp/eval-comment.md
+
+          if [ "$SKILLS" = "yes" ]; then
+            cat >> /tmp/eval-comment.md <<PROMPTEOF
+          @copilot **Deep evaluation needed for batch results.** Read the batch aggregate results and analyze the consistently-failing tests.
+
+          Follow these steps:
+
+          1. Read \`${RESULTS_FILE}\` (the batch aggregate results on this PR's branch)
+          2. Read \`testing-v2/EVALUATE.md\` for the evaluation recipe
+          3. Read \`skills/cosmosdb-best-practices/AGENTS.md\` (all current rules)
+          4. Read \`testing-v2/scenarios/${SCENARIO}/api-contract.yaml\`
+          5. Focus on the **Consistent Failures** section — these are tests that failed in EVERY iteration and indicate real gaps
+          6. For each consistent failure, classify it per EVALUATE.md (Cosmos DB anti-pattern, unclear rule, SDK quirk, contract violation, test too strict)
+          7. For failures classified as "Cosmos DB anti-pattern" or "SDK quirk": create new rules in \`skills/cosmosdb-best-practices/rules/\`
+          8. For failures classified as "Unclear existing rule": update the existing rule to be clearer
+          9. Ignore **Flaky Tests** — these are LLM stochasticity, not skill gaps
+          10. Run \`npm run build\` to regenerate AGENTS.md
+          11. Update \`testing-v2/IMPROVEMENTS-LOG.md\` with the batch evaluation results
+          12. Commit all changes to this PR branch
+          PROMPTEOF
+          else
+            cat >> /tmp/eval-comment.md <<PROMPTEOF
+          @copilot **Deep evaluation needed for batch results (CONTROL RUN — no skills loaded).** Read the batch aggregate results and analyze what skills would have helped.
+
+          Follow these steps:
+
+          1. Read \`${RESULTS_FILE}\` (the batch aggregate results on this PR's branch)
+          2. Read \`testing-v2/EVALUATE.md\` for the evaluation recipe
+          3. Read \`skills/cosmosdb-best-practices/AGENTS.md\` (all current rules)
+          4. Read \`testing-v2/scenarios/${SCENARIO}/api-contract.yaml\`
+          5. Focus on the **Consistent Failures** section — tests that failed in EVERY iteration
+          6. Also review any **Build/Startup Failures** — iterations where the app failed to compile or start indicate code generation gaps
+          7. For each consistent failure, identify which rules from AGENTS.md WOULD HAVE helped if loaded
+          8. Do NOT create or update any rules — this is a control run
+          9. Update \`testing-v2/IMPROVEMENTS-LOG.md\` noting this was a control batch run, listing:
+             - Number of build/startup failures out of total iterations
+             - Consistent test failures and which existing rules would have prevented them
+             - Any failures that NO existing rule covers (these are gaps needing new rules)
+          10. Commit all changes to this PR branch with \`[skip ci]\` in the commit message
+          PROMPTEOF
+          fi
+
+          echo '````' >> /tmp/eval-comment.md
+
+          # Strip leading whitespace from heredoc indentation
+          sed -i 's/^          //' /tmp/eval-comment.md
+
+          gh pr comment "$SUMMARY_PR" --body-file /tmp/eval-comment.md
+          echo "Posted deep evaluation prompt on summary PR #${SUMMARY_PR}"
+
+      - name: Upload aggregate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: batch-aggregate-${{ steps.inputs.outputs.batch_issue }}
+          path: |
+            batch-results/BATCH-RESULTS.md
+            batch-results/batch-results.json
+            batch-results/run-*/test-report.json

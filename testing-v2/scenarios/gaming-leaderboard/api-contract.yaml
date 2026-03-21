@@ -1,0 +1,370 @@
+# Gaming Leaderboard API Contract
+# =================================
+# This file defines the FIXED API interface that all iterations must implement.
+# Tests are written against this contract. Do NOT modify between iterations.
+#
+# The agent's generated code MUST conform to these exact paths, methods,
+# request/response schemas, and status codes.
+
+name: gaming-leaderboard
+version: "1.0"
+
+# The app must expose this health endpoint for readiness detection
+health:
+  path: /health
+  method: GET
+  response:
+    status: 200
+
+endpoints:
+
+  # ----------------------------------------------------------
+  # Player Management
+  # ----------------------------------------------------------
+
+  create_player:
+    method: POST
+    path: /api/players
+    description: Create a new player profile
+    request:
+      body:
+        required:
+          - playerId
+          - displayName
+          - region
+        properties:
+          playerId:
+            type: string
+            description: Unique player identifier
+          displayName:
+            type: string
+            description: Player display name
+          region:
+            type: string
+            description: Player region/country code (e.g. "US", "EU", "JP")
+    response:
+      status: 201
+      body:
+        required:
+          - playerId
+          - displayName
+          - region
+          - totalGames
+          - bestScore
+          - averageScore
+        properties:
+          playerId:
+            type: string
+          displayName:
+            type: string
+          region:
+            type: string
+          totalGames:
+            type: integer
+            description: Should be 0 for new player
+          bestScore:
+            type: integer
+            description: Should be 0 for new player
+          averageScore:
+            type: number
+            description: Should be 0 for new player
+
+  get_player:
+    method: GET
+    path: /api/players/{playerId}
+    description: Get player profile with stats
+    parameters:
+      playerId:
+        in: path
+        type: string
+        required: true
+    response:
+      status: 200
+      body:
+        required:
+          - playerId
+          - displayName
+          - region
+          - totalGames
+          - bestScore
+          - averageScore
+        properties:
+          playerId:
+            type: string
+          displayName:
+            type: string
+          region:
+            type: string
+          totalGames:
+            type: integer
+          bestScore:
+            type: integer
+          averageScore:
+            type: number
+    errors:
+      - status: 404
+        description: Player not found
+
+  # ----------------------------------------------------------
+  # Score Submission
+  # ----------------------------------------------------------
+
+  submit_score:
+    method: POST
+    path: /api/scores
+    description: Submit a game score for a player
+    request:
+      body:
+        required:
+          - playerId
+          - score
+        properties:
+          playerId:
+            type: string
+            description: The player who achieved the score
+          score:
+            type: integer
+            description: The game score (positive integer)
+          gameMode:
+            type: string
+            description: Optional game mode identifier
+    response:
+      status: 201
+      body:
+        required:
+          - scoreId
+          - playerId
+          - score
+        properties:
+          scoreId:
+            type: string
+            description: Unique ID for this score record
+          playerId:
+            type: string
+          score:
+            type: integer
+
+  # ----------------------------------------------------------
+  # Leaderboards
+  # ----------------------------------------------------------
+
+  global_leaderboard:
+    method: GET
+    path: /api/leaderboards/global
+    description: >
+      Get the global top N leaderboard sorted by best score descending.
+      When two players have the same score, sort by displayName ascending (deterministic tiebreaking).
+    parameters:
+      top:
+        in: query
+        type: integer
+        required: false
+        default: 100
+        description: Number of entries to return (max 100)
+    response:
+      status: 200
+      body:
+        type: array
+        items:
+          required:
+            - rank
+            - playerId
+            - displayName
+            - score
+          properties:
+            rank:
+              type: integer
+              description: 1-based rank position
+            playerId:
+              type: string
+            displayName:
+              type: string
+            score:
+              type: integer
+
+  regional_leaderboard:
+    method: GET
+    path: /api/leaderboards/regional/{region}
+    description: >
+      Get the top N leaderboard for a specific region.
+      When two players have the same score, sort by displayName ascending (deterministic tiebreaking).
+    parameters:
+      region:
+        in: path
+        type: string
+        required: true
+        description: Region/country code (e.g. "US")
+      top:
+        in: query
+        type: integer
+        required: false
+        default: 100
+    response:
+      status: 200
+      body:
+        type: array
+        items:
+          required:
+            - rank
+            - playerId
+            - displayName
+            - score
+          properties:
+            rank:
+              type: integer
+            playerId:
+              type: string
+            displayName:
+              type: string
+            score:
+              type: integer
+
+  # ----------------------------------------------------------
+  # Player Ranking
+  # ----------------------------------------------------------
+
+  player_rank:
+    method: GET
+    path: /api/players/{playerId}/rank
+    description: >
+      Get a player's rank on the global leaderboard and the players
+      immediately above and below them (±10 positions)
+    parameters:
+      playerId:
+        in: path
+        type: string
+        required: true
+    response:
+      status: 200
+      body:
+        required:
+          - playerId
+          - rank
+          - score
+          - neighbors
+        properties:
+          playerId:
+            type: string
+          rank:
+            type: integer
+            description: 1-based global rank
+          score:
+            type: integer
+            description: The player's best score
+          neighbors:
+            type: array
+            description: Surrounding players (up to ±10 positions)
+            items:
+              required:
+                - rank
+                - playerId
+                - displayName
+                - score
+              properties:
+                rank:
+                  type: integer
+                playerId:
+                  type: string
+                displayName:
+                  type: string
+                score:
+                  type: integer
+    errors:
+      - status: 404
+        description: Player not found or has no scores
+
+  # ----------------------------------------------------------
+  # Score History
+  # ----------------------------------------------------------
+
+  get_player_scores:
+    method: GET
+    path: /api/players/{playerId}/scores
+    description: Get a player's score history ordered by most recent first
+    parameters:
+      playerId:
+        in: path
+        type: string
+        required: true
+      limit:
+        in: query
+        type: integer
+        required: false
+        default: 10
+        description: Maximum number of scores to return (1-100)
+    response:
+      status: 200
+      body:
+        type: array
+        items:
+          required:
+            - scoreId
+            - playerId
+            - score
+            - timestamp
+          properties:
+            scoreId:
+              type: string
+            playerId:
+              type: string
+            score:
+              type: integer
+            gameMode:
+              type: string
+            timestamp:
+              type: string
+              description: ISO-8601 timestamp of when the score was submitted
+    errors:
+      - status: 404
+        description: Player not found
+
+  # ----------------------------------------------------------
+  # Player Updates & Deletion
+  # ----------------------------------------------------------
+
+  update_player:
+    method: PATCH
+    path: /api/players/{playerId}
+    description: Update a player's profile fields (displayName and/or region)
+    parameters:
+      playerId:
+        in: path
+        type: string
+        required: true
+    request:
+      body:
+        properties:
+          displayName:
+            type: string
+            description: New display name
+          region:
+            type: string
+            description: New region code
+    response:
+      status: 200
+      body:
+        required:
+          - playerId
+          - displayName
+          - region
+          - totalGames
+          - bestScore
+          - averageScore
+    errors:
+      - status: 404
+        description: Player not found
+
+  delete_player:
+    method: DELETE
+    path: /api/players/{playerId}
+    description: Delete a player and all their associated score data
+    parameters:
+      playerId:
+        in: path
+        type: string
+        required: true
+    response:
+      status: 204
+    errors:
+      - status: 404
+        description: Player not found

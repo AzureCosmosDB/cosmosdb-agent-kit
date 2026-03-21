@@ -1,0 +1,378 @@
+# IoT Device Telemetry API Contract
+# ====================================
+# This file defines the FIXED API interface that all iterations must implement.
+# Tests are written against this contract. Do NOT modify between iterations.
+#
+# The agent's generated code MUST conform to these exact paths, methods,
+# request/response schemas, and status codes.
+
+name: iot-device-telemetry
+version: "1.0"
+
+# The app must expose this health endpoint for readiness detection
+health:
+  path: /health
+  method: GET
+  response:
+    status: 200
+
+endpoints:
+
+  # ----------------------------------------------------------
+  # Device Management
+  # ----------------------------------------------------------
+
+  register_device:
+    method: POST
+    path: /api/devices
+    description: Register a new IoT device
+    request:
+      body:
+        required:
+          - deviceId
+          - name
+          - location
+          - deviceType
+        properties:
+          deviceId:
+            type: string
+            description: Unique device identifier
+          name:
+            type: string
+            description: Human-readable device name
+          location:
+            type: string
+            description: Facility/location name (e.g. "building-A", "warehouse-1")
+          deviceType:
+            type: string
+            description: Type of device (e.g. "sensor", "thermostat", "gateway")
+    response:
+      status: 201
+      body:
+        required:
+          - deviceId
+          - name
+          - location
+          - deviceType
+        properties:
+          deviceId:
+            type: string
+          name:
+            type: string
+          location:
+            type: string
+          deviceType:
+            type: string
+
+  get_device:
+    method: GET
+    path: /api/devices/{deviceId}
+    description: Get device metadata
+    parameters:
+      deviceId:
+        in: path
+        type: string
+        required: true
+    response:
+      status: 200
+      body:
+        required:
+          - deviceId
+          - name
+          - location
+          - deviceType
+    errors:
+      - status: 404
+        description: Device not found
+
+  get_devices_by_location:
+    method: GET
+    path: /api/devices
+    description: Query devices by location/facility
+    parameters:
+      location:
+        in: query
+        type: string
+        required: true
+    response:
+      status: 200
+      body:
+        type: array
+        items:
+          required:
+            - deviceId
+            - name
+            - location
+            - deviceType
+
+  # ----------------------------------------------------------
+  # Telemetry Ingestion
+  # ----------------------------------------------------------
+
+  ingest_telemetry:
+    method: POST
+    path: /api/telemetry
+    description: Ingest a single telemetry reading
+    request:
+      body:
+        required:
+          - deviceId
+          - temperature
+          - humidity
+          - batteryLevel
+        properties:
+          deviceId:
+            type: string
+          temperature:
+            type: number
+            description: Temperature reading in Celsius
+          humidity:
+            type: number
+            description: Humidity percentage (0-100)
+          batteryLevel:
+            type: number
+            description: Battery level percentage (0-100)
+          timestamp:
+            type: string
+            description: Optional ISO 8601 timestamp (defaults to server time)
+    response:
+      status: 201
+      body:
+        required:
+          - readingId
+          - deviceId
+          - temperature
+          - humidity
+          - batteryLevel
+          - timestamp
+        properties:
+          readingId:
+            type: string
+          deviceId:
+            type: string
+          temperature:
+            type: number
+          humidity:
+            type: number
+          batteryLevel:
+            type: number
+          timestamp:
+            type: string
+
+  ingest_telemetry_batch:
+    method: POST
+    path: /api/telemetry/batch
+    description: Bulk ingest multiple telemetry readings
+    request:
+      body:
+        type: array
+        items:
+          required:
+            - deviceId
+            - temperature
+            - humidity
+            - batteryLevel
+          properties:
+            deviceId:
+              type: string
+            temperature:
+              type: number
+            humidity:
+              type: number
+            batteryLevel:
+              type: number
+            timestamp:
+              type: string
+    response:
+      status: 201
+      body:
+        required:
+          - ingested
+        properties:
+          ingested:
+            type: integer
+            description: Number of readings successfully ingested
+
+  # ----------------------------------------------------------
+  # Telemetry Queries
+  # ----------------------------------------------------------
+
+  get_latest_reading:
+    method: GET
+    path: /api/devices/{deviceId}/telemetry/latest
+    description: Get the most recent telemetry reading for a device
+    parameters:
+      deviceId:
+        in: path
+        type: string
+        required: true
+    response:
+      status: 200
+      body:
+        required:
+          - deviceId
+          - temperature
+          - humidity
+          - batteryLevel
+          - timestamp
+    errors:
+      - status: 404
+        description: Device not found or no readings
+
+  get_readings_by_time_range:
+    method: GET
+    path: /api/devices/{deviceId}/telemetry
+    description: Query telemetry readings for a device within a time range
+    parameters:
+      deviceId:
+        in: path
+        type: string
+        required: true
+      start:
+        in: query
+        type: string
+        required: true
+        description: ISO 8601 start timestamp
+      end:
+        in: query
+        type: string
+        required: true
+        description: ISO 8601 end timestamp
+    response:
+      status: 200
+      body:
+        type: array
+        items:
+          required:
+            - deviceId
+            - temperature
+            - humidity
+            - batteryLevel
+            - timestamp
+
+  get_device_stats:
+    method: GET
+    path: /api/devices/{deviceId}/telemetry/stats
+    description: Get aggregate statistics for a device over a time period
+    parameters:
+      deviceId:
+        in: path
+        type: string
+        required: true
+      period:
+        in: query
+        type: string
+        required: false
+        default: "24h"
+        description: Time period for aggregation (e.g. "1h", "24h", "7d")
+    response:
+      status: 200
+      body:
+        required:
+          - deviceId
+          - period
+          - temperature
+          - humidity
+          - batteryLevel
+        properties:
+          deviceId:
+            type: string
+          period:
+            type: string
+          temperature:
+            type: object
+            required: [min, max, avg]
+          humidity:
+            type: object
+            required: [min, max, avg]
+          batteryLevel:
+            type: object
+            required: [min, max, avg]
+
+  # ----------------------------------------------------------
+  # Device Updates & Deletion
+  # ----------------------------------------------------------
+
+  update_device:
+    method: PATCH
+    path: /api/devices/{deviceId}
+    description: Update a device's metadata (name, location, or deviceType)
+    parameters:
+      deviceId:
+        in: path
+        type: string
+        required: true
+    request:
+      body:
+        properties:
+          name:
+            type: string
+            description: New device name
+          location:
+            type: string
+            description: New location/facility
+          deviceType:
+            type: string
+            description: New device type
+    response:
+      status: 200
+      body:
+        required:
+          - deviceId
+          - name
+          - location
+          - deviceType
+    errors:
+      - status: 404
+        description: Device not found
+
+  delete_device:
+    method: DELETE
+    path: /api/devices/{deviceId}
+    description: Delete a device and all its telemetry data
+    parameters:
+      deviceId:
+        in: path
+        type: string
+        required: true
+    response:
+      status: 204
+    errors:
+      - status: 404
+        description: Device not found
+
+  # ----------------------------------------------------------
+  # Location-Level Queries
+  # ----------------------------------------------------------
+
+  get_location_summary:
+    method: GET
+    path: /api/locations/{location}/telemetry/latest
+    description: Get the latest telemetry reading from each device at a location
+    parameters:
+      location:
+        in: path
+        type: string
+        required: true
+    response:
+      status: 200
+      body:
+        type: array
+        items:
+          required:
+            - deviceId
+            - temperature
+            - humidity
+            - batteryLevel
+            - timestamp
+          properties:
+            deviceId:
+              type: string
+            temperature:
+              type: number
+            humidity:
+              type: number
+            batteryLevel:
+              type: number
+            timestamp:
+              type: string

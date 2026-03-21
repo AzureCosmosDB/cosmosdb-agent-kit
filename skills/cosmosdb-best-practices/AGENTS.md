@@ -44,7 +44,8 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 3.3 [Order Filters by Selectivity](#33-order-filters-by-selectivity)
    - 3.4 [Use Continuation Tokens for Pagination](#34-use-continuation-tokens-for-pagination)
    - 3.5 [Use Parameterized Queries](#35-use-parameterized-queries)
-   - 3.6 [Project Only Needed Fields](#36-project-only-needed-fields)
+   - 3.6 [Use Literal Integers for TOP, Never Parameters](#36-use-literal-integers-for-top-never-parameters)
+   - 3.7 [Project Only Needed Fields](#37-project-only-needed-fields)
 4. [SDK Best Practices](#4-sdk-best-practices) — **HIGH**
    - 4.1 [Use Async APIs for Better Throughput](#41-use-async-apis-for-better-throughput)
    - 4.2 [Configure Threshold-Based Availability Strategy (Hedging)](#42-configure-threshold-based-availability-strategy-hedging-)
@@ -60,17 +61,19 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 4.12 [Configure local development environment to avoid cloud connection conflicts](#412-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
    - 4.13 [Explicitly reference Newtonsoft.Json package](#413-explicitly-reference-newtonsoft-json-package)
    - 4.14 [Configure Preferred Regions for Availability](#414-configure-preferred-regions-for-availability)
-   - 4.15 [Handle 429 Errors with Retry-After](#415-handle-429-errors-with-retry-after)
-   - 4.16 [Use consistent enum serialization between Cosmos SDK and application layer](#416-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
-   - 4.17 [Reuse CosmosClient as Singleton](#417-reuse-cosmosclient-as-singleton)
-   - 4.18 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#418-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
-   - 4.19 [Use CosmosRepository correctly and handle Iterable return types](#419-use-cosmosrepository-correctly-and-handle-iterable-return-types)
+   - 4.15 [Include aiohttp When Using Python Async SDK](#415-include-aiohttp-when-using-python-async-sdk)
+   - 4.16 [Handle 429 Errors with Retry-After](#416-handle-429-errors-with-retry-after)
+   - 4.17 [Use consistent enum serialization between Cosmos SDK and application layer](#417-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
+   - 4.18 [Reuse CosmosClient as Singleton](#418-reuse-cosmosclient-as-singleton)
+   - 4.19 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#419-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
+   - 4.20 [Use CosmosRepository correctly and handle Iterable return types](#420-use-cosmosrepository-correctly-and-handle-iterable-return-types)
 5. [Indexing Strategies](#5-indexing-strategies) — **MEDIUM-HIGH**
-   - 5.1 [Use Composite Indexes for ORDER BY](#51-use-composite-indexes-for-order-by)
-   - 5.2 [Exclude Unused Index Paths](#52-exclude-unused-index-paths)
-   - 5.3 [Understand Indexing Modes](#53-understand-indexing-modes)
-   - 5.4 [Choose Appropriate Index Types](#54-choose-appropriate-index-types)
-   - 5.5 [Add Spatial Indexes for Geo Queries](#55-add-spatial-indexes-for-geo-queries)
+   - 5.1 [Composite Index Directions Must Match ORDER BY](#51-composite-index-directions-must-match-order-by)
+   - 5.2 [Use Composite Indexes for ORDER BY](#52-use-composite-indexes-for-order-by)
+   - 5.3 [Exclude Unused Index Paths](#53-exclude-unused-index-paths)
+   - 5.4 [Understand Indexing Modes](#54-understand-indexing-modes)
+   - 5.5 [Choose Appropriate Index Types](#55-choose-appropriate-index-types)
+   - 5.6 [Add Spatial Indexes for Geo Queries](#56-add-spatial-indexes-for-geo-queries)
 6. [Throughput & Scaling](#6-throughput-scaling) — **MEDIUM**
    - 6.1 [Use Autoscale for Variable Workloads](#61-use-autoscale-for-variable-workloads)
    - 6.2 [Understand Burst Capacity](#62-understand-burst-capacity)
@@ -2236,7 +2239,57 @@ Benefits:
 
 Reference: [Parameterized queries](https://learn.microsoft.com/azure/cosmos-db/nosql/query/parameterized-queries)
 
-### 3.6 Project Only Needed Fields
+### 3.6 Use Literal Integers for TOP, Never Parameters
+
+**Impact: HIGH** (prevents query failures at runtime)
+
+## Use Literal Integers for TOP, Never Parameters
+
+The `TOP` keyword in Cosmos DB SQL requires a literal integer — it does **not** support parameterized values. Using `@param` in `SELECT TOP @param` will fail at runtime with a query syntax error.
+
+**Incorrect (parameterized TOP — fails at runtime):**
+
+```python
+# This causes a 400 Bad Request or runtime error
+query = "SELECT TOP @top * FROM c ORDER BY c.score DESC"
+params = [{"name": "@top", "value": 10}]
+items = container.query_items(query, parameters=params, enable_cross_partition_query=True)
+```
+
+```csharp
+// This will also fail
+var query = new QueryDefinition("SELECT TOP @top * FROM c ORDER BY c.score DESC")
+    .WithParameter("@top", 10);
+```
+
+**Correct (literal integer in TOP clause):**
+
+```python
+# Use a literal integer for TOP — validate and cast to int to prevent injection
+top = int(top)  # Ensures it's a safe integer
+query = f"SELECT TOP {top} * FROM c ORDER BY c.score DESC"
+items = container.query_items(query, enable_cross_partition_query=True)
+```
+
+```csharp
+// Interpolate a validated integer for TOP
+int topN = 10;
+var query = new QueryDefinition($"SELECT TOP {topN} * FROM c ORDER BY c.score DESC");
+```
+
+```python
+# Keep other values parameterized — only TOP must be literal
+top = int(top)
+query = f"SELECT TOP {top} * FROM c WHERE c.gameId = @gameId ORDER BY c.score DESC"
+params = [{"name": "@gameId", "value": game_id}]
+items = container.query_items(query, parameters=params, enable_cross_partition_query=True)
+```
+
+Always cast the TOP value to `int` before interpolation to ensure it is a safe integer and prevent injection.
+
+Reference: [SQL query TOP keyword](https://learn.microsoft.com/azure/cosmos-db/nosql/query/select#top-keyword)
+
+### 3.7 Project Only Needed Fields
 
 **Impact: HIGH** (reduces RU and network by 30-80%)
 
@@ -4313,7 +4366,55 @@ Best practices:
 
 Reference: [Configure preferred regions](https://learn.microsoft.com/azure/cosmos-db/nosql/tutorial-global-distribution)
 
-### 4.15 Handle 429 Errors with Retry-After
+### 4.15 Include aiohttp When Using Python Async SDK
+
+**Impact: HIGH** (prevents application startup failure)
+
+## Include aiohttp When Using Python Async SDK
+
+When using the Azure Cosmos DB Python SDK's async client (`azure.cosmos.aio`), you **must** explicitly install `aiohttp` as a dependency. The `azure-cosmos` package does not automatically install `aiohttp` — it is an optional dependency required only for async operations.
+
+**Incorrect (missing aiohttp — application will crash on startup):**
+
+```txt
+# requirements.txt
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+azure-cosmos>=4.6.0
+```
+
+```python
+# main.py — this import will fail at runtime without aiohttp
+from azure.cosmos.aio import CosmosClient
+```
+
+Error: `ModuleNotFoundError: No module named 'aiohttp'`
+
+**Correct (aiohttp explicitly listed):**
+
+```txt
+# requirements.txt
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+azure-cosmos>=4.6.0
+aiohttp>=3.9.0
+```
+
+```python
+# main.py — works correctly with aiohttp installed
+from azure.cosmos.aio import CosmosClient
+```
+
+**Alternative — use the sync client if async is not needed:**
+
+```python
+# No aiohttp required for synchronous usage
+from azure.cosmos import CosmosClient
+```
+
+Reference: [Azure Cosmos DB Python SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-python)
+
+### 4.16 Handle 429 Errors with Retry-After
 
 **Impact: HIGH** (prevents cascading failures)
 
@@ -4430,7 +4531,7 @@ await Task.WhenAll(tasks);
 
 Reference: [Handle rate limiting](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-request-rate-too-large)
 
-### 4.16 Use consistent enum serialization between Cosmos SDK and application layer
+### 4.17 Use consistent enum serialization between Cosmos SDK and application layer
 
 **Impact: critical** (undefined)
 
@@ -4527,7 +4628,7 @@ public class Order
 - Point reads work but filtered queries don't
 - API returns different enum format than stored in Cosmos DB
 
-### 4.17 Reuse CosmosClient as Singleton
+### 4.18 Reuse CosmosClient as Singleton
 
 **Impact: CRITICAL** (prevents connection exhaustion)
 
@@ -4648,7 +4749,7 @@ public class CosmosDbHostedService : IHostedService
 
 Reference: [CosmosClient best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-dotnet)
 
-### 4.18 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
+### 4.19 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
 
 **Impact: CRITICAL** (prevents startup failures and data access errors in Spring Data Cosmos applications)
 
@@ -4741,7 +4842,7 @@ public class Owner {
 
 Reference: [Spring Data Azure Cosmos DB annotations](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-spring-data)
 
-### 4.19 Use CosmosRepository correctly and handle Iterable return types
+### 4.20 Use CosmosRepository correctly and handle Iterable return types
 
 **Impact: HIGH** (prevents ClassCastException and query failures in Spring Data Cosmos repositories)
 
@@ -4838,7 +4939,94 @@ Reference: [Spring Data Azure Cosmos DB repository](https://learn.microsoft.com/
 
 **Impact: MEDIUM-HIGH**
 
-### 5.1 Use Composite Indexes for ORDER BY
+### 5.1 Composite Index Directions Must Match ORDER BY
+
+**Impact: HIGH** (prevents query failures and rejected sorts)
+
+## Composite Index Directions Must Match ORDER BY
+
+Every composite index entry must specify sort directions that **exactly match** the `ORDER BY` clause of the queries it serves. If the directions don't match, Cosmos DB will reject the query or fall back to an expensive scan.
+
+For cross-partition `ORDER BY` queries, this is especially critical — the query **will fail** if no matching composite index exists.
+
+**Incorrect (direction mismatch — query fails):**
+
+```python
+# Composite index defined as descending
+indexing_policy = {
+    "compositeIndexes": [
+        [{"path": "/score", "order": "descending"}]
+    ]
+}
+
+# But query uses ascending order — no matching index!
+query = "SELECT * FROM c ORDER BY c.score ASC"
+# Fails: "The order by query does not have a corresponding composite index"
+```
+
+```csharp
+// Index covers (score DESC) only
+new Collection<CompositePath>
+{
+    new CompositePath { Path = "/score", Order = CompositePathSortOrder.Descending }
+}
+
+// Query needs ASC — fails!
+var query = "SELECT * FROM c ORDER BY c.score ASC";
+```
+
+**Correct (directions match exactly, with both orderings):**
+
+```python
+# Define BOTH directions to support ASC and DESC queries
+indexing_policy = {
+    "compositeIndexes": [
+        [{"path": "/score", "order": "descending"}],
+        [{"path": "/score", "order": "ascending"}]
+    ]
+}
+```
+
+```csharp
+// Always provide both sort directions for each composite index pattern
+CompositeIndexes =
+{
+    // For ORDER BY score DESC
+    new Collection<CompositePath>
+    {
+        new CompositePath { Path = "/score", Order = CompositePathSortOrder.Descending }
+    },
+    // For ORDER BY score ASC
+    new Collection<CompositePath>
+    {
+        new CompositePath { Path = "/score", Order = CompositePathSortOrder.Ascending }
+    }
+}
+```
+
+```python
+# Multi-property example: provide paired directions
+indexing_policy = {
+    "compositeIndexes": [
+        # For ORDER BY gameId ASC, score DESC
+        [
+            {"path": "/gameId", "order": "ascending"},
+            {"path": "/score", "order": "descending"}
+        ],
+        # For ORDER BY gameId DESC, score ASC (reverse pair)
+        [
+            {"path": "/gameId", "order": "descending"},
+            {"path": "/score", "order": "ascending"}
+        ]
+    ]
+}
+```
+
+**Best practice: whenever you define a composite index, always include the inverse direction pair** so that both ASC and DESC queries on those paths are served.
+
+Reference: [Composite index sort order](https://learn.microsoft.com/azure/cosmos-db/index-policy#composite-indexes)
+
+### 5.2 Use Composite Indexes for ORDER BY
 
 **Impact: HIGH** (enables sorted queries, reduces RU)
 
@@ -5011,7 +5199,7 @@ Rules:
 
 Reference: [Composite indexes](https://learn.microsoft.com/azure/cosmos-db/index-policy#composite-indexes)
 
-### 5.2 Exclude Unused Index Paths
+### 5.3 Exclude Unused Index Paths
 
 **Impact: HIGH** (reduces write RU by 20-80%)
 
@@ -5126,7 +5314,7 @@ Monitor and adjust:
 
 Reference: [Indexing policies](https://learn.microsoft.com/azure/cosmos-db/index-policy)
 
-### 5.3 Understand Indexing Modes
+### 5.4 Understand Indexing Modes
 
 **Impact: MEDIUM** (balances write speed vs query consistency)
 
@@ -5244,7 +5432,7 @@ Note: Lazy mode was deprecated - use Consistent instead.
 
 Reference: [Indexing modes](https://learn.microsoft.com/azure/cosmos-db/index-policy#indexing-mode)
 
-### 5.4 Choose Appropriate Index Types
+### 5.5 Choose Appropriate Index Types
 
 **Impact: MEDIUM** (optimizes query performance)
 
@@ -5373,7 +5561,7 @@ Index type summary:
 
 Reference: [Index types](https://learn.microsoft.com/azure/cosmos-db/index-overview)
 
-### 5.5 Add Spatial Indexes for Geo Queries
+### 5.6 Add Spatial Indexes for Geo Queries
 
 **Impact: MEDIUM-HIGH** (enables efficient location queries)
 

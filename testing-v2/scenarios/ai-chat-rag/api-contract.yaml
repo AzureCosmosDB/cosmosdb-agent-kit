@@ -1,0 +1,308 @@
+# AI Chat RAG API Contract
+# ==========================
+# This file defines the FIXED API interface that all iterations must implement.
+# Tests are written against this contract. Do NOT modify between iterations.
+#
+# The agent's generated code MUST conform to these exact paths, methods,
+# request/response schemas, and status codes.
+#
+# NOTE: Vector search tests use mock embeddings (arrays of floats).
+# The app does NOT need a real embedding model — it stores and searches
+# pre-computed vectors.
+
+name: ai-chat-rag
+version: "1.0"
+
+# The app must expose this health endpoint for readiness detection
+health:
+  path: /health
+  method: GET
+  response:
+    status: 200
+
+endpoints:
+
+  # ----------------------------------------------------------
+  # Session Management
+  # ----------------------------------------------------------
+
+  create_session:
+    method: POST
+    path: /api/sessions
+    description: Create a new chat session
+    request:
+      body:
+        required:
+          - userId
+          - title
+        properties:
+          userId:
+            type: string
+            description: The user who owns the session
+          title:
+            type: string
+            description: Session title/topic
+    response:
+      status: 201
+      body:
+        required:
+          - sessionId
+          - userId
+          - title
+          - createdAt
+        properties:
+          sessionId:
+            type: string
+          userId:
+            type: string
+          title:
+            type: string
+          createdAt:
+            type: string
+            description: ISO 8601 timestamp
+
+  get_session:
+    method: GET
+    path: /api/sessions/{sessionId}
+    description: Get session with its messages
+    parameters:
+      sessionId:
+        in: path
+        type: string
+        required: true
+    response:
+      status: 200
+      body:
+        required:
+          - sessionId
+          - userId
+          - title
+          - messages
+          - createdAt
+        properties:
+          sessionId:
+            type: string
+          userId:
+            type: string
+          title:
+            type: string
+          messages:
+            type: array
+            items:
+              required:
+                - role
+                - content
+                - timestamp
+              properties:
+                role:
+                  type: string
+                  enum: [user, assistant]
+                content:
+                  type: string
+                timestamp:
+                  type: string
+          createdAt:
+            type: string
+    errors:
+      - status: 404
+        description: Session not found
+
+  list_user_sessions:
+    method: GET
+    path: /api/users/{userId}/sessions
+    description: List all chat sessions for a user
+    parameters:
+      userId:
+        in: path
+        type: string
+        required: true
+    response:
+      status: 200
+      body:
+        type: array
+        items:
+          required:
+            - sessionId
+            - userId
+            - title
+            - createdAt
+          properties:
+            sessionId:
+              type: string
+            userId:
+              type: string
+            title:
+              type: string
+            createdAt:
+              type: string
+
+  # ----------------------------------------------------------
+  # Messages
+  # ----------------------------------------------------------
+
+  add_message:
+    method: POST
+    path: /api/sessions/{sessionId}/messages
+    description: Add a message to a chat session
+    parameters:
+      sessionId:
+        in: path
+        type: string
+        required: true
+    request:
+      body:
+        required:
+          - role
+          - content
+        properties:
+          role:
+            type: string
+            enum: [user, assistant]
+          content:
+            type: string
+    response:
+      status: 201
+      body:
+        required:
+          - sessionId
+          - role
+          - content
+          - timestamp
+        properties:
+          sessionId:
+            type: string
+          role:
+            type: string
+          content:
+            type: string
+          timestamp:
+            type: string
+    errors:
+      - status: 404
+        description: Session not found
+
+  # ----------------------------------------------------------
+  # Document Storage
+  # ----------------------------------------------------------
+
+  store_document:
+    method: POST
+    path: /api/documents
+    description: Store a document chunk with its vector embedding
+    request:
+      body:
+        required:
+          - content
+          - embedding
+          - metadata
+        properties:
+          content:
+            type: string
+            description: The document text content
+          embedding:
+            type: array
+            description: Vector embedding (array of floats, 1536 dimensions)
+          metadata:
+            type: object
+            description: Metadata for filtering (category, source, etc.)
+            properties:
+              category:
+                type: string
+              source:
+                type: string
+    response:
+      status: 201
+      body:
+        required:
+          - documentId
+          - content
+          - metadata
+        properties:
+          documentId:
+            type: string
+          content:
+            type: string
+          metadata:
+            type: object
+
+  # ----------------------------------------------------------
+  # Search
+  # ----------------------------------------------------------
+
+  vector_search:
+    method: POST
+    path: /api/search/vector
+    description: Find documents similar to a query vector
+    request:
+      body:
+        required:
+          - embedding
+        properties:
+          embedding:
+            type: array
+            description: Query vector (1536 dimensions)
+          topK:
+            type: integer
+            description: Number of results to return (default 5)
+    response:
+      status: 200
+      body:
+        type: array
+        items:
+          required:
+            - documentId
+            - content
+            - score
+          properties:
+            documentId:
+              type: string
+            content:
+              type: string
+            score:
+              type: number
+              description: Similarity score
+            metadata:
+              type: object
+
+  hybrid_search:
+    method: POST
+    path: /api/search/hybrid
+    description: Vector search combined with metadata filters
+    request:
+      body:
+        required:
+          - embedding
+          - filters
+        properties:
+          embedding:
+            type: array
+            description: Query vector (1536 dimensions)
+          filters:
+            type: object
+            description: Metadata filters to apply
+            properties:
+              category:
+                type: string
+              source:
+                type: string
+          topK:
+            type: integer
+            description: Number of results to return (default 5)
+    response:
+      status: 200
+      body:
+        type: array
+        items:
+          required:
+            - documentId
+            - content
+            - score
+          properties:
+            documentId:
+              type: string
+            content:
+              type: string
+            score:
+              type: number
+            metadata:
+              type: object

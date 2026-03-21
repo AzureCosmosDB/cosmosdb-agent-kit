@@ -1,0 +1,287 @@
+# =============================================================================
+# Create Batch Children
+# =============================================================================
+# Reads a "Batch Test" issue and creates N child issues for Copilot.
+# Each child issue contains full agent instructions for generating
+# a Cosmos DB app independently (from scratch, no shared context).
+#
+# Trigger: Comment "/batch-start" on a batch-test issue. The workflow
+# creates N child issues and posts a summary with next steps.
+# After creation, manually assign Copilot to each child issue.
+# =============================================================================
+
+name: Create Batch Children
+
+on:
+  issue_comment:
+    types: [created]
+
+  workflow_dispatch:
+    inputs:
+      batch_issue:
+        description: 'Batch test issue number (fallback trigger)'
+        required: true
+        type: number
+
+jobs:
+  create-children:
+    name: Create child iterations
+    runs-on: ubuntu-latest
+    # For issue_comment trigger: only run on /batch-start command on batch-test issues
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment'
+       && !github.event.issue.pull_request
+       && contains(github.event.issue.labels.*.name, 'batch-test')
+       && startsWith(github.event.comment.body, '/batch-start'))
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse batch issue and create children
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Resolve the batch issue number
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BATCH_ISSUE=${{ inputs.batch_issue }}
+          else
+            BATCH_ISSUE=${{ github.event.issue.number }}
+          fi
+
+          # React to the comment to acknowledge
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            gh api repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
+              --method POST -f content='+1' --silent || true
+          fi
+          echo "Batch issue: #${BATCH_ISSUE}"
+
+          # Fetch the issue body
+          BODY=$(gh issue view "$BATCH_ISSUE" --json body --jq '.body')
+
+          # Parse form fields from the issue body
+          # GitHub issue forms render as: ### Label\n\nvalue\n
+          parse_field() {
+            local label="$1"
+            echo "$BODY" | sed -n "/### ${label}/,/### /{/### ${label}/d;/### /d;/^$/d;p;}" | head -1 | tr -d '[:space:]'
+          }
+
+          SCENARIO=$(parse_field "Scenario")
+          LANGUAGE=$(parse_field "Language")
+          SKILLS=$(parse_field "Load skills?")
+          ITERATIONS=$(parse_field "Number of iterations")
+
+          echo "Scenario:   $SCENARIO"
+          echo "Language:   $LANGUAGE"
+          echo "Skills:     $SKILLS"
+          echo "Iterations: $ITERATIONS"
+
+          # Validate parsed values
+          if [ -z "$SCENARIO" ] || [ -z "$LANGUAGE" ] || [ -z "$SKILLS" ] || [ -z "$ITERATIONS" ]; then
+            echo "ERROR: Could not parse all fields from issue #${BATCH_ISSUE}"
+            echo "Body was:"
+            echo "$BODY"
+            exit 1
+          fi
+
+          # Determine starting iteration number
+          ITER_DIR="testing-v2/scenarios/${SCENARIO}/iterations"
+          HIGHEST=0
+          if [ -d "$ITER_DIR" ]; then
+            for dir in "$ITER_DIR"/iteration-*-"${LANGUAGE}"/; do
+              if [ -d "$dir" ]; then
+                NUM=$(basename "$dir" | grep -oP '(?<=iteration-)\d+')
+                if [ "$NUM" -gt "$HIGHEST" ] 2>/dev/null; then
+                  HIGHEST=$NUM
+                fi
+              fi
+            done
+          fi
+          START=$((HIGHEST + 1))
+          echo "Starting iteration number: $START"
+
+          # Ensure required labels exist (gh issue create fails if they don't)
+          for lbl in "testing" "iteration" "batch-child"; do
+            gh label create "$lbl" --color "C2E0C6" 2>/dev/null || true
+          done
+          BATCH_LABEL="batch-${BATCH_ISSUE}"
+          gh label create "$BATCH_LABEL" \
+            --description "Child of batch test #${BATCH_ISSUE}" \
+            --color "C2E0C6" \
+            2>/dev/null || true
+
+          # Skills-specific instructions
+          if [ "$SKILLS" = "yes" ]; then
+            SKILLS_INSTRUCTION="**Skills are enabled.** Read this file FIRST — it contains all best practice rules you must apply:
+          \`\`\`
+          skills/cosmosdb-best-practices/AGENTS.md
+          \`\`\`"
+            SKILLS_LOADED_VALUE="true"
+          else
+            SKILLS_INSTRUCTION="**Skills are disabled (control run).** Do NOT read AGENTS.md. Generate code using only your built-in knowledge of Azure Cosmos DB."
+            SKILLS_LOADED_VALUE="false"
+          fi
+
+          # Create N child issues
+          CHILD_ISSUES=()
+          for i in $(seq 1 "$ITERATIONS"); do
+            ITER_NUM=$(printf "%03d" $((START + i - 1)))
+            ITER_NAME="iteration-${ITER_NUM}-${LANGUAGE}"
+            ITER_PATH="testing-v2/scenarios/${SCENARIO}/iterations/${ITER_NAME}"
+
+            TITLE="test: ${SCENARIO} batch-${BATCH_ISSUE} run ${i}/${ITERATIONS} (${LANGUAGE})"
+
+            ISSUE_BODY=$(cat <<'ISSUE_EOF'
+          ## Batch Test Iteration PLACEHOLDER_RUN of PLACEHOLDER_TOTAL
+
+          **Parent batch**: #PLACEHOLDER_BATCH_ISSUE
+          **Scenario**: PLACEHOLDER_SCENARIO
+          **Language**: PLACEHOLDER_LANGUAGE
+          **Skills**: PLACEHOLDER_SKILLS
+
+          ---
+
+          ## Instructions for Copilot
+
+          You are generating a Cosmos DB application for a test iteration. Follow these steps exactly.
+
+          ### Step 1: Load the Cosmos DB skills
+
+          PLACEHOLDER_SKILLS_INSTRUCTION
+
+          ### Step 2: Read the scenario
+
+          Read the scenario file:
+          ```
+          testing-v2/scenarios/PLACEHOLDER_SCENARIO/SCENARIO.md
+          ```
+
+          ### Step 3: Read the API contract
+
+          Read the contract file:
+          ```
+          testing-v2/scenarios/PLACEHOLDER_SCENARIO/api-contract.yaml
+          ```
+          Your code MUST implement every endpoint defined here with the exact paths, field names, and status codes.
+
+          ### Step 4: Generate the code
+
+          Find the prompt for the selected language in SCENARIO.md and follow it.
+          Put ALL generated files in:
+          ```
+          PLACEHOLDER_ITER_PATH/
+          ```
+
+          **IMPORTANT**: The iteration directory name is `PLACEHOLDER_ITER_NAME`. Do NOT auto-detect
+          the iteration number — it has been pre-assigned to avoid collisions with other batch runs.
+
+          ### Step 5: Create iteration-config.yaml
+
+          Create `iteration-config.yaml` in the iteration folder. Use the template at:
+          ```
+          testing-v2/scenarios/_iteration-config-template.yaml
+          ```
+          The app MUST:
+          - Read `COSMOS_ENDPOINT` and `COSMOS_KEY` from environment variables
+          - Listen on the configured port
+          - Expose a `/health` endpoint that returns 200
+
+          **Important**: Set `skills_loaded: PLACEHOLDER_SKILLS_LOADED` in iteration-config.yaml.
+
+          ### Step 6: Verify dependencies
+
+          Before opening the PR, verify your code will actually start:
+          - For **Python**: Make sure every `import` has a corresponding package in `requirements.txt`.
+            If you use `from azure.cosmos.aio import CosmosClient`, include `aiohttp>=3.9.0`.
+            If you use `uvicorn`, include `uvicorn[standard]`.
+          - For **Node.js**: Every `require()` or `import` needs a package in `package.json`
+          - For **Java**: All Maven/Gradle dependencies must be declared
+          - For **.NET**: All NuGet packages must be referenced in the .csproj
+
+          ### Step 7: Open a PR
+
+          Open a PR with the generated code. The PR title should be:
+          `test: PLACEHOLDER_SCENARIO PLACEHOLDER_ITER_NAME`
+
+          CI will automatically run the test suite and post results as a PR comment.
+          ISSUE_EOF
+          )
+
+            # Replace placeholders
+            ISSUE_BODY="${ISSUE_BODY//PLACEHOLDER_RUN/$i}"
+            ISSUE_BODY="${ISSUE_BODY//PLACEHOLDER_TOTAL/$ITERATIONS}"
+            ISSUE_BODY="${ISSUE_BODY//PLACEHOLDER_BATCH_ISSUE/$BATCH_ISSUE}"
+            ISSUE_BODY="${ISSUE_BODY//PLACEHOLDER_SCENARIO/$SCENARIO}"
+            ISSUE_BODY="${ISSUE_BODY//PLACEHOLDER_LANGUAGE/$LANGUAGE}"
+            ISSUE_BODY="${ISSUE_BODY//PLACEHOLDER_SKILLS_INSTRUCTION/$SKILLS_INSTRUCTION}"
+            ISSUE_BODY="${ISSUE_BODY//PLACEHOLDER_SKILLS_LOADED/$SKILLS_LOADED_VALUE}"
+            ISSUE_BODY="${ISSUE_BODY//PLACEHOLDER_SKILLS/$SKILLS}"
+            ISSUE_BODY="${ISSUE_BODY//PLACEHOLDER_ITER_PATH/$ITER_PATH}"
+            ISSUE_BODY="${ISSUE_BODY//PLACEHOLDER_ITER_NAME/$ITER_NAME}"
+
+            echo "Creating child issue ${i}/${ITERATIONS}: ${TITLE}"
+
+            CREATE_OUTPUT=$(gh issue create \
+              --title "$TITLE" \
+              --body "$ISSUE_BODY" \
+              --label "testing,iteration,batch-child,${BATCH_LABEL}" 2>&1) || true
+            echo "  gh issue create output: ${CREATE_OUTPUT}"
+            CHILD_NUM=$(echo "$CREATE_OUTPUT" | grep -oP '\d+$') || true
+
+            if [ -n "$CHILD_NUM" ]; then
+              echo "  Created issue #${CHILD_NUM}"
+              CHILD_ISSUES+=("$CHILD_NUM")
+            else
+              echo "  ERROR: Failed to create child issue for run ${i}"
+            fi
+
+            # Brief pause between issue creations to avoid rate limiting
+            sleep 2
+          done
+
+          # Build comma-separated list of child issue numbers
+          CHILD_LIST=$(IFS=','; echo "${CHILD_ISSUES[*]}")
+          echo "Child issues: ${CHILD_LIST}"
+
+          # Post summary on parent issue
+          SUMMARY="## Batch Children Created\n\n"
+          SUMMARY+="Created **${ITERATIONS}** child issues for batch test #${BATCH_ISSUE}.\n\n"
+          SUMMARY+="| Setting | Value |\n"
+          SUMMARY+="|---------|-------|\n"
+          SUMMARY+="| Scenario | ${SCENARIO} |\n"
+          SUMMARY+="| Language | ${LANGUAGE} |\n"
+          SUMMARY+="| Skills | ${SKILLS} |\n"
+          SUMMARY+="| Iterations | ${ITERATIONS} |\n"
+          SUMMARY+="| Iteration range | ${ITER_NUM} series starting at $(printf '%03d' $START) |\n\n"
+          SUMMARY+="---\n\n"
+          # Build child issue links for the summary
+          CHILD_LINKS=""
+          for CN in "${CHILD_ISSUES[@]}"; do
+            CHILD_LINKS+="- #${CN}\n"
+          done
+
+          SUMMARY+="### Child issues\n\n"
+          SUMMARY+="${CHILD_LINKS}\n"
+          SUMMARY+="### What to do next\n\n"
+          SUMMARY+="**Step 1 — Assign Copilot to each child issue**\n"
+          SUMMARY+="Go to each child issue above and assign **@copilot**. "
+          SUMMARY+="Copilot will generate code and open a PR for each one.\n\n"
+          SUMMARY+="**Step 2 — Approve workflow runs**\n"
+          SUMMARY+="Each PR triggers CI via \`pull_request_target\`, which requires manual approval.\n"
+          SUMMARY+="Go to the **Actions** tab, find the pending runs, and approve each one.\n\n"
+          SUMMARY+="**Step 3 — Wait for tests to complete**\n"
+          SUMMARY+="After approval, CI runs tests and posts results on each PR. Wait until all PRs show test results.\n\n"
+          SUMMARY+="**Step 4 — Trigger aggregation**\n"
+          SUMMARY+="Once all child PRs have test results, copy and paste this command as a comment **on this issue**:\n\n"
+          SUMMARY+="\`\`\`\n"
+          SUMMARY+="/aggregate ${CHILD_LIST}\n"
+          SUMMARY+="\`\`\`\n\n"
+          SUMMARY+="**Step 5 — Deep evaluation**\n"
+          SUMMARY+="After aggregation completes, it creates a **summary PR** with aggregate results. "
+          SUMMARY+="A ready-to-copy \`@copilot\` evaluation prompt is posted as a comment on that PR. "
+          SUMMARY+="Copy-paste it as a new comment to trigger Copilot to analyze the consistent failures and create/update rules.\n"
+
+          gh issue comment "$BATCH_ISSUE" --body "$(echo -e "$SUMMARY")"
+          echo "Posted summary on batch issue #${BATCH_ISSUE}"

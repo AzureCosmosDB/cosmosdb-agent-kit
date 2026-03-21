@@ -1,0 +1,20 @@
+# =============================================================================
+# Copilot Coding Agent - Setup Steps
+# =============================================================================
+# Configures the Copilot coding agent's workspace environment.
+# This runs when Copilot prepares to work on an issue or fix a CI failure.
+#
+# Note: The Azure Cosmos DB Emulator only runs in CI (Windows). Copilot's
+# workspace is Linux-based, so it cannot run integration tests locally.
+# Instead, it should fix code based on CI log output and push for re-testing.
+# =============================================================================
+
+steps:
+  - uses: actions/setup-python@v5
+    with:
+      python-version: '3.12'
+  - uses: actions/setup-node@v4
+    with:
+      node-version: '20'
+  - run: npm install
+  - run: pip install pyyaml

@@ -1,0 +1,206 @@
+# API Contract — Multitenant SaaS (Project Management)
+# =====================================================
+# Defines the exact HTTP interface the application MUST implement.
+# Tests in tests/ are written against this contract.
+# The AI-generated application MUST conform to these specifications.
+
+info:
+  title: Multitenant SaaS — Project Management API
+  version: "1.0"
+  description: >
+    A multitenant project management API built on Azure Cosmos DB.
+    Supports tenant isolation, user management, projects, tasks,
+    and per-tenant analytics. Uses hierarchical partition keys
+    (tenantId → type) for efficient multi-entity access.
+
+base_url: "http://localhost:8080"
+
+endpoints:
+
+  # ------- Health -------
+  - method: GET
+    path: /health
+    description: Liveness/readiness probe
+    response:
+      status: 200
+      body:
+        status: "ok"   # or "healthy" / "UP"
+
+  # ------- Tenant Management -------
+  - method: POST
+    path: /api/tenants
+    description: Create a new tenant
+    request:
+      body:
+        name: "string — required"
+        plan: "string — required: free | standard | premium"
+    response:
+      status: 201
+      body:
+        tenantId: "string — generated unique ID"
+        name: "string"
+        plan: "string"
+        createdAt: "string — ISO-8601"
+
+  - method: GET
+    path: /api/tenants/{tenantId}
+    description: Get tenant details
+    response:
+      status: 200
+      body:
+        tenantId: "string"
+        name: "string"
+        plan: "string"
+        createdAt: "string — ISO-8601"
+    errors:
+      - status: 404
+        when: "Tenant not found"
+
+  # ------- User Management -------
+  - method: POST
+    path: /api/tenants/{tenantId}/users
+    description: Create a user within a tenant
+    request:
+      body:
+        name: "string — required"
+        email: "string — required"
+        role: "string — required: admin | member | viewer"
+    response:
+      status: 201
+      body:
+        userId: "string — generated unique ID"
+        tenantId: "string"
+        name: "string"
+        email: "string"
+        role: "string"
+
+  - method: GET
+    path: /api/tenants/{tenantId}/users
+    description: List all users in a tenant
+    response:
+      status: 200
+      body: "array of user objects"
+
+  # ------- Project Management -------
+  - method: POST
+    path: /api/tenants/{tenantId}/projects
+    description: Create a project within a tenant
+    request:
+      body:
+        name: "string — required"
+        description: "string — optional"
+    response:
+      status: 201
+      body:
+        projectId: "string — generated unique ID"
+        tenantId: "string"
+        name: "string"
+        description: "string"
+        createdAt: "string — ISO-8601"
+
+  - method: GET
+    path: /api/tenants/{tenantId}/projects
+    description: List all projects in a tenant
+    response:
+      status: 200
+      body: "array of project objects"
+
+  - method: GET
+    path: /api/tenants/{tenantId}/projects/{projectId}
+    description: Get project details
+    response:
+      status: 200
+      body:
+        projectId: "string"
+        tenantId: "string"
+        name: "string"
+        description: "string"
+        createdAt: "string — ISO-8601"
+    errors:
+      - status: 404
+        when: "Project not found"
+
+  # ------- Task Management -------
+  - method: POST
+    path: /api/tenants/{tenantId}/projects/{projectId}/tasks
+    description: Create a task within a project
+    request:
+      body:
+        title: "string — required"
+        assigneeId: "string — required — a userId in this tenant"
+        priority: "string — required: low | medium | high | critical"
+        status: "string — optional, defaults to 'todo'"
+    response:
+      status: 201
+      body:
+        taskId: "string — generated unique ID"
+        tenantId: "string"
+        projectId: "string"
+        title: "string"
+        assigneeId: "string"
+        priority: "string"
+        status: "string — default: todo"
+        createdAt: "string — ISO-8601"
+
+  - method: GET
+    path: /api/tenants/{tenantId}/projects/{projectId}/tasks
+    description: List all tasks in a project
+    response:
+      status: 200
+      body: "array of task objects"
+
+  # ------- Task Queries -------
+  - method: GET
+    path: /api/tenants/{tenantId}/users/{userId}/tasks
+    description: Get all tasks assigned to a user across all projects in a tenant
+    response:
+      status: 200
+      body: "array of task objects"
+
+  - method: GET
+    path: /api/tenants/{tenantId}/tasks
+    description: Query tasks by status within a tenant
+    query_params:
+      status: "string — required: todo | in-progress | done | blocked"
+    response:
+      status: 200
+      body: "array of task objects matching the status filter"
+
+  # ------- Analytics -------
+  - method: GET
+    path: /api/tenants/{tenantId}/analytics
+    description: Get analytics summary for a tenant
+    response:
+      status: 200
+      body:
+        tenantId: "string"
+        totalUsers: "integer"
+        totalProjects: "integer"
+        totalTasks: "integer"
+        tasksByStatus:
+          todo: "integer"
+          in-progress: "integer"
+          done: "integer"
+          blocked: "integer"
+        tasksByPriority:
+          low: "integer"
+          medium: "integer"
+          high: "integer"
+          critical: "integer"
+
+notes:
+  - |
+    Hierarchical partition keys are recommended: /tenantId as primary,
+    then /type (e.g., "user", "project", "task") for efficient queries
+    within a single tenant.
+  - |
+    Tenant isolation is critical: queries scoped to one tenant should
+    NEVER return data from another tenant.
+  - |
+    The partition key design should support efficient fan-out queries
+    within a tenant (all tasks, all projects) without cross-partition scans.
+  - |
+    Task status values: todo, in-progress, done, blocked.
+    Priority values: low, medium, high, critical.
+    User role values: admin, member, viewer.
+    Tenant plan values: free, standard, premium.

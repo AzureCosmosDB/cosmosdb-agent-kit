@@ -1,0 +1,1146 @@
+# =============================================================================
+# Test Iteration Workflow
+# =============================================================================
+# Runs automated tests against a generated application in a PR.
+#
+# Triggers:
+#   - workflow_dispatch: Manual trigger (or dispatched by auto-trigger-tests)
+#   - repository_dispatch: Auto-triggered by external events
+#
+# What it does:
+#   1. Detects which scenario and iteration changed
+#   2. Starts the Azure Cosmos DB Windows emulator
+#   3. Reads iteration-config.yaml for build/run instructions
+#   4. Builds and starts the application
+#   5. Runs the scenario's pytest suite against it
+#   6. Posts results as a PR comment
+# =============================================================================
+
+name: Test Iteration
+
+on:
+  # Primary trigger: called as a reusable workflow by auto-trigger-tests.yaml
+  # (pull_request_target). This makes test results appear as a PR status check,
+  # which is critical for Copilot coding agent auto-retry on CI failure.
+  workflow_call:
+    inputs:
+      pr_number:
+        description: 'PR number to test'
+        required: true
+        type: number
+
+  # Secondary trigger: manual runs from the Actions UI or gh CLI
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to test'
+        required: true
+        type: number
+
+  repository_dispatch:
+    types: [test-iteration]
+
+jobs:
+  detect-iteration:
+    name: Detect changed iteration
+    runs-on: ubuntu-latest
+    outputs:
+      scenario: ${{ steps.detect.outputs.scenario }}
+      iteration: ${{ steps.detect.outputs.iteration }}
+      iteration_dir: ${{ steps.detect.outputs.iteration_dir }}
+      pr_number: ${{ steps.pr.outputs.number }}
+      head_ref: ${{ steps.pr.outputs.head_ref }}
+    steps:
+      - name: Resolve PR context
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # inputs.pr_number works for both workflow_call and workflow_dispatch
+          # repository_dispatch uses client_payload
+          if [ -n "${{ inputs.pr_number }}" ]; then
+            PR_NUM="${{ inputs.pr_number }}"
+          else
+            PR_NUM="${{ github.event.client_payload.pr_number }}"
+          fi
+          echo "number=${PR_NUM}" >> "$GITHUB_OUTPUT"
+          HEAD_REF=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUM}" --jq '.head.ref')
+          echo "head_ref=${HEAD_REF}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.head_ref }}
+
+      - name: Detect scenario and iteration from PR files
+        id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUM="${{ steps.pr.outputs.number }}"
+
+          # Use GitHub API to list changed files in the PR
+          CHANGED=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUM}/files" \
+            --jq '.[].filename' \
+            | grep '^testing-v2/scenarios/.*/iterations/' \
+            | head -1)
+
+          if [ -z "$CHANGED" ]; then
+            echo "No iteration files changed in PR #${PR_NUM}"
+            exit 1
+          fi
+
+          # Extract scenario and iteration from path
+          # Path format: testing-v2/scenarios/{scenario}/iterations/{iteration}/...
+          SCENARIO=$(echo "$CHANGED" | cut -d'/' -f3)
+          ITERATION=$(echo "$CHANGED" | cut -d'/' -f5)
+          ITERATION_DIR="testing-v2/scenarios/${SCENARIO}/iterations/${ITERATION}"
+
+          echo "scenario=${SCENARIO}" >> "$GITHUB_OUTPUT"
+          echo "iteration=${ITERATION}" >> "$GITHUB_OUTPUT"
+          echo "iteration_dir=${ITERATION_DIR}" >> "$GITHUB_OUTPUT"
+
+          echo "Detected: scenario=${SCENARIO}, iteration=${ITERATION}"
+
+  test-iteration:
+    name: "Test: ${{ needs.detect-iteration.outputs.scenario }} / ${{ needs.detect-iteration.outputs.iteration }}"
+    needs: detect-iteration
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    env:
+      COSMOS_ENDPOINT: "https://localhost:8081"
+      COSMOS_KEY: "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
+      ITERATION_DIR: ${{ needs.detect-iteration.outputs.iteration_dir }}
+      SCENARIO: ${{ needs.detect-iteration.outputs.scenario }}
+      ITERATION: ${{ needs.detect-iteration.outputs.iteration }}
+      PR_NUMBER: ${{ needs.detect-iteration.outputs.pr_number }}
+      PYTHONUNBUFFERED: "1"
+      PYTHONIOENCODING: "utf-8"
+      HEAD_REF: ${{ needs.detect-iteration.outputs.head_ref }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.detect-iteration.outputs.head_ref }}
+          fetch-depth: 0
+
+      # Overlay test harness files from the base branch so framework code
+      # (report.py, conftest, etc.) is always up-to-date even when the PR
+      # head branch is behind.
+      - name: Update test harness from base branch
+        shell: bash
+        run: |
+          BASE_REF="${{ github.ref_name }}"
+          echo "Overlaying test harness from base branch: $BASE_REF"
+          git fetch origin "$BASE_REF"
+          git checkout "origin/$BASE_REF" -- testing-v2/harness/ 2>/dev/null || echo "No harness changes on base"
+
+      # ------------------------------------------------------------------
+      # Start Azure Cosmos DB Windows Emulator
+      # ------------------------------------------------------------------
+      - name: Start Azure Cosmos DB Emulator
+        id: start_emulator
+        shell: pwsh
+        run: |
+          Write-Host "Launching Azure Cosmos DB Emulator"
+          Import-Module "$env:ProgramFiles\Azure Cosmos DB Emulator\PSModules\Microsoft.Azure.CosmosDB.Emulator"
+
+          $emulatorExe = "$env:ProgramFiles\Azure Cosmos DB Emulator\Microsoft.Azure.Cosmos.Emulator.exe"
+          $maxRestarts = 3
+          $pollInterval = 5
+          $timeoutPerAttempt = 300  # 5 minutes per attempt
+
+          $ready = $false
+
+          for ($attempt = 1; $attempt -le $maxRestarts; $attempt++) {
+            Write-Host "--- Emulator start attempt $attempt of $maxRestarts ---"
+
+            if ($attempt -eq 1) {
+              Start-CosmosDbEmulator -NoUI -Key "$env:COSMOS_KEY"
+            } else {
+              # Kill any leftover emulator processes before restart
+              Write-Host "Stopping leftover emulator processes..."
+              Get-Process -Name "Microsoft.Azure.Cosmos.Emulator" -ErrorAction SilentlyContinue | Stop-Process -Force
+              Get-Process -Name "Microsoft.Azure.Cosmos.Master" -ErrorAction SilentlyContinue | Stop-Process -Force
+              Start-Sleep -Seconds 5
+              Write-Host "Restarting emulator..."
+              Start-CosmosDbEmulator -NoUI -Key "$env:COSMOS_KEY"
+            }
+
+            # Brief initial wait to let the emulator process initialize
+            Start-Sleep -Seconds 10
+
+            # Poll emulator status using /getstatus exit codes
+            # (1=starting, 2=running, 3=stopped)
+            $maxPolls = [math]::Ceiling($timeoutPerAttempt / $pollInterval)
+            Write-Host "Polling /getstatus for up to $timeoutPerAttempt seconds..."
+
+            for ($i = 1; $i -le $maxPolls; $i++) {
+              $proc = Start-Process $emulatorExe -ArgumentList "/getstatus" -PassThru -Wait
+              switch ($proc.ExitCode) {
+                2 {
+                  Write-Host "Emulator is running (poll $i, exit code 2)"
+                  $ready = $true
+                  break
+                }
+                3 {
+                  Write-Host "Emulator returned stopped (poll $i, exit code 3)"
+                  break  # break inner loop to trigger restart
+                }
+                default {
+                  if ($i % 12 -eq 0) {
+                    Write-Host "  Still starting... (poll $i, exit code $($proc.ExitCode), elapsed ~$($i * $pollInterval)s)"
+                  }
+                }
+              }
+              if ($ready -or $proc.ExitCode -eq 3) { break }
+              Start-Sleep -Seconds $pollInterval
+            }
+
+            if ($ready) { break }
+
+            if ($attempt -lt $maxRestarts) {
+              Write-Host "Emulator did not become ready in $timeoutPerAttempt seconds. Will restart..."
+            }
+          }
+
+          if (-not $ready) {
+            Write-Host "--- Diagnostic info ---"
+            Get-Process -Name "*Cosmos*" -ErrorAction SilentlyContinue | Format-Table Name, Id, StartTime, CPU -AutoSize
+            Write-Error "Cosmos DB Emulator did not become ready after $maxRestarts attempts ($($maxRestarts * $timeoutPerAttempt) seconds total)"
+            exit 1
+          }
+
+          Write-Host "Emulator is ready."
+
+          # Export the emulator's self-signed TLS certificate to PEM
+          $cert = Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.FriendlyName -like '*DocumentDb*' -or $_.Subject -like '*CosmosDB*' -or $_.Subject -like '*localhost*' } | Select-Object -First 1
+          if (-not $cert) {
+            # Fallback: download the PEM from the emulator endpoint
+            $pemPath = Join-Path $env:RUNNER_TEMP "cosmosdb-emulator.pem"
+            Invoke-WebRequest -Uri "https://localhost:8081/_explorer/emulator.pem" -SkipCertificateCheck -OutFile $pemPath
+          } else {
+            $pemPath = Join-Path $env:RUNNER_TEMP "cosmosdb-emulator.pem"
+            $b64 = [Convert]::ToBase64String($cert.RawData, 'InsertLineBreaks')
+            "-----BEGIN CERTIFICATE-----`n$b64`n-----END CERTIFICATE-----" | Set-Content $pemPath -Encoding ascii
+          }
+          Write-Host "Emulator cert exported to $pemPath"
+          "COSMOS_CERT_PATH=$pemPath" >> $env:GITHUB_ENV
+
+      # ------------------------------------------------------------------
+      # Language-specific setup
+      # ------------------------------------------------------------------
+      - name: Read iteration config
+        id: config
+        shell: pwsh
+        run: |
+          $config = "$env:ITERATION_DIR/iteration-config.yaml"
+          if (-not (Test-Path $config)) {
+            Write-Error "iteration-config.yaml not found at $config"
+            exit 1
+          }
+
+          pip install pyyaml --quiet
+          $values = python -c @"
+          import yaml, json
+          cfg = yaml.safe_load(open('$config'))
+          print(json.dumps({
+            'language': cfg['language'],
+            'port': cfg.get('port', 8080),
+            'build': cfg.get('build', ''),
+            'run': cfg['run'],
+            'health': cfg.get('health', '/health'),
+            'database': cfg.get('database', 'test-db'),
+            'skills_loaded': cfg.get('skills_loaded', True),
+          }))
+          "@
+          $cfg = $values | ConvertFrom-Json
+
+          "language=$($cfg.language)"   >> $env:GITHUB_OUTPUT
+          "port=$($cfg.port)"           >> $env:GITHUB_OUTPUT
+          "build_cmd=$($cfg.build)"     >> $env:GITHUB_OUTPUT
+          "run_cmd=$($cfg.run)"         >> $env:GITHUB_OUTPUT
+          "health=$($cfg.health)"       >> $env:GITHUB_OUTPUT
+          "db_name=$($cfg.database)"    >> $env:GITHUB_OUTPUT
+          "skills_loaded=$($cfg.skills_loaded)" >> $env:GITHUB_OUTPUT
+
+      - name: Setup Python
+        if: steps.config.outputs.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup .NET
+        if: steps.config.outputs.language == 'dotnet'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup Java
+        if: steps.config.outputs.language == 'java'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      - name: Setup Node.js
+        if: steps.config.outputs.language == 'nodejs'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Go
+        if: steps.config.outputs.language == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      # ------------------------------------------------------------------
+      # Build the iteration app
+      # ------------------------------------------------------------------
+      - name: Build application
+        id: build_app
+        if: steps.config.outputs.build_cmd != ''
+        working-directory: ${{ env.ITERATION_DIR }}
+        shell: pwsh
+        run: |
+          $buildCmd = "${{ steps.config.outputs.build_cmd }}"
+          Write-Host "Running build: $buildCmd"
+
+          # Capture build output for signal recording
+          $buildLog = Join-Path $PWD "build-output.log"
+          $buildErr = Join-Path $PWD "build-error.log"
+
+          & cmd /c "$buildCmd > `"$buildLog`" 2> `"$buildErr`""
+          $exitCode = $LASTEXITCODE
+
+          # Record build signal: first-attempt result
+          $signal = @{
+            build_command   = $buildCmd
+            exit_code       = $exitCode
+            succeeded       = ($exitCode -eq 0)
+            stdout_tail     = ""
+            stderr_tail     = ""
+          }
+          if (Test-Path $buildLog) {
+            $signal.stdout_tail = (Get-Content $buildLog -Tail 30 -ErrorAction SilentlyContinue) -join "`n"
+          }
+          if (Test-Path $buildErr) {
+            $signal.stderr_tail = (Get-Content $buildErr -Tail 30 -ErrorAction SilentlyContinue) -join "`n"
+          }
+          $signal | ConvertTo-Json -Depth 3 | Set-Content "build-signal.json" -Encoding utf8
+          Write-Host "Build signal recorded (exit code: $exitCode)"
+
+          # Also write to the workflow artifact location
+          Copy-Item "build-signal.json" (Join-Path $env:GITHUB_WORKSPACE "build-signal.json") -ErrorAction SilentlyContinue
+
+          "build_succeeded=$($exitCode -eq 0)" >> $env:GITHUB_OUTPUT
+
+          if ($exitCode -ne 0) {
+            Write-Host "--- Build stdout (last 50 lines) ---"
+            if (Test-Path $buildLog) { Get-Content $buildLog -Tail 50 }
+            Write-Host "--- Build stderr (last 50 lines) ---"
+            if (Test-Path $buildErr) { Get-Content $buildErr -Tail 50 }
+            Write-Error "Build failed with exit code $exitCode"
+            exit $exitCode
+          }
+
+      # ------------------------------------------------------------------
+      # Trust the Cosmos DB Emulator self-signed certificate
+      # ------------------------------------------------------------------
+      - name: Trust Cosmos DB Emulator cert (Python)
+        if: steps.config.outputs.language == 'python' && env.COSMOS_CERT_PATH != ''
+        shell: pwsh
+        run: |
+          # Append emulator cert to the certifi CA bundle so aiohttp/requests trust it
+          $certifi = python -c "import certifi; print(certifi.where())"
+          $emulatorCert = Get-Content $env:COSMOS_CERT_PATH -Raw
+          Add-Content -Path $certifi -Value "`n$emulatorCert"
+          Write-Host "Appended emulator cert to $certifi"
+
+          # Also set env vars for libraries that check these
+          "SSL_CERT_FILE=$certifi"      >> $env:GITHUB_ENV
+          "REQUESTS_CA_BUNDLE=$certifi" >> $env:GITHUB_ENV
+
+      - name: Trust Cosmos DB Emulator cert (Java)
+        if: steps.config.outputs.language == 'java' && env.COSMOS_CERT_PATH != ''
+        shell: pwsh
+        run: |
+          # Import the emulator's self-signed cert into Java's default truststore
+          $javaHome = $env:JAVA_HOME
+          $cacerts = Join-Path $javaHome "lib\security\cacerts"
+          if (-not (Test-Path $cacerts)) {
+            # Fallback for older JDK layouts
+            $cacerts = Join-Path $javaHome "jre\lib\security\cacerts"
+          }
+          Write-Host "Importing emulator cert into Java truststore: $cacerts"
+          keytool -importcert -noprompt -alias cosmosdb-emulator -file $env:COSMOS_CERT_PATH -keystore $cacerts -storepass changeit
+          Write-Host "Emulator cert imported successfully"
+
+      - name: Trust Cosmos DB Emulator cert (.NET)
+        if: steps.config.outputs.language == 'dotnet' && env.COSMOS_CERT_PATH != ''
+        shell: pwsh
+        run: |
+          # Import the emulator's self-signed cert into the Windows trusted root store
+          $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($env:COSMOS_CERT_PATH)
+          $store = New-Object System.Security.Cryptography.X509Certificates.X509Store("Root", "CurrentUser")
+          $store.Open("ReadWrite")
+          $store.Add($cert)
+          $store.Close()
+          Write-Host "Emulator cert added to CurrentUser\Root store"
+
+      - name: Trust Cosmos DB Emulator cert (Node.js)
+        if: steps.config.outputs.language == 'nodejs' && env.COSMOS_CERT_PATH != ''
+        shell: pwsh
+        run: |
+          # Node.js uses NODE_EXTRA_CA_CERTS to trust additional certificates
+          "NODE_EXTRA_CA_CERTS=$env:COSMOS_CERT_PATH" >> $env:GITHUB_ENV
+          Write-Host "Set NODE_EXTRA_CA_CERTS=$env:COSMOS_CERT_PATH"
+
+      # ------------------------------------------------------------------
+      # Verify imports resolve before starting the app
+      # ------------------------------------------------------------------
+      - name: Verify Python imports
+        if: steps.config.outputs.language == 'python'
+        working-directory: ${{ env.ITERATION_DIR }}
+        shell: pwsh
+        run: |
+          $runCmd = "${{ steps.config.outputs.run_cmd }}"
+          $module = $null
+
+          if ($runCmd -match 'uvicorn\s+(\w+)') {
+            $module = $Matches[1]
+          } elseif ($runCmd -match 'python[3]?\s+(\w+)') {
+            $module = $Matches[1]
+          }
+
+          if (-not $module) {
+            Write-Host "Could not detect main module from run command: $runCmd"
+            Write-Host "Skipping import verification"
+            exit 0
+          }
+
+          Write-Host "Verifying imports for module: $module"
+          python -c "import importlib; importlib.import_module('$module')"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Import verification failed -- a dependency is likely missing from requirements.txt"
+            exit 1
+          }
+          Write-Host "All imports resolved successfully"
+
+      # ------------------------------------------------------------------
+      # Start the app and run tests
+      # ------------------------------------------------------------------
+      - name: Start application
+        id: start_app
+        working-directory: ${{ env.ITERATION_DIR }}
+        shell: pwsh
+        run: |
+          $runCmd = "${{ steps.config.outputs.run_cmd }}"
+
+          $stdoutLog = Join-Path $PWD "app-output.log"
+          $stderrLog = Join-Path $PWD "app-error.log"
+
+          Write-Host "Starting: $runCmd"
+          Write-Host "  stdout -> $stdoutLog"
+          Write-Host "  stderr -> $stderrLog"
+
+          # Create a launcher batch file that handles output redirection
+          # and runs in a hidden window. This gives the app its own console
+          # so it survives when this PowerShell step exits.
+          # (Start-Process -NoNewWindow shares the parent console; Windows
+          # sends CTRL_CLOSE_EVENT to all attached processes when that
+          # console is destroyed, silently killing the app.)
+          $batchFile = Join-Path $PWD "_start-app.cmd"
+          $batchContent = "@echo off`r`n$runCmd > `"$stdoutLog`" 2> `"$stderrLog`""
+          [System.IO.File]::WriteAllText($batchFile, $batchContent, [System.Text.Encoding]::ASCII)
+          Write-Host "Batch file content: $(Get-Content $batchFile -Raw)"
+
+          $process = Start-Process $batchFile `
+            -PassThru -WindowStyle Hidden -WorkingDirectory $PWD
+
+          "APP_PID=$($process.Id)" >> $env:GITHUB_ENV
+
+          # Wait for health endpoint
+          # Use 127.0.0.1 instead of localhost to avoid IPv6 resolution
+          # issues on Windows (app binds 0.0.0.0 = IPv4 only).
+          $healthUrl = "http://127.0.0.1:${{ steps.config.outputs.port }}${{ steps.config.outputs.health }}"
+          Write-Host "Waiting for app at $healthUrl ..."
+          $ready = $false
+          for ($i = 1; $i -le 60; $i++) {
+            try {
+              $resp = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+              if ($resp.StatusCode -eq 200) {
+                Write-Host "App is ready (attempt $i)"
+                $ready = $true
+                break
+              } else {
+                Write-Host "  Health returned status $($resp.StatusCode) (attempt $i)"
+              }
+            } catch {
+              if ($i -le 3 -or $i % 10 -eq 0) {
+                Write-Host "  Health check error (attempt $i): $($_.Exception.Message)"
+              }
+            }
+
+            # Check if process is still alive
+            if ($process.HasExited) {
+              Write-Error "App process exited prematurely with code $($process.ExitCode)"
+              Write-Host "--- stdout (last 80 lines) ---"
+              if (Test-Path $stdoutLog) { Get-Content $stdoutLog -Tail 80 }
+              Write-Host "--- stderr (last 80 lines) ---"
+              if (Test-Path $stderrLog) { Get-Content $stderrLog -Tail 80 }
+              exit 1
+            }
+
+            # Show progress every 10 attempts
+            if ($i % 10 -eq 0) {
+              Write-Host "  Still waiting... (attempt $i/60)"
+              if (Test-Path $stderrLog) {
+                $errTail = Get-Content $stderrLog -Tail 5
+                if ($errTail) { Write-Host "  Recent stderr: $($errTail -join ' | ')" }
+              }
+            }
+            Start-Sleep -Seconds 2
+          }
+
+          if (-not $ready) {
+            Write-Error "App did not start within 120 seconds"
+            Write-Host "--- stdout (last 80 lines) ---"
+            if (Test-Path $stdoutLog) { Get-Content $stdoutLog -Tail 80 }
+            Write-Host "--- stderr (last 80 lines) ---"
+            if (Test-Path $stderrLog) { Get-Content $stderrLog -Tail 80 }
+            & taskkill /PID $process.Id /T /F 2>$null
+
+            # Record startup failure signal
+            $signal = @{
+              startup_succeeded = $false
+              error = "App did not start within 120 seconds"
+              stderr_tail = if (Test-Path $stderrLog) { (Get-Content $stderrLog -Tail 30) -join "`n" } else { "" }
+              stdout_tail = if (Test-Path $stdoutLog) { (Get-Content $stdoutLog -Tail 30) -join "`n" } else { "" }
+            }
+            $signal | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $env:GITHUB_WORKSPACE "startup-signal.json") -Encoding utf8
+
+            exit 1
+          }
+
+          # Record startup success signal
+          $signal = @{
+            startup_succeeded = $true
+            port = ${{ steps.config.outputs.port }}
+            health_url = $healthUrl
+          }
+          $signal | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $env:GITHUB_WORKSPACE "startup-signal.json") -Encoding utf8
+
+      - name: Setup test environment
+        if: steps.start_app.outcome == 'success'
+        shell: pwsh
+        run: |
+          pip install -r testing-v2/harness/requirements.txt
+
+      - name: Run tests
+        if: steps.start_app.outcome == 'success'
+        id: tests
+        shell: pwsh
+        env:
+          APP_ALREADY_RUNNING: "1"
+        run: |
+          $scenario = $env:SCENARIO
+          $testDir = "testing-v2/scenarios/$scenario/tests"
+
+          if (-not (Test-Path $testDir)) {
+            Write-Error "No tests found at $testDir"
+            exit 1
+          }
+
+          # Run pytest with structured output
+          python -m pytest $testDir `
+            --tb=short `
+            --no-header `
+            -v `
+            --junitxml=test-results.xml `
+            --timeout=30 `
+            2>&1 | Tee-Object -FilePath test-output.txt
+
+          $exitCode = $LASTEXITCODE
+          "exit_code=$exitCode" >> $env:GITHUB_OUTPUT
+
+          exit 0  # Don't fail the step -- we report results in the next step
+
+      - name: Stop application
+        if: always()
+        shell: pwsh
+        run: |
+          if ($env:APP_PID) {
+            # Kill the process tree (cmd.exe + child app)
+            & taskkill /PID $env:APP_PID /T /F 2>$null
+          }
+
+      # ------------------------------------------------------------------
+      # Report results
+      # ------------------------------------------------------------------
+      - name: Generate test report
+        if: always()
+        id: report
+        shell: pwsh
+        run: |
+          python testing-v2/harness/report.py
+
+      - name: Comment test results on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const prNumber = parseInt(process.env.PR_NUMBER);
+            const report = fs.readFileSync('test-report.md', 'utf8');
+
+            // Find and update existing comment, or create new one
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const marker = '<!-- test-iteration-results -->';
+            const body = marker + '\n' + report;
+            const existing = comments.find(c => c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            }
+
+      # ------------------------------------------------------------------
+      # Evaluate iteration and archive results
+      # ------------------------------------------------------------------
+      - name: Evaluate iteration
+        if: always() && steps.start_app.outcome == 'success'
+        shell: pwsh
+        env:
+          SKILLS_LOADED: ${{ steps.config.outputs.skills_loaded }}
+        run: |
+          python testing-v2/harness/evaluate.py
+
+      - name: Archive source code
+        if: |
+          always() && steps.start_app.outcome == 'success' && (
+            steps.config.outputs.skills_loaded != 'True' ||
+            steps.tests.outputs.exit_code == '0'
+          )
+        shell: pwsh
+        run: |
+          # Control runs: always archive (no iteration expected)
+          # Skills runs: only archive when all tests pass (iteration may follow)
+          $iterDir = $env:ITERATION_DIR
+          $zipPath = Join-Path $iterDir "source-code.zip"
+
+          # Files to keep outside the zip
+          $keep = @("ITERATION.md", "iteration-config.yaml", "source-code.zip",
+                    "app-output.log", "app-error.log", "_start-app.cmd",
+                    "build-signal.json", "startup-signal.json",
+                    "build-output.log", "build-error.log", ".gitignore")
+
+          # Collect files to archive
+          $toArchive = Get-ChildItem $iterDir -Recurse -File |
+            Where-Object { $keep -notcontains $_.Name }
+
+          if ($toArchive.Count -eq 0) {
+            Write-Host "No source files to archive"
+          } else {
+            # Create zip
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $zip = [System.IO.Compression.ZipFile]::Open($zipPath, 'Create')
+            foreach ($f in $toArchive) {
+              $entryName = $f.FullName.Substring((Resolve-Path $iterDir).Path.Length + 1)
+              [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $zip, $f.FullName, $entryName, 'Optimal') | Out-Null
+            }
+            $zip.Dispose()
+            Write-Host "Created $zipPath with $($toArchive.Count) files"
+
+            # Remove archived files
+            foreach ($f in $toArchive) { Remove-Item $f.FullName -Force }
+
+            # Remove empty directories
+            Get-ChildItem $iterDir -Recurse -Directory |
+              Sort-Object { $_.FullName.Length } -Descending |
+              ForEach-Object {
+                if ((Get-ChildItem $_.FullName -Force).Count -eq 0) {
+                  Remove-Item $_.FullName -Force
+                }
+              }
+
+            # Remove temp files
+            foreach ($name in @("app-output.log", "app-error.log", "_start-app.cmd")) {
+              $p = Join-Path $iterDir $name
+              if (Test-Path $p) { Remove-Item $p -Force }
+            }
+
+            Write-Host "Removed $($toArchive.Count) original source files"
+          }
+
+      - name: Commit evaluation results
+        if: always() && steps.start_app.outcome == 'success'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          BRANCH="$HEAD_REF"
+          git checkout -B "$BRANCH"
+
+          # Stage evaluation files
+          git add "testing-v2/scenarios/${SCENARIO}/iterations/${ITERATION}/"
+          git add "testing-v2/IMPROVEMENTS-LOG.md"
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Evaluate ${SCENARIO}/${ITERATION} [skip ci]"
+            git push origin "$BRANCH" || echo "Push failed (branch may have been updated)"
+          fi
+
+      - name: Request Copilot deep evaluation
+        if: always() && steps.start_app.outcome == 'success'
+        uses: actions/github-script@v7
+        env:
+          SKILLS_LOADED_VAL: ${{ steps.config.outputs.skills_loaded }}
+        with:
+          script: |
+            const fs = require('fs');
+            const scenario = process.env.SCENARIO;
+            const iteration = process.env.ITERATION;
+            const iterationDir = process.env.ITERATION_DIR;
+            const prNumber = parseInt(process.env.PR_NUMBER);
+            const skillsLoaded = process.env.SKILLS_LOADED_VAL === 'True';
+
+            let testSummary = '';
+            try {
+              const report = JSON.parse(fs.readFileSync('test-report.json', 'utf8'));
+              const s = report.summary;
+              testSummary = `${s.passed}/${s.total} tests passed (${s.pass_rate}%)`;
+            } catch (e) {
+              testSummary = 'Test results unavailable';
+            }
+
+            // Loop protection
+            const deepMarker = '<!-- copilot-deep-eval -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+            if (comments.some(c => c.body.includes(deepMarker))) {
+              console.log('Deep evaluation already requested, skipping');
+              return;
+            }
+
+            const iterTemplate = 'testing-v2/scenarios/_iteration-template.md';
+
+            let copilotPrompt;
+            if (skillsLoaded) {
+              copilotPrompt =
+                `@copilot **Deep evaluation needed.** Test results: ${testSummary}.\n\n` +
+                `Skills were loaded for this iteration. Perform a thorough code review and ` +
+                `update the ITERATION.md that CI created. Follow these steps:\n\n` +
+                `1. Read the generated code (unzip \`${iterationDir}/source-code.zip\` if archived, ` +
+                `or read files in \`${iterationDir}/\`)\n` +
+                `2. Read all rules in \`skills/cosmosdb-best-practices/AGENTS.md\`\n` +
+                `3. Read \`testing-v2/scenarios/${scenario}/api-contract.yaml\`\n` +
+                `4. Read the template at \`${iterTemplate}\` for the expected format\n` +
+                `5. Read the test results comment above\n` +
+                `6. **Rewrite** \`${iterationDir}/ITERATION.md\` with a thorough evaluation:\n` +
+                `   - **Data Model** section: analyze container design, embedding vs referencing, ` +
+                `document structure, and which model-* rules were applied or missed\n` +
+                `   - **Container Configuration**: partition key choices, indexing policies, ` +
+                `composite indexes, and which partition-*/index-* rules were applied\n` +
+                `   - **Repository Layer**: query patterns, point reads, parameterization, ` +
+                `and which query-* rules were applied\n` +
+                `   - **SDK Usage**: singleton client, connection mode, ETag handling, ` +
+                `diagnostics, and which sdk-* rules were applied\n` +
+                `   - **Build Status**: any build issues and fixes\n` +
+                `   - **Gaps Identified**: critical, best practice, and knowledge gaps\n` +
+                `   - **Recommendations**: high/medium/low priority skill improvements\n` +
+                `   - **Score Summary**: per-category scores (Data Model, Partition Key, ` +
+                `Indexing, SDK Usage, Query Patterns, Overall) each X/10\n` +
+                `7. If any tests failed: classify each failure per \`testing-v2/EVALUATE.md\`, ` +
+                `create new rules if needed, update \`testing-v2/IMPROVEMENTS-LOG.md\`, ` +
+                `run \`npm run build\`\n` +
+                `8. Commit all changes to this PR branch`;
+            } else {
+              copilotPrompt =
+                `@copilot **Deep evaluation needed (CONTROL RUN — no skills loaded).** ` +
+                `Test results: ${testSummary}.\n\n` +
+                `This was a control run: the agent generated code WITHOUT reading AGENTS.md. ` +
+                `Your job is to evaluate what would have been different with skills loaded.\n\n` +
+                `1. Read the generated code (unzip \`${iterationDir}/source-code.zip\` if archived, ` +
+                `or read files in \`${iterationDir}/\`)\n` +
+                `2. Read all rules in \`skills/cosmosdb-best-practices/AGENTS.md\`\n` +
+                `3. Read \`testing-v2/scenarios/${scenario}/api-contract.yaml\`\n` +
+                `4. Read the template at \`${iterTemplate}\` for the expected format\n` +
+                `5. Read the test results comment above\n` +
+                `6. **Rewrite** \`${iterationDir}/ITERATION.md\` with a thorough evaluation:\n` +
+                `   - **Skills Verification**: mark that skills were NOT loaded (control run)\n` +
+                `   - **Data Model** section: analyze what the agent did and identify ` +
+                `which model-* rules from AGENTS.md WOULD HAVE helped if loaded\n` +
+                `   - **Container Configuration**: identify which partition-*/index-* rules ` +
+                `would have improved the design\n` +
+                `   - **Repository Layer**: identify which query-* rules would have helped\n` +
+                `   - **SDK Usage**: identify which sdk-* rules were missed\n` +
+                `   - **Gaps Identified**: list issues that existing rules would have prevented\n` +
+                `   - **Rules That Would Have Helped**: for each gap, cite the specific rule ` +
+                `file (e.g., \`partition-high-cardinality.md\`) and explain what it would have changed\n` +
+                `   - **Score Summary**: per-category scores (both as-is and estimated with-skills)\n` +
+                `7. Do NOT create or update any rules — this is a control run\n` +
+                `8. Update \`testing-v2/IMPROVEMENTS-LOG.md\` noting this was a control run\n` +
+                `9. Commit all changes to this PR branch. **IMPORTANT**: Include \`[skip ci]\` ` +
+                `in your commit message to prevent CI from re-running (e.g., ` +
+                `"Deep evaluation for iteration-NNN [skip ci]"). This is a control run — ` +
+                `no code fixes or iteration is expected.`;
+            }
+
+            const modeLabel = skillsLoaded ? '' : ' (CONTROL RUN)';
+            const body = deepMarker + '\n' +
+              `## 📋 Deep Evaluation Ready${modeLabel} — ${testSummary}\n\n` +
+              `CI has finished testing. A deep evaluation is needed to analyze the generated code ` +
+              `and produce a thorough ITERATION.md.\n\n` +
+              `---\n\n` +
+              `### 🔧 Action Required\n\n` +
+              `> **Copy the prompt below and post it as a new comment** to trigger Copilot to perform the deep evaluation.\n` +
+              `> (Bot-posted \`@copilot\` mentions do not trigger the agent — it must come from a user.)\n\n` +
+              '````\n' + copilotPrompt + '\n````\n';
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body,
+            });
+
+      - name: Request Copilot fix startup failure
+        if: always() && (steps.start_app.outcome != 'success' || steps.start_emulator.outcome != 'success')
+        uses: actions/github-script@v7
+        env:
+          LANGUAGE: ${{ steps.config.outputs.language }}
+        with:
+          script: |
+            const fs = require('fs');
+            const scenario = process.env.SCENARIO;
+            const iteration = process.env.ITERATION;
+            const iterationDir = process.env.ITERATION_DIR;
+            const prNumber = parseInt(process.env.PR_NUMBER);
+            const language = process.env.LANGUAGE || 'unknown';
+            const emulatorOutcome = '${{ steps.start_emulator.outcome }}';
+
+            // Loop protection: count existing fix-request comments
+            const fixMarker = '<!-- copilot-fix-request -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const fixAttempts = comments.filter(c => c.body.includes(fixMarker)).length;
+            const maxAttempts = 3;
+
+            // Emulator failure -- infrastructure issue, not a code bug
+            if (emulatorOutcome !== 'success') {
+              const body = fixMarker + '\n' +
+                `## ⚠️ Cosmos DB Emulator failed to start\n\n` +
+                `The Azure Cosmos DB Emulator did not start successfully (outcome: \`${emulatorOutcome}\`).\n` +
+                `This is a **CI infrastructure issue**, not an application code bug.\n\n` +
+                `**Action:** Re-run the workflow. If this persists, check the emulator start step logs.\n`;
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+              return;
+            }
+
+            // Read app logs -- these are the actual startup errors
+            const path = require('path');
+            const stdoutPath = path.join(iterationDir, 'app-output.log');
+            const stderrPath = path.join(iterationDir, 'app-error.log');
+
+            let appStdout = '';
+            let appStderr = '';
+            try { appStdout = fs.readFileSync(stdoutPath, 'utf8'); } catch (e) {}
+            try { appStderr = fs.readFileSync(stderrPath, 'utf8'); } catch (e) {}
+
+            const stderrTail = appStderr.slice(-3000) || '(empty)';
+            const stdoutTail = appStdout.slice(-1500) || '(empty)';
+
+            // Language-specific common causes
+            const commonCauses = {
+              python: [
+                'Missing dependency in requirements.txt',
+                'Import error or syntax error in Python code',
+                'Cosmos DB connection failure (check SSL certs, endpoint URL, key)',
+                'Port already in use or wrong port configuration',
+              ],
+              java: [
+                'Missing dependency in pom.xml or build.gradle',
+                'Compilation error or missing class',
+                'SSL/TLS certificate issue connecting to Cosmos DB Emulator',
+                'Spring Boot application.properties misconfiguration (port, endpoint, key)',
+              ],
+              dotnet: [
+                'Missing NuGet package reference in .csproj',
+                'Build error or missing type/namespace',
+                'SSL certificate trust issue with Cosmos DB Emulator',
+                'appsettings.json misconfiguration (endpoint, key, database name)',
+              ],
+              nodejs: [
+                'Missing dependency in package.json',
+                'Import/require error or syntax error',
+                'SSL certificate rejection (NODE_TLS_REJECT_UNAUTHORIZED)',
+                'Port or endpoint misconfiguration in environment variables',
+              ],
+              go: [
+                'Missing module dependency (go.mod)',
+                'Compilation error or unresolved import',
+                'TLS certificate verification failure with Cosmos DB Emulator',
+                'Environment variable misconfiguration for endpoint/key',
+              ],
+            };
+            const causes = commonCauses[language] || [
+              'Missing dependency in project configuration',
+              'Build or compilation error',
+              'Cosmos DB connection failure (SSL certs, endpoint URL, key)',
+              'Port already in use or wrong port configuration',
+            ];
+            const causesText = causes.map(c => `- ${c}`).join('\n');
+
+            if (fixAttempts >= maxAttempts) {
+              const body = fixMarker + '\n' +
+                `## ⚠️ Max auto-fix attempts reached (${maxAttempts})\n\n` +
+                `The application still fails to start after ${maxAttempts} automated fix attempts.\n` +
+                `Manual intervention is needed.\n\n` +
+                `**Last stderr output:**\n` +
+                '```\n' + stderrTail + '\n```\n';
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+              return;
+            }
+
+            // Build the @copilot prompt for the user to copy-paste
+            const copilotPrompt =
+              `@copilot The application failed to start in CI (attempt ${fixAttempts + 1}/${maxAttempts}). ` +
+              `Fix the code and push to this branch.\n\n` +
+              `**Instructions:**\n` +
+              `1. Read the stderr output in the comment above — it contains the actual error\n` +
+              `2. Read your generated code in \`${iterationDir}/\`\n` +
+              `3. Fix the root cause of the startup failure\n` +
+              `4. Make sure the application can start and respond to HTTP requests\n` +
+              `5. Commit and push the fix to this branch`;
+
+            const body = fixMarker + '\n' +
+              `## ❌ Application Startup Failed (${language}) — attempt ${fixAttempts + 1}/${maxAttempts}\n\n` +
+              `**stderr (last lines):**\n` +
+              '```\n' + stderrTail + '\n```\n\n' +
+              `**stdout (last lines):**\n` +
+              '```\n' + stdoutTail + '\n```\n\n' +
+              `**Common causes (${language}):**\n` +
+              causesText + '\n\n' +
+              `---\n\n` +
+              `### 🔧 Action Required\n\n` +
+              `> **Copy the prompt below and post it as a new comment** to trigger Copilot to fix this issue.\n` +
+              `> (Bot-posted \`@copilot\` mentions do not trigger the agent — it must come from a user.)\n\n` +
+              '````\n' + copilotPrompt + '\n````\n';
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body,
+            });
+
+      - name: Request Copilot evaluate test failures
+        if: always() && steps.start_app.outcome == 'success' && steps.tests.outputs.exit_code != '0'
+        uses: actions/github-script@v7
+        env:
+          SKILLS_LOADED_VAL: ${{ steps.config.outputs.skills_loaded }}
+        with:
+          script: |
+            const fs = require('fs');
+            const scenario = process.env.SCENARIO;
+            const iteration = process.env.ITERATION;
+            const prNumber = parseInt(process.env.PR_NUMBER);
+            const skillsLoaded = process.env.SKILLS_LOADED_VAL === 'True';
+
+            // Read the structured test report for context
+            let failureSummary = '';
+            try {
+              const report = JSON.parse(fs.readFileSync('test-report.json', 'utf8'));
+              const failCount = report.summary.failed + report.summary.errors;
+              const total = report.summary.total;
+              failureSummary = `${failCount} of ${total} tests failed.`;
+            } catch (e) {
+              failureSummary = 'Test results could not be parsed.';
+            }
+
+            // Loop protection: count existing evaluation comments
+            const evalMarker = '<!-- copilot-eval-request -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const evalAttempts = comments.filter(c => c.body.includes(evalMarker)).length;
+            const maxAttempts = 2;
+
+            if (evalAttempts >= maxAttempts) {
+              const body = evalMarker + '\n' +
+                `## [WARN] Max evaluation attempts reached (${maxAttempts})\n\n` +
+                `**${failureSummary}**\n\n` +
+                `Automated evaluation has been attempted ${maxAttempts} times.\n` +
+                `Manual review is needed. Check the test results comment above for failure details.\n`;
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+              return;
+            }
+
+            let copilotPrompt;
+            if (skillsLoaded) {
+              copilotPrompt =
+                `@copilot **${failureSummary}** Evaluate the test failures and fix the code. ` +
+                `Follow the instructions in testing-v2/EVALUATE.md.\n\n` +
+                `**Instructions:**\n` +
+                `1. Read the test results comment above for specific failures\n` +
+                `2. Read the API contract at \`testing-v2/scenarios/${scenario}/api-contract.yaml\`\n` +
+                `3. Read the existing rules in \`skills/cosmosdb-best-practices/rules/\`\n` +
+                `4. Classify each failure (contract violation, missing rule, unclear rule, SDK quirk)\n` +
+                `5. Fix contract violations directly in the generated code\n` +
+                `6. Create new rules if needed, update \`testing-v2/IMPROVEMENTS-LOG.md\`\n` +
+                `7. Run \`npm run build\` to regenerate AGENTS.md\n` +
+                `8. Commit all changes to this PR branch`;
+            } else {
+              copilotPrompt =
+                `@copilot **${failureSummary}** This was a **control run** (no skills loaded). ` +
+                `Evaluate the test failures but do NOT create or update any rules.\n\n` +
+                `**Instructions:**\n` +
+                `1. Read the test results comment above for specific failures\n` +
+                `2. Read the API contract at \`testing-v2/scenarios/${scenario}/api-contract.yaml\`\n` +
+                `3. Classify each failure (contract violation, Cosmos DB anti-pattern, SDK quirk)\n` +
+                `4. Fix contract violations directly in the generated code\n` +
+                `5. Do NOT create or update rules in \`skills/cosmosdb-best-practices/rules/\`\n` +
+                `6. Commit code fixes to this PR branch`;
+            }
+
+            const modeLabel = skillsLoaded ? '' : ' (CONTROL RUN)';
+            const body = evalMarker + '\n' +
+              `## ❌ Test Failures${modeLabel} — ${failureSummary}\n\n` +
+              `See the test results comment above for detailed failure output.\n\n` +
+              `---\n\n` +
+              `### 🔧 Action Required\n\n` +
+              `> **Copy the prompt below and post it as a new comment** to trigger Copilot to fix the failures.\n` +
+              `> (Bot-posted \`@copilot\` mentions do not trigger the agent — it must come from a user.)\n\n` +
+              '````\n' + copilotPrompt + '\n````\n';
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body,
+            });
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ env.SCENARIO }}-${{ env.ITERATION }}
+          path: |
+            test-results.xml
+            test-report.json
+            test-report.md
+            test-output.txt
+            build-signal.json
+            startup-signal.json
+            ${{ env.ITERATION_DIR }}/app-output.log
+            ${{ env.ITERATION_DIR }}/app-error.log
+            ${{ env.ITERATION_DIR }}/build-output.log
+            ${{ env.ITERATION_DIR }}/build-error.log
+            ${{ env.ITERATION_DIR }}/build-signal.json
+
+      - name: Fail if tests failed
+        if: steps.tests.outputs.exit_code != '0' || steps.start_app.outcome != 'success' || steps.start_emulator.outcome != 'success'
+        shell: pwsh
+        run: |
+          # Output detailed error info in CI logs so Copilot coding agent can
+          # read them and auto-retry. Copilot monitors PR status checks and
+          # reads workflow logs when a check fails.
+          if ("${{ steps.start_emulator.outcome }}" -ne "success") {
+            Write-Host "============================================"
+            Write-Host "FAILURE: Cosmos DB Emulator failed to start"
+            Write-Host "============================================"
+            Write-Host "This is a CI infrastructure issue, not a code bug."
+            Write-Host "Action: Re-run the workflow."
+          } elseif ("${{ steps.start_app.outcome }}" -ne "success") {
+            Write-Host "============================================"
+            Write-Host "FAILURE: Application failed to start"
+            Write-Host "============================================"
+            $stderrPath = Join-Path "${{ env.ITERATION_DIR }}" "app-error.log"
+            $stdoutPath = Join-Path "${{ env.ITERATION_DIR }}" "app-output.log"
+            if (Test-Path $stderrPath) {
+              Write-Host ""
+              Write-Host "--- stderr (last 100 lines) ---"
+              Get-Content $stderrPath | Select-Object -Last 100
+            }
+            if (Test-Path $stdoutPath) {
+              Write-Host ""
+              Write-Host "--- stdout (last 50 lines) ---"
+              Get-Content $stdoutPath | Select-Object -Last 50
+            }
+            Write-Host ""
+            Write-Host "Fix the application startup error in ${{ env.ITERATION_DIR }}/ and push to this branch."
+          } else {
+            Write-Host "============================================"
+            Write-Host "FAILURE: Tests failed"
+            Write-Host "============================================"
+            if (Test-Path "test-report.json") {
+              $report = Get-Content "test-report.json" | ConvertFrom-Json
+              Write-Host "Results: $($report.summary.passed)/$($report.summary.total) passed ($($report.summary.pass_rate)%)"
+              Write-Host ""
+              foreach ($test in $report.tests) {
+                if ($test.outcome -ne "passed") {
+                  Write-Host "FAILED: $($test.name)"
+                  if ($test.message) { Write-Host "  $($test.message)" }
+                }
+              }
+            }
+            if (Test-Path "test-output.txt") {
+              Write-Host ""
+              Write-Host "--- Test output (last 100 lines) ---"
+              Get-Content "test-output.txt" | Select-Object -Last 100
+            }
+            Write-Host ""
+            Write-Host "Fix the failing tests in ${{ env.ITERATION_DIR }}/ and push to this branch."
+          }
+          exit 1
