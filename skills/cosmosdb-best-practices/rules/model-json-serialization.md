@@ -2,7 +2,7 @@
 title: Handle JSON serialization correctly for Cosmos DB documents
 impact: HIGH
 impactDescription: prevents data loss, null constructor errors, and serialization failures
-tags: model, serialization, json, jackson, jsonignore, jsonproperty, bigdecimal
+tags: model, serialization, json, jackson, jsonignore, jsonproperty, bigdecimal, jsonignoreproperties, change-feed
 ---
 
 ## Handle JSON Serialization Correctly for Cosmos DB
@@ -138,5 +138,37 @@ private Set<String> authorities;
 ```
 
 Convert between simple and complex types in the service layer, not in the entity.
+
+**Rule 5: Always add `@JsonIgnoreProperties(ignoreUnknown = true)` to entity classes**
+
+Cosmos DB documents contain system metadata fields (`_rid`, `_self`, `_etag`, `_ts`, `_lsn`) that are not part of your entity model. Without this annotation, Jackson throws `UnrecognizedPropertyException` when deserializing documents — especially during Change Feed processing where these fields are always present:
+
+```
+com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException:
+  Unrecognized field "_lsn" (class PlayerProfile), not marked as ignorable
+```
+
+```java
+// ❌ Fails on system metadata fields from Cosmos DB
+@Container(containerName = "players")
+public class PlayerProfile {
+    @Id
+    private String id;
+    private String playerId;
+    private int score;
+}
+
+// ✅ Ignores unknown fields — safe for Cosmos DB system metadata
+@JsonIgnoreProperties(ignoreUnknown = true)
+@Container(containerName = "players")
+public class PlayerProfile {
+    @Id
+    private String id;
+    private String playerId;
+    private int score;
+}
+```
+
+This is critical for Change Feed consumers where system metadata fields are always included in the document payload.
 
 Reference: [Jackson annotations guide](https://github.com/FasterXML/jackson-annotations/wiki/Jackson-Annotations)
