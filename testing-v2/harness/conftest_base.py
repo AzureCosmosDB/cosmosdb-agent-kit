@@ -228,7 +228,7 @@ def cosmos_client():
 @pytest.fixture(scope="session")
 def cosmos_database(cosmos_client, iteration_config):
     """The Cosmos DB database used by the app."""
-    db_name = iteration_config.get("database", "gaming-leaderboard-db")
+    db_name = iteration_config.get("database", "test-db")
     return cosmos_client.get_database_client(db_name)
 
 

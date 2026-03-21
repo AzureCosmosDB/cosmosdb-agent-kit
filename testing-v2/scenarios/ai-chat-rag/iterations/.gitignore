@@ -1,0 +1,21 @@
+# Build artifacts (per-language)
+__pycache__/
+*.pyc
+*.pyo
+node_modules/
+bin/
+obj/
+target/
+.gradle/
+build/
+dist/
+*.egg-info/
+venv/
+.venv/
+
+# Runtime logs and temp files
+app-output.log
+app-error.log
+_start-app.cmd
+build-output.log
+build-error.log
