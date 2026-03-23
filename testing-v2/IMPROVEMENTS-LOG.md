@@ -18,6 +18,22 @@ Each improvement entry should include:
 
 ## Improvements
 
+#### 2026-03-23: Rule Enhancement — Change Feed Idempotency Guidance (Rule 9.1)
+
+- **Scenario**: gaming-leaderboard
+- **Iteration**: Java iterations P02/R04, P02/R05, P03/R03, P03/R04
+- **Issue**: Rule 9.1 (`pattern-change-feed-materialized-views`) documented Change Feed Processor setup mechanics but provided no guidance on at-least-once delivery semantics. 100% of Change Feed + counter runs (4/4) produced non-idempotent handlers using `getTotalGames() + 1` or `totalGames += 1` patterns, causing silent double-counting on event replay.
+- **Improvement**: Enhanced Rule 9.1 with idempotency semantics guidance:
+  - Added prominent warning that Change Feed delivers events at-least-once
+  - Added incorrect pattern examples (Java, .NET) showing non-idempotent counter increments
+  - Added three correct idempotent alternatives: replace pattern (absolute values), conditional write (ETags), and mark-and-rebuild
+  - Added comparison table of idempotent patterns with trade-offs
+  - Updated Key Points to emphasize idempotency requirement
+  - Added reference to Change Feed design patterns documentation
+- **Files Modified**:
+  - `skills/cosmosdb-best-practices/rules/pattern-change-feed-materialized-views.md` (ENHANCED)
+  - `skills/cosmosdb-best-practices/AGENTS.md` (recompiled)
+
 #### 2026-03-12: New Rules — Parameterized TOP and Composite Index Directions
 
 - **Scenario**: gaming-leaderboard
