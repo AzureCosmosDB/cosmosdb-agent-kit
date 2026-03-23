@@ -1,20 +1,28 @@
 ---
 title: Use dependent @Bean methods for Cosmos DB initialization in Spring Boot
 impact: HIGH
-impactDescription: prevents circular dependency and startup failures
-tags: sdk, java, spring-boot, configuration, cosmos-config, bean, postconstruct
+impactDescription: prevents circular dependency, startup failures, class name collisions, and compile errors
+tags: sdk, java, spring-boot, configuration, cosmos-config, bean, postconstruct, AbstractCosmosConfiguration
 ---
 
 ## Use Dependent @Bean Methods for Cosmos DB Initialization in Spring Boot
 
 When configuring `CosmosClient`, `CosmosDatabase`, and `CosmosContainer` beans in a Spring Boot `@Configuration` class, use dependent `@Bean` methods with parameter injection instead of `@PostConstruct`. Calling a `@Bean` method from `@PostConstruct` in the same class creates a circular dependency that crashes the application on startup.
 
+Follow these additional rules to avoid common startup failures:
+
+1. **Do not name your configuration class `CosmosConfig`.** This collides with `com.azure.spring.data.cosmos.config.CosmosConfig` in the Spring Data Cosmos SDK, causing cascading compile errors. Use `CosmosDbConfig`, `CosmosConfiguration`, or `AppCosmosConfig` instead.
+
+2. **Always call `createDatabaseIfNotExists()` before `createContainerIfNotExists()`.** On a fresh Cosmos DB instance (including the emulator), the database does not exist. Calling `createContainerIfNotExists()` without first ensuring the database exists throws `CosmosException: NotFound`.
+
+3. **When extending `AbstractCosmosConfiguration`, do not annotate `cosmosClientBuilder()` with `@Override`.** It is not declared as overridable in `AbstractCosmosConfiguration`. Provide it as a `@Bean` method instead. The only method you should override is `getDatabaseName()`.
+
 **Incorrect (@PostConstruct calling @Bean — circular dependency):**
 
 ```java
 // ❌ Anti-pattern: @PostConstruct + @Bean in same class causes circular dependency
 @Configuration
-public class CosmosConfig {
+public class CosmosDbConfig {
 
     @Value("${azure.cosmos.endpoint}")
     private String endpoint;
@@ -59,7 +67,7 @@ public class CosmosConfig {
 ```java
 // ✅ Correct: Use @Bean dependency injection chain — initialization in bean methods
 @Configuration
-public class CosmosConfig {
+public class CosmosDbConfig {
 
     @Value("${azure.cosmos.endpoint}")
     private String endpoint;
@@ -157,11 +165,86 @@ public SmartInitializingSingleton cosmosInitializer(CosmosContainer container) {
 }
 ```
 
+**Common mistake: Missing `createDatabaseIfNotExists()` before container creation:**
+
+```java
+// ❌ Crashes on a fresh Cosmos DB instance — database doesn't exist yet
+@EventListener(ApplicationReadyEvent.class)
+public void initializeCosmosDb() {
+    CosmosAsyncClient client = cosmosAsyncClient();
+    CosmosAsyncDatabase db = client.getDatabase(databaseName);
+    db.createContainerIfNotExists(containerName,
+        "/partitionKey").block();  // CosmosException: Database not found
+}
+```
+
+```java
+// ✅ Always create the database first
+@EventListener(ApplicationReadyEvent.class)
+public void initializeCosmosDb() {
+    CosmosAsyncClient client = cosmosAsyncClient();
+    client.createDatabaseIfNotExists(databaseName).block();  // ← required
+    CosmosAsyncDatabase db = client.getDatabase(databaseName);
+    db.createContainerIfNotExists(containerName,
+        "/partitionKey").block();
+}
+```
+
+**When extending `AbstractCosmosConfiguration`:**
+
+```java
+// ❌ cosmosClientBuilder() is not overridable — compile error
+@Configuration
+@EnableCosmosRepositories
+public class CosmosDbConfig extends AbstractCosmosConfiguration {
+
+    @Override  // ❌ "method does not override or implement a method from a supertype"
+    public CosmosClientBuilder cosmosClientBuilder() {
+        return new CosmosClientBuilder()
+            .endpoint(endpoint)
+            .key(key);
+    }
+
+    @Override
+    protected String getDatabaseName() {
+        return databaseName;
+    }
+}
+```
+
+```java
+// ✅ Provide cosmosClientBuilder() as a @Bean, only override getDatabaseName()
+@Configuration
+@EnableCosmosRepositories
+public class CosmosDbConfig extends AbstractCosmosConfiguration {
+
+    @Bean  // ✅ Not an override — declare as a bean
+    public CosmosClientBuilder cosmosClientBuilder() {
+        return new CosmosClientBuilder()
+            .endpoint(endpoint)
+            .key(key)
+            .consistencyLevel(ConsistencyLevel.SESSION)
+            .contentResponseOnWriteEnabled(true);
+    }
+
+    @Override  // ✅ getDatabaseName() is the only overridable method
+    protected String getDatabaseName() {
+        return databaseName;
+    }
+}
+```
+
 **Key Points:**
 - Never call `@Bean` methods from `@PostConstruct` in the same `@Configuration` class
 - Use parameter injection in `@Bean` methods to express initialization order
 - Always set `destroyMethod = "close"` on `CosmosClient` bean
 - Keep `CosmosClient` as a singleton `@Bean` (Rule 4.16)
 - Set `contentResponseOnWriteEnabled(true)` in the builder (Rule 4.9)
+- Do not name your configuration class `CosmosConfig` — it collides with `com.azure.spring.data.cosmos.config.CosmosConfig`
+- Always call `createDatabaseIfNotExists()` before `createContainerIfNotExists()`
+- When extending `AbstractCosmosConfiguration`, use `@Bean` (not `@Override`) on `cosmosClientBuilder()`
 
-Reference: [Spring Framework @Bean documentation](https://docs.spring.io/spring-framework/reference/core/beans/java/bean-annotation.html)
+References:
+- [Spring Framework @Bean documentation](https://docs.spring.io/spring-framework/reference/core/beans/java/bean-annotation.html)
+- [`CosmosAsyncClient.createDatabaseIfNotExists()` Javadoc](https://learn.microsoft.com/java/api/com.azure.cosmos.cosmosasyncclient?view=azure-java-stable)
+- [`AbstractCosmosConfiguration` Javadoc](https://learn.microsoft.com/java/api/com.azure.spring.data.cosmos.config.abstractcosmosconfiguration?view=azure-java-stable)
