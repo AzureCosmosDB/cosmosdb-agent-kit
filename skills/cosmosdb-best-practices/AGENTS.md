@@ -3726,12 +3726,51 @@ public interface OrderRepository extends CosmosRepository<Order, String> {
 Order savedOrder = orderRepository.save(newOrder);  // ✅ Returns saved document
 ```
 
-**When NOT to enable content response:**
+**⚠️ Reactor / reactive streams — never set `contentResponseOnWriteEnabled(false)` on `CosmosAsyncClient`:**
 
-If you don't need the created document (fire-and-forget writes), leave it disabled to save bandwidth:
+When using `CosmosAsyncClient` with Project Reactor, setting `contentResponseOnWriteEnabled(false)` causes `CosmosItemResponse.getItem()` to return `null`. Reactor does not allow `null` signals in its pipeline (Reactive Streams Specification, Rule 2.13), so any downstream `.map(CosmosItemResponse::getItem)` or similar operator throws a `NullPointerException` from inside Reactor internals — not from your code — making the root cause very hard to diagnose.
 
 ```java
-// High-throughput ingestion - don't need response content
+// ❌ Causes NPE in reactive stream — never do this with CosmosAsyncClient
+CosmosAsyncClient asyncClient = new CosmosClientBuilder()
+    .endpoint(endpoint)
+    .key(key)
+    .contentResponseOnWriteEnabled(false)
+    .buildAsyncClient();
+
+container.upsertItem(item)
+    .map(CosmosItemResponse::getItem)  // ❌ getItem() returns null → NPE
+    .block();
+```
+
+```java
+// ✅ Option 1 (recommended): Keep content response enabled for async clients
+CosmosAsyncClient asyncClient = new CosmosClientBuilder()
+    .endpoint(endpoint)
+    .key(key)
+    .contentResponseOnWriteEnabled(true)
+    .buildAsyncClient();
+
+container.upsertItem(item)
+    .map(CosmosItemResponse::getItem)  // ✅ Non-null, safe in Reactor
+    .block();
+```
+
+```java
+// ✅ Option 2: If you must suppress content, guard against null before mapping
+container.upsertItem(item)
+    .flatMap(response -> {
+        MyItem result = response.getItem();
+        return result != null ? Mono.just(result) : Mono.empty();
+    });
+```
+
+**When NOT to enable content response:**
+
+If you don't need the created document (fire-and-forget writes) **and you are using the synchronous `CosmosClient`**, leave it disabled to save bandwidth:
+
+```java
+// High-throughput ingestion with synchronous client - don't need response content
 CosmosItemRequestOptions options = new CosmosItemRequestOptions();
 options.setContentResponseOnWriteEnabled(false);  // Default, saves bandwidth
 
@@ -3751,7 +3790,8 @@ Enabling content response does NOT increase RU cost - the document is already fe
 - Java SDK returns null from `getItem()` by default for created/upserted items — enable `contentResponseOnWriteEnabled(true)` to get documents back after writes
 - Can be set at client level (all operations) or per-request
 - Spring Data Cosmos handles both unwrapping and content response automatically
-- Disable content response for high-throughput scenarios where response content is not needed
+- **Never set `contentResponseOnWriteEnabled(false)` with `CosmosAsyncClient` / reactive streams** — it causes `NullPointerException` in the Reactor pipeline
+- Only disable content response for high-throughput fire-and-forget writes with the synchronous `CosmosClient`
 
 Reference: [Azure Cosmos DB Java SDK best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-java)
 
