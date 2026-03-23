@@ -7799,16 +7799,112 @@ var query = ordersByStatusContainer.GetItemQueryIterator<OrderStatusView>(
 | Better scalability | Eventual consistency (slight delay) |
 | Lower RU cost per query | RU cost for writes to both containers |
 
+**⚠️ Change Feed delivers events at-least-once.** Your handler MUST be idempotent — processing the same event twice must produce the same result. Never use `counter += 1` or `get() + 1` patterns in Change Feed handlers, as event replay will silently double-count.
+
+**Incorrect — non-idempotent handler (counter drift on replay):**
+
+```java
+// ❌ WRONG — at-least-once replay doubles counts
+private void handleChanges(List<JsonNode> changes, ChangeFeedProcessorContext context) {
+    for (JsonNode node : changes) {
+        GameScore score = objectMapper.treeToValue(node, GameScore.class);
+        PlayerProfile profile = playerRepository.findById(score.getPlayerId()).orElseGet(PlayerProfile::new);
+        profile.setTotalGamesPlayed(profile.getTotalGamesPlayed() + 1); // NON-IDEMPOTENT
+        profile.setTotalScore(profile.getTotalScore() + score.getScore()); // NON-IDEMPOTENT
+        playerRepository.save(profile);
+    }
+}
+```
+
+```csharp
+// ❌ WRONG — same problem in .NET
+async Task HandleChangesAsync(IReadOnlyCollection<GameScore> changes, CancellationToken ct)
+{
+    foreach (var score in changes)
+    {
+        var profile = await GetProfileAsync(score.PlayerId);
+        profile.TotalGamesPlayed += 1;  // NON-IDEMPOTENT
+        profile.TotalScore += score.Score;  // NON-IDEMPOTENT
+        await SaveProfileAsync(profile);
+    }
+}
+```
+
+**Correct — idempotent alternatives:**
+
+Use one of these patterns to ensure safe replay:
+
+**1. Replace pattern — write absolute values, not deltas:**
+
+```java
+// ✅ CORRECT — replace with absolute value from the event
+private void handleChanges(List<JsonNode> changes, ChangeFeedProcessorContext context) {
+    for (JsonNode node : changes) {
+        GameScore score = objectMapper.treeToValue(node, GameScore.class);
+        PlayerProfile profile = playerRepository.findById(score.getPlayerId()).orElseGet(PlayerProfile::new);
+        // Idempotent: same event replayed produces same result
+        profile.setHighScore(Math.max(profile.getHighScore(), score.getScore()));
+        playerRepository.save(profile);
+    }
+}
+```
+
+**2. Conditional write — use ETags to detect duplicate processing:**
+
+```csharp
+// ✅ CORRECT — ETag prevents duplicate processing
+async Task HandleChangesAsync(IReadOnlyCollection<GameScore> changes, CancellationToken ct)
+{
+    foreach (var score in changes)
+    {
+        var response = await container.ReadItemAsync<PlayerProfile>(
+            score.PlayerId, new PartitionKey(score.PlayerId));
+        var profile = response.Resource;
+        profile.HighScore = Math.Max(profile.HighScore, score.Score);
+        await container.ReplaceItemAsync(profile, profile.Id,
+            new PartitionKey(profile.Id),
+            new ItemRequestOptions { IfMatchEtag = response.ETag });
+    }
+}
+```
+
+**3. Mark-and-rebuild — flag affected records and recalculate from source of truth:**
+
+```python
+# ✅ CORRECT — mark dirty and rebuild from source data
+async def handle_changes(changes):
+    for change in changes:
+        player_id = change["playerId"]
+        # Mark the profile as needing recalculation
+        await profiles_container.patch_item(
+            item=player_id,
+            partition_key=player_id,
+            patch_operations=[
+                {"op": "set", "path": "/needsRecalc", "value": True}
+            ]
+        )
+    # Separate process recalculates from source of truth
+```
+
+| Idempotent Pattern | When to Use | Trade-off |
+|--------------------|-------------|-----------|
+| Replace (absolute value) | High scores, latest status, max/min values | Only works for non-cumulative data |
+| Conditional write (ETag) | Any update where you can detect duplicates | Extra read + possible retry on conflict |
+| Mark-and-rebuild | Counters, aggregations, cumulative totals | Higher latency, requires rebuild process |
+
 **Key Points:**
+- **Change Feed delivers at-least-once** — handlers MUST be idempotent
 - Change Feed provides reliable, ordered event stream of all document changes
 - Materialized views trade storage cost for query efficiency
 - Updates are eventually consistent (typically <1 second delay)
 - Use lease container to track processor progress (enables resume after failures)
+- Never use `counter += 1`, `total += value`, or `get() + 1` patterns in Change Feed handlers
 - Consider Azure Functions with Cosmos DB trigger for serverless implementation
-- Consider Global Secondary Index (GSI) implementation as alternative for automatic sync between containers with different partition keys. 
+- Consider Global Secondary Index (GSI) implementation as alternative for automatic sync between containers with different partition keys
 
 Reference(s): 
 [Change feed in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/change-feed)
+[Change feed design patterns in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/change-feed-design-patterns)
 [Global Secondary Indexes (GSI) in Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/global-secondary-indexes)
 
 ### 9.2 Use count-based or cached rank approaches instead of full partition scans for ranking
