@@ -18,6 +18,20 @@ Each improvement entry should include:
 
 ## Improvements
 
+#### 2026-03-23: Rule Enhancement — readItem() / CosmosItemResponse unwrapping guidance (Issue #27)
+
+- **Scenario**: gaming-leaderboard
+- **Iteration**: P01/R02, P01/R04, P03/R03 (~30% of raw-SDK runs)
+- **Issue**: Code treats `CosmosItemResponse<T>` as `T` directly — missing the `.getItem()` call to extract the actual entity value. This causes type mismatch compilation errors in every `readItem()` call site. The existing `sdk-java-content-response` rule only covered write operations (`contentResponseOnWriteEnabled`), not read-side unwrapping.
+- **Improvement**: Enhanced existing rule `sdk-java-content-response.md` to cover both read and write operations:
+  1. Added new leading section "Always unwrap readItem() with getItem()" with incorrect/correct examples for both sync and async patterns
+  2. Updated title from "Enable content response on write operations" to "Unwrap CosmosItemResponse and enable content response in Java SDK"
+  3. Updated tags and impact description to reflect broader scope
+  4. Updated Key Points to emphasize that all CRUD operations return `CosmosItemResponse<T>`
+- **Files Modified**:
+  - `skills/cosmosdb-best-practices/rules/sdk-java-content-response.md` (enhanced)
+  - `skills/cosmosdb-best-practices/AGENTS.md` (recompiled)
+
 #### 2026-03-12: New Rules — Parameterized TOP and Composite Index Directions
 
 - **Scenario**: gaming-leaderboard

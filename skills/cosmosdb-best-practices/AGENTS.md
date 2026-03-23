@@ -55,7 +55,7 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 4.6 [Configure SSL and connection mode for Cosmos DB Emulator](#46-configure-ssl-and-connection-mode-for-cosmos-db-emulator)
    - 4.7 [Use ETags for optimistic concurrency on read-modify-write operations](#47-use-etags-for-optimistic-concurrency-on-read-modify-write-operations)
    - 4.8 [Configure Excluded Regions for Dynamic Failover](#48-configure-excluded-regions-for-dynamic-failover)
-   - 4.9 [Enable content response on write operations in Java SDK](#49-enable-content-response-on-write-operations-in-java-sdk)
+   - 4.9 [Unwrap CosmosItemResponse and enable content response in Java SDK](#49-unwrap-cosmositemresponse-and-enable-content-response-in-java-sdk)
    - 4.10 [Use dependent @Bean methods for Cosmos DB initialization in Spring Boot](#410-use-dependent-bean-methods-for-cosmos-db-initialization-in-spring-boot)
    - 4.11 [Spring Boot and Java version compatibility for Cosmos DB SDK](#411-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
    - 4.12 [Configure local development environment to avoid cloud connection conflicts](#412-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
@@ -3589,11 +3589,64 @@ var outageOptions = new ItemRequestOptions
 Reference: [Performance tips - .NET SDK Excluded Regions](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-dotnet-sdk-v3#excluded-regions)
 Reference: [Performance tips - Java SDK Excluded Regions](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-java-sdk-v4#excluded-regions)
 
-### 4.9 Enable content response on write operations in Java SDK
+### 4.9 Unwrap CosmosItemResponse and enable content response in Java SDK
 
-**Impact: MEDIUM** (ensures created/updated documents are returned from write operations)
+**Impact: MEDIUM** (prevents type errors from missing getItem() on reads and null content on writes)
 
-## Enable Content Response on Write Operations (Java)
+## Unwrap CosmosItemResponse with getItem() (Java)
+
+All Cosmos DB Java SDK point-read and write operations (`readItem`, `createItem`, `upsertItem`, `replaceItem`) return `CosmosItemResponse<T>`, **not** `T` directly. You must call `.getItem()` to extract the entity. Treating the response wrapper as the entity causes compilation errors or incorrect behavior.
+
+### Always unwrap readItem() with getItem()
+
+`readItem()` always returns `CosmosItemResponse<T>`. You must call `.getItem()` to get the actual document.
+
+**Incorrect — treating CosmosItemResponse as the entity:**
+
+```java
+// ❌ WRONG: readItem returns CosmosItemResponse<Player>, NOT Player
+public Player getPlayer(String playerId) {
+    Player player = container.readItem(
+        playerId, new PartitionKey(playerId), Player.class);  // ❌ Compilation error!
+    return player;
+}
+```
+
+```java
+// ❌ WRONG (async): Mono<CosmosItemResponse<Player>> is not Mono<Player>
+public Mono<Player> getPlayer(String playerId) {
+    return container.readItem(
+        playerId, new PartitionKey(playerId), Player.class);  // ❌ Type mismatch!
+}
+```
+
+**Correct — unwrap with getItem():**
+
+```java
+// ✅ CORRECT: Call getItem() to extract the entity from the response
+public Player getPlayer(String playerId) {
+    CosmosItemResponse<Player> response = container.readItem(
+        playerId, new PartitionKey(playerId), Player.class);
+    return response.getItem();  // ✅ Returns the Player entity
+}
+```
+
+```java
+// ✅ CORRECT (async): Map the response to extract the entity
+public Mono<Player> getPlayer(String playerId) {
+    return container.readItem(
+            playerId, new PartitionKey(playerId), Player.class)
+        .map(response -> response.getItem());  // ✅ Unwrap to Player
+}
+```
+
+> **Why this matters:** `CosmosItemResponse<T>` is a wrapper that holds the entity (`getItem()`),
+> request charge (`getRequestCharge()`), ETag (`getETag()`), headers, and diagnostics.
+> Assigning the response directly to a variable of type `T` is a compile-time error in
+> synchronous code and a type-mismatch error in reactive chains. This affects `readItem`,
+> `createItem`, `upsertItem`, and `replaceItem` — all return `CosmosItemResponse<T>`.
+
+### Enable Content Response on Write Operations
 
 By default, the Java Cosmos DB SDK does **not** return the document content after create/upsert operations. The response contains only metadata (headers, diagnostics) but the `getItem()` method returns null. You must explicitly enable content response if you need the created document.
 
@@ -3693,11 +3746,12 @@ for (Order order : ordersToInsert) {
 Enabling content response does NOT increase RU cost - the document is already fetched server-side for the write operation. It only affects the response payload size over the network.
 
 **Key Points:**
-- Java SDK returns null by default for created/upserted items
-- Enable `contentResponseOnWriteEnabled(true)` to get documents back
+- `readItem()`, `createItem()`, `upsertItem()`, and `replaceItem()` all return `CosmosItemResponse<T>` — always call `.getItem()` to get `T`
+- In reactive/async code, use `.map(response -> response.getItem())` to unwrap the entity from the `Mono`
+- Java SDK returns null from `getItem()` by default for created/upserted items — enable `contentResponseOnWriteEnabled(true)` to get documents back after writes
 - Can be set at client level (all operations) or per-request
-- Spring Data Cosmos handles this automatically
-- Disable for high-throughput scenarios where response content is not needed
+- Spring Data Cosmos handles both unwrapping and content response automatically
+- Disable content response for high-throughput scenarios where response content is not needed
 
 Reference: [Azure Cosmos DB Java SDK best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-java)
 
