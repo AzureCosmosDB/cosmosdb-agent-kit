@@ -21,7 +21,7 @@ on:
   pull_request_target:
     types: [opened, synchronize, ready_for_review]
     paths:
-      - 'testing-v2/scenarios/*/iterations/**'
+      - 'testing-v2/scenarios/*/iterations/iteration-*/**'
 
 jobs:
   # Check if the latest commit is a CI evaluation commit (which should not
