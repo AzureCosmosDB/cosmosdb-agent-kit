@@ -81,7 +81,7 @@ jobs:
           # Use GitHub API to list changed files in the PR
           CHANGED=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUM}/files" \
             --jq '.[].filename' \
-            | grep '^testing-v2/scenarios/.*/iterations/' \
+            | grep '^testing-v2/scenarios/.*/iterations/iteration-' \
             | head -1)
 
           if [ -z "$CHANGED" ]; then
