@@ -88,8 +88,27 @@ public class Owner {
    private String partitionKey;
    ```
 
-3. **Remove ALL `jakarta.persistence.*` imports** — they cause compilation errors after removing JPA dependencies
+3. **The container's partition key path must match the `@PartitionKey` field name** — when creating a container programmatically, the partition key path must be `/<fieldName>` where `fieldName` is the Java field annotated with `@PartitionKey`. A mismatch causes `IllegalArgumentException: partitionKey must not be null` or silent data routing errors at runtime:
+   ```java
+   // ❌ Wrong: container path "/id" doesn't match @PartitionKey field "playerId"
+   @Container(containerName = "players")
+   public class Player {
+       @Id
+       @GeneratedValue
+       private String id;
 
-4. **Remove relationship annotations** — `@OneToMany`, `@ManyToOne`, `@ManyToMany`, `@JoinColumn` have no Cosmos equivalent. Use ID references or embedded data instead (see `model-embed-related` and `model-relationship-references` rules).
+       @PartitionKey
+       private String playerId;
+   }
+   // Container created with: new CosmosContainerProperties("players", "/id")
+   // Runtime error: IllegalArgumentException: partitionKey must not be null
+
+   // ✅ Correct: container path matches @PartitionKey field name
+   // Container created with: new CosmosContainerProperties("players", "/playerId")
+   ```
+
+4. **Remove ALL `jakarta.persistence.*` imports** — they cause compilation errors after removing JPA dependencies
+
+5. **Remove relationship annotations** — `@OneToMany`, `@ManyToOne`, `@ManyToMany`, `@JoinColumn` have no Cosmos equivalent. Use ID references or embedded data instead (see `model-embed-related` and `model-relationship-references` rules).
 
 Reference: [Spring Data Azure Cosmos DB annotations](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-spring-data)
