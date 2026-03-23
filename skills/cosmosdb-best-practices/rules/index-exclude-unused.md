@@ -37,31 +37,25 @@ Exclude paths from indexing that you never query. Every indexed path adds write 
 // Write cost includes indexing auditLog array - wasted RU
 ```
 
-**Correct (selective indexing):**
+**Correct (exclude-all-first, then include back):**
 
 ```csharp
-// Include only queried paths
+// Exclude everything, then include only what you query
 var indexingPolicy = new IndexingPolicy
 {
     IndexingMode = IndexingMode.Consistent,
     Automatic = true,
     
-    // Only include paths you actually query
+    // Start with exclude all — no field is indexed by default
+    ExcludedPaths = { new ExcludedPath { Path = "/*" } },
+    
+    // Explicitly include only what you query
     IncludedPaths =
     {
         new IncludedPath { Path = "/customerId/?" },
         new IncludedPath { Path = "/status/?" },
         new IncludedPath { Path = "/orderDate/?" },
         new IncludedPath { Path = "/total/?" }
-    },
-    
-    // Exclude everything else (especially large arrays)
-    ExcludedPaths =
-    {
-        new ExcludedPath { Path = "/items/*" },         // Embedded array
-        new ExcludedPath { Path = "/internalNotes/?" },
-        new ExcludedPath { Path = "/auditLog/*" },      // Large array
-        new ExcludedPath { Path = "/_etag/?" }          // System field
     }
 };
 
@@ -78,33 +72,44 @@ var containerProperties = new ContainerProperties
 {
     "indexingMode": "consistent",
     "automatic": true,
+    "excludedPaths": [
+        { "path": "/*" }
+    ],
     "includedPaths": [
         { "path": "/customerId/?" },
         { "path": "/status/?" },
-        { "path": "/orderDate/?" }
-    ],
-    "excludedPaths": [
-        { "path": "/items/*" },
-        { "path": "/auditLog/*" },
-        { "path": "/*" }  // Exclude all other paths
+        { "path": "/orderDate/?" },
+        { "path": "/total/?" }
     ]
 }
 ```
 
+⚠️ **Alternative (less optimal — indexes all paths by default):**
+
 ```csharp
-// Alternative: exclude all, include specific
+// Selectively include and exclude paths
+// WARNING: any new fields added to documents are auto-indexed
 var indexingPolicy = new IndexingPolicy
 {
     IndexingMode = IndexingMode.Consistent,
+    Automatic = true,
     
-    // Start with exclude all
-    ExcludedPaths = { new ExcludedPath { Path = "/*" } },
-    
-    // Explicitly include only what you query
+    // Only include paths you actually query
     IncludedPaths =
     {
         new IncludedPath { Path = "/customerId/?" },
-        new IncludedPath { Path = "/orderDate/?" }
+        new IncludedPath { Path = "/status/?" },
+        new IncludedPath { Path = "/orderDate/?" },
+        new IncludedPath { Path = "/total/?" }
+    },
+    
+    // Exclude known unused paths (but new fields still auto-indexed)
+    ExcludedPaths =
+    {
+        new ExcludedPath { Path = "/items/*" },         // Embedded array
+        new ExcludedPath { Path = "/internalNotes/?" },
+        new ExcludedPath { Path = "/auditLog/*" },      // Large array
+        new ExcludedPath { Path = "/_etag/?" }          // System field
     }
 };
 ```
