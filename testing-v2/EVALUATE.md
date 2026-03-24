@@ -41,6 +41,17 @@ For every failing test, determine the root cause:
 
 For each failure classified as "Cosmos DB anti-pattern" or "SDK/framework quirk":
 
+> **CRITICAL: Rules must be generic, not scenario-specific.**
+> The scenario that surfaced the failure is just one example. Write rules that apply
+> to **any application** encountering the same Cosmos DB pattern. For example, if a
+> gaming-leaderboard scenario reveals the need for a shared-partition container with
+> sorted queries, write a rule about "materialized view containers with shared
+> partition keys for efficient cross-entity ORDER BY" — not a rule about "leaderboard
+> containers." Use scenario-specific terms only as illustrative examples inside the
+> rule body, never in the rule title or top-level guidance. A developer building an
+> e-commerce product-ranking page, a social-media feed, or a monitoring dashboard
+> should recognize the rule as relevant to their use case.
+
 1. **Choose the correct prefix** based on category:
    - `model-` — Data modeling (embedding, referencing, document size)
    - `partition-` — Partition key design

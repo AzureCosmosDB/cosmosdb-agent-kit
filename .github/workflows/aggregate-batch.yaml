@@ -453,7 +453,7 @@ jobs:
           4. Read \`testing-v2/scenarios/${SCENARIO}/api-contract.yaml\`
           5. Focus on the **Consistent Failures** section — these are tests that failed in EVERY iteration and indicate real gaps
           6. For each consistent failure, classify it per EVALUATE.md (Cosmos DB anti-pattern, unclear rule, SDK quirk, contract violation, test too strict)
-          7. For failures classified as "Cosmos DB anti-pattern" or "SDK quirk": create new rules in \`skills/cosmosdb-best-practices/rules/\`
+          7. For failures classified as "Cosmos DB anti-pattern" or "SDK quirk": create new rules in \`skills/cosmosdb-best-practices/rules/\`. **IMPORTANT: rules must be GENERIC, not scenario-specific.** The scenario is just one example. Write rules that apply to ANY application hitting the same Cosmos DB pattern. Use the scenario only as an illustrative example inside the rule body, never as the rule title or framing. A developer in a completely different domain should recognize the rule as relevant.
           8. For failures classified as "Unclear existing rule": update the existing rule to be clearer
           9. Ignore **Flaky Tests** — these are LLM stochasticity, not skill gaps
           10. Run \`npm run build\` to regenerate AGENTS.md

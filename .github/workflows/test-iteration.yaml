@@ -777,7 +777,9 @@ jobs:
                 `   - **Score Summary**: per-category scores (Data Model, Partition Key, ` +
                 `Indexing, SDK Usage, Query Patterns, Overall) each X/10\n` +
                 `7. If any tests failed: classify each failure per \`testing-v2/EVALUATE.md\`, ` +
-                `create new rules if needed, update \`testing-v2/IMPROVEMENTS-LOG.md\`, ` +
+                `create new rules if needed (rules must be GENERIC — not scenario-specific; ` +
+                `any app hitting the same Cosmos DB pattern should benefit), ` +
+                `update \`testing-v2/IMPROVEMENTS-LOG.md\`, ` +
                 `run \`npm run build\`\n` +
                 `8. Commit all changes to this PR branch`;
             } else {

@@ -5,6 +5,10 @@ impactDescription: Optional description of impact (e.g., "10-50x improvement")
 tags: tag1, tag2
 ---
 
+<!-- NOTE: Rules must be GENERIC. Write for any application hitting this Cosmos DB
+     pattern, not for a specific scenario. Use scenario-specific terms only as
+     illustrative examples, never in the title or top-level guidance. -->
+
 ## Rule Title Here
 
 **Impact: MEDIUM (optional impact description)**
