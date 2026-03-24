@@ -2,7 +2,7 @@
 title: Handle JSON serialization correctly for Cosmos DB documents
 impact: HIGH
 impactDescription: prevents data loss, null constructor errors, and serialization failures
-tags: model, serialization, json, jackson, jsonignore, jsonproperty, bigdecimal
+tags: model, serialization, json, jackson, jsonignore, jsonproperty, bigdecimal, jsonignoreproperties, system-metadata
 ---
 
 ## Handle JSON Serialization Correctly for Cosmos DB
@@ -36,6 +36,7 @@ public class User {
 **Correct (proper serialization for Cosmos DB):**
 
 ```java
+@JsonIgnoreProperties(ignoreUnknown = true)  // ✅ Ignore Cosmos DB system metadata (_rid, _self, _etag, _ts, _lsn)
 @Container(containerName = "users")
 public class User {
 
@@ -138,5 +139,58 @@ private Set<String> authorities;
 ```
 
 Convert between simple and complex types in the service layer, not in the entity.
+
+**Rule 5: Ignore unknown properties from Cosmos DB system metadata**
+
+Cosmos DB documents contain system metadata fields (`_rid`, `_self`, `_etag`, `_ts`, `_lsn`) that are not part of your entity model. Without handling these, Jackson throws `UnrecognizedPropertyException` when deserializing documents — during point reads, queries, and Change Feed processing:
+
+```
+com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException:
+  Unrecognized field "_lsn" (class PlayerProfile), not marked as ignorable
+```
+
+**Option A (recommended): Configure globally at the ObjectMapper or Spring Boot level**
+
+This handles unknown properties for all entity classes without requiring per-class annotations:
+
+```java
+// ✅ Global ObjectMapper configuration — covers all Cosmos DB entities
+ObjectMapper mapper = new ObjectMapper();
+mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+```
+
+For Spring Boot applications, add to `application.properties`:
+
+```properties
+# ✅ Spring Boot global setting
+spring.jackson.deserialization.fail-on-unknown-properties=false
+```
+
+**Option B: Annotate each entity class with `@JsonIgnoreProperties(ignoreUnknown = true)`**
+
+If global configuration is not possible, annotate every Cosmos DB entity class:
+
+```java
+// ❌ Fails on system metadata fields from Cosmos DB
+@Container(containerName = "players")
+public class PlayerProfile {
+    @Id
+    private String id;
+    private String playerId;
+    private int score;
+}
+
+// ✅ Ignores unknown fields — safe for all Cosmos DB reads
+@JsonIgnoreProperties(ignoreUnknown = true)
+@Container(containerName = "players")
+public class PlayerProfile {
+    @Id
+    private String id;
+    private String playerId;
+    private int score;
+}
+```
+
+⚠️ **This annotation must be on every entity class.** If you miss even one, deserialization of that entity will fail when Cosmos DB system metadata is present.
 
 Reference: [Jackson annotations guide](https://github.com/FasterXML/jackson-annotations/wiki/Jackson-Annotations)
