@@ -4,7 +4,7 @@ Azure Cosmos DB best practices for AI coding agents, following the [Agent Skills
 
 ## Overview
 
-This skill contains 45+ rules across 8 categories, ordered by impact:
+This skill contains 75+ rules across 11 categories, ordered by impact:
 
 | Category | Impact | Description |
 |----------|--------|-------------|
@@ -16,6 +16,9 @@ This skill contains 45+ rules across 8 categories, ordered by impact:
 | Throughput & Scaling | MEDIUM | RU provisioning and scaling strategies |
 | Global Distribution | MEDIUM | Multi-region configuration |
 | Monitoring & Diagnostics | LOW-MEDIUM | Observability and troubleshooting |
+| Design Patterns | HIGH | Reusable Cosmos DB architecture patterns |
+| Developer Tooling | MEDIUM | Emulator and extension guidance for day-to-day work |
+| Vector Search | HIGH | Semantic search and RAG-related configuration |
 
 ## Installation
 
@@ -53,14 +56,17 @@ skills/cosmosdb-best-practices/
 └── rules/
     ├── _sections.md      # Section definitions
     ├── _template.md      # Template for new rules
-    ├── model-*.md        # Data modeling rules (6)
-    ├── partition-*.md    # Partition key rules (6)
-    ├── query-*.md        # Query optimization rules (6)
-    ├── sdk-*.md          # SDK best practices rules (6)
-    ├── index-*.md        # Indexing rules (5)
-    ├── throughput-*.md   # Throughput rules (5)
-    ├── global-*.md       # Global distribution rules (5)
-    └── monitoring-*.md   # Monitoring rules (5)
+    ├── model-*.md        # Data modeling rules
+    ├── partition-*.md    # Partition key rules
+    ├── query-*.md        # Query optimization rules
+    ├── sdk-*.md          # SDK best practices rules
+    ├── index-*.md        # Indexing rules
+    ├── throughput-*.md   # Throughput rules
+    ├── global-*.md       # Global distribution rules
+    ├── monitoring-*.md   # Monitoring rules
+    ├── pattern-*.md      # Design pattern rules
+    ├── tooling-*.md      # Developer tooling rules
+    └── vector-*.md       # Vector search rules
 ```
 
 ## How It Works
@@ -68,8 +74,11 @@ skills/cosmosdb-best-practices/
 When you're working on Cosmos DB code, AI coding agents (Claude Code, GitHub Copilot, Gemini CLI, etc.) that support Agent Skills will automatically:
 
 1. Detect the skill based on `SKILL.md` triggers
-2. Load `AGENTS.md` rules into context
-3. Apply best practices while generating or reviewing code
+2. Load `SKILL.md` as the lightweight index
+3. Follow linked rule files in `rules/` as needed
+4. Apply best practices while generating or reviewing code
+
+`AGENTS.md` remains the compiled version of the full guidance for environments that want one monolithic document.
 
 ## Compiling Rules
 
