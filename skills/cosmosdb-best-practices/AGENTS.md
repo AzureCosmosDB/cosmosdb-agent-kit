@@ -257,6 +257,65 @@ Denormalize when:
 - Query patterns benefit from co-located data
 
 *Additional strategies to consider for denormalization*:
+**Pre-computed Aggregates** :
+   - Definition: When an entity is frequently read and the read response includes aggregated statistics (counts, averages, totals), store those aggregates as persistent document fields rather than computing them per-request
+   - When to use:
+     - The entity's read response includes derived values such as counts, sums, averages, or min/max
+     - Reads significantly outnumber writes (high read-to-write ratio)
+     - Computing aggregates on-demand would require COUNT/AVG/SUM queries or application-level iteration
+   - Update strategy: Update aggregate fields inline at write time (within the same operation that records new data) or asynchronously via Change Feed
+   - Include a `lastUpdated` timestamp field to enable staleness detection
+
+   **Incorrect (aggregates computed on-demand):**
+
+   ```java
+   @Container(containerName = "players")
+   public class PlayerProfile {
+       @Id
+       private String id;
+       @PartitionKey
+       private String playerId;
+       private String displayName;
+       private int bestScore;
+       // No stored aggregates — totalGamesPlayed requires COUNT query,
+       // averageScore requires AVG query or app-level computation per request
+   }
+   ```
+
+   **Correct (pre-computed aggregates stored as fields):**
+
+   ```java
+   @Container(containerName = "players")
+   public class PlayerProfile {
+       @Id
+       private String id;
+       @PartitionKey
+       private String playerId;
+       private String displayName;
+       private int bestScore;
+       private int totalGamesPlayed;   // pre-computed, updated at write time
+       private double averageScore;     // pre-computed, updated at write time
+       private long lastUpdated;        // timestamp for staleness detection
+   }
+   ```
+
+   ```csharp
+   // Updating aggregates inline at write time
+   public async Task RecordGameScore(string playerId, int score)
+   {
+       var profile = await container.ReadItemAsync<PlayerProfile>(
+           playerId, new PartitionKey(playerId));
+       var p = profile.Resource;
+       p.TotalGamesPlayed += 1;
+       p.BestScore = Math.Max(p.BestScore, score);
+       p.AverageScore = p.TotalGamesPlayed == 1
+           ? score
+           : ((p.AverageScore * (p.TotalGamesPlayed - 1)) + score) / p.TotalGamesPlayed;
+       p.LastUpdated = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+       await container.ReplaceItemAsync(p, p.Id, new PartitionKey(playerId));
+   }
+   ```
+
 **Short-Circuit Denormalization** :
    - Definition: Duplicate *only specific fields* (not the full related document) to avoid a cross-partition lookup
    - When to use:
