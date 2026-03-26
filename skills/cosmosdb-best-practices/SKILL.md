@@ -56,7 +56,7 @@ Reference these guidelines when:
 - [model-id-constraints](rules/model-id-constraints.md) - Follow ID value length and character constraints
 - [model-nesting-depth](rules/model-nesting-depth.md) - Stay within 128-level nesting depth limit
 - [model-numeric-precision](rules/model-numeric-precision.md) - Understand IEEE 754 numeric precision limits
-- [model-denormalize-reads](rules/model-denormalize-reads.md) - Denormalize for read-heavy workloads
+- [model-denormalize-reads](rules/model-denormalize-reads.md) - Denormalize for read-heavy workloads including pre-computed aggregates
 - [model-schema-versioning](rules/model-schema-versioning.md) - Version your document schemas
 - [model-type-discriminator](rules/model-type-discriminator.md) - Use type discriminators for polymorphic data
 - [model-json-serialization](rules/model-json-serialization.md) - Handle JSON serialization correctly for Cosmos DB documents
