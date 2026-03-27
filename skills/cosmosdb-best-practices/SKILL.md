@@ -75,7 +75,7 @@ Reference these guidelines when:
 ### 3. Query Optimization (HIGH)
 
 - [query-avoid-cross-partition](rules/query-avoid-cross-partition.md) - Minimize cross-partition queries
-- [query-use-projections](rules/query-use-projections.md) - Project only needed fields
+- [query-use-projections](rules/query-use-projections.md) - Project only needed fields; prefer dedicated result types for projections
 - [query-pagination](rules/query-pagination.md) - Use continuation tokens for pagination
 - [query-avoid-scans](rules/query-avoid-scans.md) - Avoid full container scans
 - [query-parameterize](rules/query-parameterize.md) - Use parameterized queries

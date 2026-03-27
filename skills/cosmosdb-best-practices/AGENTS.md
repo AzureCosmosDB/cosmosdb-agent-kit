@@ -2691,6 +2691,34 @@ var orderSummaries = container.GetItemLinqQueryable<Order>(
     .ToFeedIterator();
 ```
 
+### Prefer dedicated result types for projections
+
+When projecting fields, prefer deserializing into a dedicated DTO or record whose properties match the projected fields rather than reusing the full document model class. A dedicated result type makes the projection self-documenting, avoids confusion from null/default-valued properties that were not projected, and reduces the chance of developers reverting to `SELECT *` over time.
+
+```csharp
+// ✅ Preferred: Dedicated DTO matches projected fields exactly
+public class OrderSummary
+{
+    public string Id { get; set; }
+    public DateTime OrderDate { get; set; }
+    public decimal Total { get; set; }
+    public string Status { get; set; }
+}
+
+var iterator = container.GetItemQueryIterator<OrderSummary>(  // ✅ Matches projection
+    new QueryDefinition(query).WithParameter("@cid", customerId));
+```
+
+```java
+// ✅ Preferred: Dedicated projection record in Java
+public record PlayerSummary(String id, String playerName, int score) {}
+
+@Query("SELECT c.id, c.playerName, c.score FROM c WHERE c.leaderboardKey = @key")
+List<PlayerSummary> getTopPlayers(@Param("key") String key);
+```
+
+⚠️ Deserializing projected results into the full entity type is acceptable when the entity is small, the unprojected fields are not misleading, or the surrounding framework expects that type (e.g., Spring Data repository methods, EF Core entities). In these cases, ensure the intent is clear through comments or naming so that future maintainers do not mistakenly revert to `SELECT *`.
+
 Savings multiply with:
 - Large documents (MB-sized)
 - Large result sets
