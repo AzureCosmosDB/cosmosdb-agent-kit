@@ -35,9 +35,10 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 2.2 [Distribute Writes to Avoid Hot Partitions](#22-distribute-writes-to-avoid-hot-partitions)
    - 2.3 [Use Hierarchical Partition Keys for Flexibility](#23-use-hierarchical-partition-keys-for-flexibility)
    - 2.4 [Choose High-Cardinality Partition Keys](#24-choose-high-cardinality-partition-keys)
-   - 2.5 [Respect Partition Key Value Length Limits](#25-respect-partition-key-value-length-limits)
-   - 2.6 [Align Partition Key with Query Patterns](#26-align-partition-key-with-query-patterns)
-   - 2.7 [Create Synthetic Partition Keys When Needed](#27-create-synthetic-partition-keys-when-needed)
+   - 2.5 [Choose Immutable Properties as Partition Keys](#25-choose-immutable-properties-as-partition-keys)
+   - 2.6 [Respect Partition Key Value Length Limits](#26-respect-partition-key-value-length-limits)
+   - 2.7 [Align Partition Key with Query Patterns](#27-align-partition-key-with-query-patterns)
+   - 2.8 [Create Synthetic Partition Keys When Needed](#28-create-synthetic-partition-keys-when-needed)
 3. [Query Optimization](#3-query-optimization) — **HIGH**
    - 3.1 [Minimize Cross-Partition Queries](#31-minimize-cross-partition-queries)
    - 3.2 [Avoid Full Container Scans](#32-avoid-full-container-scans)
@@ -1638,7 +1639,50 @@ Good partition keys typically:
 
 Reference: [Partitioning in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/partitioning-overview)
 
-### 2.5 Respect Partition Key Value Length Limits
+### 2.5 Choose Immutable Properties as Partition Keys
+
+**Impact: HIGH** (prevents data integrity issues from non-atomic key changes)
+
+## Choose Immutable Properties as Partition Keys
+
+Cosmos DB partition keys are immutable — you cannot update a document's partition key value in place. Changing it requires deleting the original document and reinserting with the new key, a non-atomic operation that risks data loss. Prefer creation-time values that never change.
+
+**Incorrect (mutable field as partition key):**
+
+```csharp
+// Anti-pattern: status changes throughout the document lifecycle
+public class Order
+{
+    public string Id { get; set; }
+    public string Status { get; set; }  // ❌ Partition key — but it changes!
+}
+
+// "Updating" the partition key does NOT move the document between partitions
+order.Status = "shipped";
+await container.ReplaceItemAsync(order, order.Id, new PartitionKey("shipped"));
+```
+
+**Correct (immutable field as partition key):**
+
+```csharp
+public class Order
+{
+    public string Id { get; set; }
+    public string CustomerId { get; set; }  // ✅ Set at creation, never changes
+    public string Status { get; set; }       // Mutable — but NOT the partition key
+}
+
+order.Status = "shipped";
+await container.ReplaceItemAsync(order, order.Id, new PartitionKey(order.CustomerId));
+```
+
+**Never use as partition keys:** status fields, workflow stages, ownership/assignment fields, or any property updated during the document lifecycle.
+
+**Safe choices:** entity identifiers (userId, tenantId, deviceId), creation-time values, or synthetic keys derived from immutable fields.
+
+Reference: [Change partition key value](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-change-partition-key-value)
+
+### 2.6 Respect Partition Key Value Length Limits
 
 **Impact: HIGH** (prevents write failures from oversized keys)
 
@@ -1717,7 +1761,7 @@ Key points:
 
 Reference: [Azure Cosmos DB service quotas - Per-item limits](https://learn.microsoft.com/azure/cosmos-db/concepts-limits#per-item-limits)
 
-### 2.6 Align Partition Key with Query Patterns
+### 2.7 Align Partition Key with Query Patterns
 
 **Impact: CRITICAL** (enables single-partition queries)
 
@@ -1801,7 +1845,7 @@ public class Message
 
 Reference: [Choose a partition key](https://learn.microsoft.com/azure/cosmos-db/partitioning-overview#choose-a-partition-key)
 
-### 2.7 Create Synthetic Partition Keys When Needed
+### 2.8 Create Synthetic Partition Keys When Needed
 
 **Impact: HIGH** (optimizes for multiple access patterns)
 

@@ -70,6 +70,7 @@ Reference these guidelines when:
 - [partition-query-patterns](rules/partition-query-patterns.md) - Align partition key with query patterns
 - [partition-synthetic-keys](rules/partition-synthetic-keys.md) - Create synthetic keys when needed
 - [partition-key-length](rules/partition-key-length.md) - Respect partition key value length limits
+- [partition-immutable-key](rules/partition-immutable-key.md) - Choose immutable properties as partition keys
 - [partition-20gb-limit](rules/partition-20gb-limit.md) - Plan for 20GB logical partition limit
 
 ### 3. Query Optimization (HIGH)
