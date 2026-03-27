@@ -45,8 +45,9 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 3.4 [Order Filters by Selectivity](#34-order-filters-by-selectivity)
    - 3.5 [Use Continuation Tokens for Pagination](#35-use-continuation-tokens-for-pagination)
    - 3.6 [Use Parameterized Queries](#36-use-parameterized-queries)
-   - 3.7 [Use Literal Integers for TOP, Never Parameters](#37-use-literal-integers-for-top-never-parameters)
-   - 3.8 [Project Only Needed Fields](#38-project-only-needed-fields)
+   - 3.7 [Use Point Reads Instead of Queries for Known ID and Partition Key](#37-use-point-reads-instead-of-queries-for-known-id-and-partition-key)
+   - 3.8 [Use Literal Integers for TOP, Never Parameters](#38-use-literal-integers-for-top-never-parameters)
+   - 3.9 [Project Only Needed Fields](#39-project-only-needed-fields)
 4. [SDK Best Practices](#4-sdk-best-practices) — **HIGH**
    - 4.1 [Use Async APIs for Better Throughput](#41-use-async-apis-for-better-throughput)
    - 4.2 [Configure Threshold-Based Availability Strategy (Hedging)](#42-configure-threshold-based-availability-strategy-hedging-)
@@ -2552,7 +2553,143 @@ Benefits:
 
 Reference: [Parameterized queries](https://learn.microsoft.com/azure/cosmos-db/nosql/query/parameterized-queries)
 
-### 3.7 Use Literal Integers for TOP, Never Parameters
+### 3.7 Use Point Reads Instead of Queries for Known ID and Partition Key
+
+**Impact: HIGH** (1 RU vs ~2.5 RU per single-document lookup)
+
+## Use Point Reads Instead of Queries for Known ID and Partition Key
+
+When both the document `id` and partition key value are known, use a point read (`ReadItemAsync` / `read_item` / `readItem`) instead of a query. A point read costs 1 RU for a 1 KB document and bypasses the query engine entirely. An equivalent `SELECT * FROM c WHERE c.id = @id` query costs ~2.5 RU because the query engine still parses, optimizes, and executes even though the result is a single document.
+
+**Incorrect (query when both id and partition key are known):**
+
+```csharp
+// ❌ Uses query engine when a point read would suffice
+var query = new QueryDefinition("SELECT * FROM c WHERE c.id = @id")
+    .WithParameter("@id", orderId);
+
+var iterator = container.GetItemQueryIterator<Order>(query,
+    requestOptions: new QueryRequestOptions
+    {
+        PartitionKey = new PartitionKey(customerId)
+    });
+
+var response = await iterator.ReadNextAsync();
+return response.FirstOrDefault();
+// Cost: ~2.5 RU for a 1 KB document (query engine overhead)
+```
+
+```python
+# ❌ Query instead of point read
+def get_player(self, player_id: str, game_id: str):
+    query = "SELECT * FROM c WHERE c.id = @id"
+    items = list(self.container.query_items(
+        query=query,
+        parameters=[{"name": "@id", "value": player_id}],
+        partition_key=game_id
+    ))
+    return items[0] if items else None
+    # Unnecessary query engine invocation
+```
+
+**Correct (point read — bypasses query engine):**
+
+```csharp
+// ✅ Point read — 1 RU for a 1 KB document, no query engine overhead
+var response = await container.ReadItemAsync<Order>(
+    orderId,
+    new PartitionKey(customerId));
+return response.Resource;
+```
+
+```python
+# ✅ Point read — 1 RU, no query engine overhead
+def get_player(self, player_id: str, game_id: str):
+    return self.container.read_item(item=player_id, partition_key=game_id)
+```
+
+```java
+// ✅ Point read in Java SDK
+CosmosItemResponse<Order> response = container.readItem(
+    orderId,
+    new PartitionKey(customerId),
+    Order.class);
+return response.getItem();
+```
+
+### Multiple Known Documents — ReadMany vs. Parallel Point Reads
+
+When fetching multiple documents by known `(id, partitionKey)` pairs, you have two options:
+
+1. **Client-side parallel point reads** — issue individual `ReadItem` calls concurrently
+2. **ReadMany** — batch all `(id, partitionKey)` pairs into a single SDK call
+
+ReadMany targets only the relevant partitions and avoids the query engine, but the performance tradeoff depends on batch size, client resources, and document size. Small batches can be slower than aggressively parallel point reads on a well-provisioned client, while larger batches tend to reduce both latency and RU cost. **Benchmark both approaches** with your actual workload before committing to one.
+
+**⚠️ Avoid using OR/IN queries across partition keys — these fan out to all partitions regardless of how many documents you need:**
+
+```csharp
+// ❌ OR/IN clause spanning multiple partition keys — cross-partition fan-out
+var query = new QueryDefinition(
+    "SELECT * FROM c WHERE c.id IN (@id1, @id2, @id3)")
+    .WithParameter("@id1", "order-1")
+    .WithParameter("@id2", "order-2")
+    .WithParameter("@id3", "order-3");
+// Fans out to ALL partitions to find 3 documents — RU scales with partition count
+```
+
+**✅ ReadMany — targeted reads, no fan-out (best for larger batches; benchmark for your workload):**
+
+```csharp
+// ✅ ReadMany — targets only relevant partitions
+var items = new List<(string id, PartitionKey partitionKey)>
+{
+    ("order-1", new PartitionKey("customer-a")),
+    ("order-2", new PartitionKey("customer-b")),
+    ("order-3", new PartitionKey("customer-a"))
+};
+
+var response = await container.ReadManyItemsAsync<Order>(items);
+// Consistent cost — no cross-partition fan-out
+```
+
+```python
+# ✅ ReadMany in Python SDK
+items_to_read = [
+    ("order-1", "customer-a"),
+    ("order-2", "customer-b"),
+    ("order-3", "customer-a")
+]
+results = container.read_many_items(item_identities=items_to_read)
+```
+
+**✅ Parallel point reads — alternative for small batches on well-provisioned clients:**
+
+```csharp
+// ✅ Parallel point reads — can outperform ReadMany for small batches
+var tasks = new[]
+{
+    container.ReadItemAsync<Order>("order-1", new PartitionKey("customer-a")),
+    container.ReadItemAsync<Order>("order-2", new PartitionKey("customer-b")),
+    container.ReadItemAsync<Order>("order-3", new PartitionKey("customer-a"))
+};
+
+var responses = await Task.WhenAll(tasks);
+```
+
+### When to Use Each Approach
+
+| Scenario | Approach |
+|----------|----------|
+| Single document with known id and partition key | **ReadItem** (point read) |
+| Multiple documents with known (id, partitionKey) pairs — large batch | **ReadMany** (benchmark to confirm) |
+| Multiple documents with known (id, partitionKey) pairs — small batch | **Parallel point reads** or **ReadMany** (benchmark both) |
+| Need filtering, sorting, projection, or aggregation | **Query** |
+| Exact ids and partition keys are not known | **Query** |
+
+Reference: [Point reads in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-read-item) | [ReadMany — read multiple items](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-dotnet-read-item#read-multiple-items) | [Read many items fast (Java)](https://devblogs.microsoft.com/cosmosdb/read-many-items-fast-with-the-java-sdk-for-azure-cosmos-db/)
+
+### 3.8 Use Literal Integers for TOP, Never Parameters
 
 **Impact: HIGH** (prevents query failures at runtime)
 
@@ -2602,7 +2739,7 @@ Always cast the TOP value to `int` before interpolation to ensure it is a safe i
 
 Reference: [SQL query TOP keyword](https://learn.microsoft.com/azure/cosmos-db/nosql/query/select#top-keyword)
 
-### 3.8 Project Only Needed Fields
+### 3.9 Project Only Needed Fields
 
 **Impact: HIGH** (reduces RU and network by 30-80%)
 
