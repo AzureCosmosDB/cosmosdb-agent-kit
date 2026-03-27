@@ -81,6 +81,7 @@ Reference these guidelines when:
 - [query-parameterize](rules/query-parameterize.md) - Use parameterized queries
 - [query-order-filters](rules/query-order-filters.md) - Order filters by selectivity
 - [query-top-literal](rules/query-top-literal.md) - Use literal integers for TOP, never parameters
+- [query-olap-detection](rules/query-olap-detection.md) - Detect and redirect analytical queries away from transactional containers
 
 ### 4. SDK Best Practices (HIGH)
 
