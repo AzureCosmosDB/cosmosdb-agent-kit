@@ -66,7 +66,7 @@ Reference these guidelines when:
 
 - [partition-high-cardinality](rules/partition-high-cardinality.md) - Choose high-cardinality partition keys
 - [partition-avoid-hotspots](rules/partition-avoid-hotspots.md) - Distribute writes evenly
-- [partition-hierarchical](rules/partition-hierarchical.md) - Use hierarchical partition keys for flexibility
+- [partition-hierarchical](rules/partition-hierarchical.md) - Use hierarchical partition keys for flexibility; order levels broad→narrow
 - [partition-query-patterns](rules/partition-query-patterns.md) - Align partition key with query patterns
 - [partition-synthetic-keys](rules/partition-synthetic-keys.md) - Create synthetic keys when needed
 - [partition-key-length](rules/partition-key-length.md) - Respect partition key value length limits
