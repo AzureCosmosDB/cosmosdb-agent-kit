@@ -205,6 +205,9 @@ jobs:
           Open a PR with the generated code. The PR title should be:
           `test: PLACEHOLDER_SCENARIO PLACEHOLDER_ITER_NAME`
 
+          The PR body must include:
+          `Fixes #PLACEHOLDER_CHILD_ISSUE_NUMBER`
+
           CI will automatically run the test suite and post results as a PR comment.
           ISSUE_EOF
           )
@@ -220,6 +223,7 @@ jobs:
             ISSUE_BODY="${ISSUE_BODY//PLACEHOLDER_SKILLS/$SKILLS}"
             ISSUE_BODY="${ISSUE_BODY//PLACEHOLDER_ITER_PATH/$ITER_PATH}"
             ISSUE_BODY="${ISSUE_BODY//PLACEHOLDER_ITER_NAME/$ITER_NAME}"
+            ISSUE_BODY="${ISSUE_BODY//PLACEHOLDER_CHILD_ISSUE_NUMBER/<assigned-after-create>}"
 
             echo "Creating child issue ${i}/${ITERATIONS}: ${TITLE}"
 
@@ -232,6 +236,8 @@ jobs:
 
             if [ -n "$CHILD_NUM" ]; then
               echo "  Created issue #${CHILD_NUM}"
+              ISSUE_BODY_WITH_CHILD_NUM="${ISSUE_BODY//<assigned-after-create>/$CHILD_NUM}"
+              gh issue edit "$CHILD_NUM" --body "$ISSUE_BODY_WITH_CHILD_NUM" >/dev/null
               CHILD_ISSUES+=("$CHILD_NUM")
             else
               echo "  ERROR: Failed to create child issue for run ${i}"
