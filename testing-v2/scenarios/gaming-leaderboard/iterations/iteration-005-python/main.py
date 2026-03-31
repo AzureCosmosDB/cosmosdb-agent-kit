@@ -9,7 +9,7 @@ Best practices applied:
 - Composite indexes for leaderboard sorting (score DESC, displayName ASC)
 - Point reads used where possible (known id + partition key)
 - Gateway mode for emulator compatibility with SSL verification disabled
-- Autoscale throughput for variable workloads
+- Fixed throughput for emulator dev/test (use autoscale in production)
 - Excluded unused index paths to save RU on writes
 """
 
