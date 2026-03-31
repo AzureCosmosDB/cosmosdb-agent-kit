@@ -1,0 +1,2 @@
+@echo off
+uvicorn main:app --host 0.0.0.0 --port 8000 > "D:\a\cosmosdb-agent-kit\cosmosdb-agent-kit\testing-v2\scenarios\gaming-leaderboard\iterations\iteration-004-python\app-output.log" 2> "D:\a\cosmosdb-agent-kit\cosmosdb-agent-kit\testing-v2\scenarios\gaming-leaderboard\iterations\iteration-004-python\app-error.log"
