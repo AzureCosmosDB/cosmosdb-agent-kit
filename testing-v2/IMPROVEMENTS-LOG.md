@@ -1118,3 +1118,38 @@ After completing the iteration successfully, user provided GitHub samples showin
   - Throughput & scaling (5 rules)
   - Global distribution (6 rules)
   - Monitoring & diagnostics (5 rules)
+
+#### 2026-03-31: iteration-005-python - Gaming Leaderboard (Python) [skills loaded]
+
+- **Scenario**: gaming-leaderboard
+- **Iteration**: iteration-005-python
+- **Skills loaded**: Yes
+- **Result**: PARTIAL -- 60/94 tests passed (63.8%)
+- **Score**: 5/10
+
+**Results by Category**:
+- api_contract: 28 passed, 17 failed, 0 skipped
+- build_startup: 2 passed, 0 failed, 0 skipped
+- cosmos_infrastructure: 10 passed, 1 failed, 2 skipped
+- data_integrity: 5 passed, 0 failed, 0 skipped
+- robustness: 17 passed, 14 failed, 0 skipped
+
+**Issues Encountered**:
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_returns_200** -- AssertionError: GET /api/leaderboards/global should return 200, got 500
+assert 500 == 200
+ +  where 
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_returns_array** -- assert 500 == 200
+ +  where 500 = <Response [500]>.status_code
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_entries_have_required_fields** -- requests.exceptions.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_sorted_descending** -- requests.exceptions.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_ranks_sequential** -- requests.exceptions.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_top_player_is_highest_scorer** -- requests.exceptions.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_respects_top_parameter** -- assert 500 == 200
+ +  where 500 = <Response [500]>.status_code
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestRegionalLeaderboard::test_regional_leaderboard_returns_200** -- AssertionError: GET /api/leaderboards/regional/US should return 200, got 500
+assert 500 == 200
+ +  w
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestRegionalLeaderboard::test_regional_leaderboard_only_contains_region_players** -- requests.exceptions.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestRegionalLeaderboard::test_regional_leaderboard_sorted_descending** -- requests.exceptions.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+**Test Results**: 60 passed, 34 failed out of 94
