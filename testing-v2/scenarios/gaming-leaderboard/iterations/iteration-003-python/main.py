@@ -297,8 +297,10 @@ async def get_player_scores(
     except CosmosResourceNotFoundError:
         raise HTTPException(status_code=404, detail="Player not found")
 
+    # Cosmos DB OFFSET/LIMIT do not support parameterized values;
+    # int() cast ensures only integer literals are interpolated.
     query = (
-        f"SELECT * FROM c ORDER BY c.timestamp DESC OFFSET 0 LIMIT {limit}"
+        f"SELECT * FROM c ORDER BY c.timestamp DESC OFFSET 0 LIMIT {int(limit)}"
     )
 
     results = []
@@ -322,10 +324,12 @@ async def get_player_scores(
 
 @app.get("/api/leaderboards/global")
 async def global_leaderboard(top: int = Query(default=100, ge=1, le=100)):
+    # Cosmos DB OFFSET/LIMIT do not support parameterized values;
+    # int() cast ensures only integer literals are interpolated.
     query = (
         "SELECT * FROM c "
         "ORDER BY c.bestScore DESC, c.displayName ASC "
-        f"OFFSET 0 LIMIT {top}"
+        f"OFFSET 0 LIMIT {int(top)}"
     )
 
     results = []
@@ -348,10 +352,12 @@ async def global_leaderboard(top: int = Query(default=100, ge=1, le=100)):
 async def regional_leaderboard(
     region: str, top: int = Query(default=100, ge=1, le=100)
 ):
+    # Cosmos DB OFFSET/LIMIT do not support parameterized values;
+    # int() cast ensures only integer literals are interpolated.
     query = (
         "SELECT * FROM c WHERE c.region = @region "
         "ORDER BY c.bestScore DESC, c.displayName ASC "
-        f"OFFSET 0 LIMIT {top}"
+        f"OFFSET 0 LIMIT {int(top)}"
     )
     params = [{"name": "@region", "value": region}]
 
@@ -415,10 +421,12 @@ async def get_player_rank(player_id: str):
     offset = start_rank - 1
     limit = end_rank - start_rank + 1
 
+    # Cosmos DB OFFSET/LIMIT do not support parameterized values;
+    # int() cast ensures only integer literals are interpolated.
     neighbors_query = (
         "SELECT * FROM c "
         "ORDER BY c.bestScore DESC, c.displayName ASC "
-        f"OFFSET {offset} LIMIT {limit}"
+        f"OFFSET {int(offset)} LIMIT {int(limit)}"
     )
 
     neighbors = []
