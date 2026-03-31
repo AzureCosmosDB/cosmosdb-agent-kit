@@ -41,7 +41,7 @@ scores_container = None
 
 
 async def _init_cosmos() -> None:
-    """Initialise the Cosmos DB client, database, and containers once."""
+    """Initialize the Cosmos DB client, database, and containers once."""
     global cosmos_client, players_container, scores_container
 
     # Reuse a single CosmosClient (rule 4.18)
@@ -237,7 +237,7 @@ async def submit_score(body: dict):
 
     await scores_container.create_item(body=score_doc)
 
-    # Update player stats (denormalise for read-heavy leaderboard — rule 1.2)
+    # Update player stats (denormalize for read-heavy leaderboard — rule 1.2)
     try:
         player = await players_container.read_item(item=player_id, partition_key=player_id)
     except CosmosResourceNotFoundError:
@@ -272,7 +272,7 @@ async def get_player_scores(player_id: str, limit: int = Query(default=10, ge=1,
     except CosmosResourceNotFoundError:
         raise HTTPException(status_code=404, detail="Player not found")
 
-    # Use literal TOP (rule 3.8) — cannot parameterise TOP in Cosmos DB
+    # Use literal TOP (rule 3.8) — cannot parameterize TOP in Cosmos DB
     safe_limit = int(limit)
     query = f"SELECT * FROM c WHERE c.playerId = @pid ORDER BY c.timestamp DESC OFFSET 0 LIMIT {safe_limit}"
     params: list[dict] = [{"name": "@pid", "value": player_id}]
