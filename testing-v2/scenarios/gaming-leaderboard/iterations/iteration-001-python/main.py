@@ -79,13 +79,8 @@ async def _get_or_create_container():
                 {"path": "/bestScore", "order": "ascending"},
                 {"path": "/displayName", "order": "descending"},
             ],
-            # For score history ORDER BY timestamp DESC
-            [
-                {"path": "/timestamp", "order": "descending"},
-            ],
-            [
-                {"path": "/timestamp", "order": "ascending"},
-            ],
+            # Note: single-property ORDER BY (e.g. timestamp DESC) is served
+            # by the default range index (/*) — no composite index needed.
         ],
     }
 
