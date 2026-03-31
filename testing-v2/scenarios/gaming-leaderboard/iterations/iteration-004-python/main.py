@@ -102,11 +102,8 @@ async def init_cosmos() -> None:
         "automatic": True,
         "includedPaths": [{"path": "/*"}],
         "excludedPaths": [{"path": '/"_etag"/?'}],
-        "compositeIndexes": [
-            # For score history: ORDER BY timestamp DESC
-            [{"path": "/timestamp", "order": "descending"}],
-            [{"path": "/timestamp", "order": "ascending"}],
-        ],
+        # Single-property ORDER BY (timestamp) is served by the default
+        # range index on /*, so no composite index is needed here.
     }
 
     scores_container = await database.create_container_if_not_exists(
