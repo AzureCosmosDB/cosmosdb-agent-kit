@@ -95,9 +95,36 @@ testing deterministic regardless of what the agent produces.
 
 ### Prerequisites
 
-- A GitHub repository with this code (your fork or the upstream repo)
-- [GitHub Copilot coding agent](https://docs.github.com/en/copilot/using-github-copilot/using-copilot-coding-agent) enabled on the repo
+- A **fork** of this repository (see [Fork Requirement](#fork-requirement) below)
+- [GitHub Copilot coding agent](https://docs.github.com/en/copilot/using-github-copilot/using-copilot-coding-agent) enabled on your fork
 - The branch containing this framework set as the **default branch** (so Copilot and issue templates can find the files)
+
+### Fork Requirement
+
+**⚠️ You must run the batch testing pipeline from a fork**, not directly in the upstream repo.
+
+**Why?** The upstream repository (AzureCosmosDB/cosmosdb-agent-kit) has an enterprise-level
+policy that blocks GitHub Actions workflows from creating or approving pull requests. This policy
+exists for security — it prevents Actions workflows from automatically merging code without human
+review.
+
+However, the batch testing pipeline needs to create a **summary PR** to aggregate results from
+multiple iterations. Since this is blocked in the upstream repo, the workflow cannot complete
+automatically there.
+
+**The workflow:**
+
+1. **Fork the repo to your personal account** (or organization)
+2. **Run the batch tests in your fork** — here, Actions has write permissions, so the full automation works
+3. **Generate quality results** — after multiple iterations, the workflow creates a summary PR with aggregated findings and recommendations
+4. **Open a PR to upstream** with your summary findings and any new rules you've created
+5. **Upstream maintainers review and merge** your contributions
+
+**In short:** Forks are where the experiments happen; PRs to upstream are where validated
+findings get merged. This separation ensures all code going into the upstream repo has been
+reviewed by humans, while still enabling fully automated experimentation in your fork.
+
+
 
 ### Run Your First Iteration
 
@@ -116,6 +143,26 @@ testing deterministic regardless of what the agent produces.
 2. Fill in the scenario name, description, entities, and endpoints
 3. **Assign the issue to `copilot`**
 4. Copilot will follow the recipe in `testing-v2/CREATE-SCENARIO.md` and open a PR with the complete scenario (contract, tests, prompts, directory structure)
+
+### Pushing Findings Back to Upstream
+
+Once you've completed a batch test in your fork and generated a summary PR with findings and rules:
+
+1. **Review the summary PR** to verify the findings and any new rules created
+2. **Merge the summary PR** into your fork's main branch (if the workflow couldn't create it automatically, you can manually create the PR from the prepared branch)
+3. **Create a PR to the upstream repo** (AzureCosmosDB/cosmosdb-agent-kit):
+   - Base: `AzureCosmosDB/cosmosdb-agent-kit/main`
+   - Head: `YourUserName/cosmosdb-agent-kit/batch-XXXXXX-...` (your fork's batch results branch)
+   - Title: Use the batch summary title (e.g., "batch: gaming-leaderboard aggregate results — skills loaded (python)")
+   - Body: Copy the aggregated results and evaluation findings from your summary PR
+4. **Add context** explaining:
+   - Which scenario and language(s) were tested
+   - Whether skills were loaded (control vs skills run)
+   - Any key findings or patterns discovered
+5. **Upstream maintainers review and merge** your findings into the official repository
+
+This workflow ensures that all code, rules, and improvements in the upstream repo have been
+validated experimentally in a fork first, then reviewed by maintainers before merging.
 
 ---
 
