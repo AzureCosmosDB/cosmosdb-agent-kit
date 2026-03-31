@@ -27,6 +27,9 @@ jobs:
   create-children:
     name: Create child iterations
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
     # For issue_comment trigger: only run on /batch-start command on batch-test issues
     if: >
       github.event_name == 'workflow_dispatch' ||

@@ -38,6 +38,10 @@ jobs:
   aggregate:
     name: Aggregate batch results
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: write
     # For issue_comment: only run on /aggregate commands on batch-test issues
     if: >
       github.event_name == 'workflow_dispatch' ||
