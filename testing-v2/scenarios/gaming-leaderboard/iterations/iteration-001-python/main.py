@@ -3,10 +3,11 @@ import uuid
 import logging
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
-from azure.cosmos.aio import CosmosClient
+from azure.cosmos.aio import CosmosClient, DatabaseProxy, ContainerProxy
 from azure.cosmos import PartitionKey
 from azure.cosmos.exceptions import CosmosHttpResponseError, CosmosResourceNotFoundError
 
@@ -21,10 +22,10 @@ COSMOS_KEY = os.environ.get(
 DATABASE_NAME = "gaming-leaderboard"
 
 # Singleton CosmosClient — reuse across the application lifetime
-cosmos_client: CosmosClient = None
-database = None
-players_container = None
-scores_container = None
+cosmos_client: Optional[CosmosClient] = None
+database: Optional[DatabaseProxy] = None
+players_container: Optional[ContainerProxy] = None
+scores_container: Optional[ContainerProxy] = None
 
 
 async def initialize_cosmos():
