@@ -1118,3 +1118,32 @@ After completing the iteration successfully, user provided GitHub samples showin
   - Throughput & scaling (5 rules)
   - Global distribution (6 rules)
   - Monitoring & diagnostics (5 rules)
+
+#### 2026-03-31: iteration-001-python - Gaming Leaderboard (Python) [skills loaded]
+
+- **Scenario**: gaming-leaderboard
+- **Iteration**: iteration-001-python
+- **Skills loaded**: Yes
+- **Result**: FAILED -- 21/94 tests passed (22.3%)
+- **Score**: 1/10
+
+**Results by Category**:
+- api_contract: 10 passed, 35 failed, 0 skipped
+- build_startup: 2 passed, 0 failed, 0 skipped
+- cosmos_infrastructure: 3 passed, 9 failed, 1 skipped
+- data_integrity: 4 passed, 1 failed, 0 skipped
+- robustness: 4 passed, 27 failed, 0 skipped
+
+**Issues Encountered**:
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGetPlayer::test_get_existing_player** -- failed on setup with "AssertionError: Failed to submit score for player-001: 500 Internal Server Err
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGetPlayer::test_get_player_has_required_fields** -- failed on setup with "AssertionError: Failed to submit score for player-001: 500 Internal Server Err
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGetPlayer::test_get_player_stats_updated_after_scores** -- failed on setup with "AssertionError: Failed to submit score for player-001: 500 Internal Server Err
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestSubmitScore::test_submit_score_returns_201** -- failed on setup with "AssertionError: Failed to submit score for player-001: 500 Internal Server Err
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestSubmitScore::test_submit_score_response_has_required_fields** -- failed on setup with "AssertionError: Failed to submit score for player-001: 500 Internal Server Err
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestSubmitScore::test_submit_score_returns_correct_data** -- failed on setup with "AssertionError: Failed to submit score for player-001: 500 Internal Server Err
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_returns_200** -- failed on setup with "AssertionError: Failed to submit score for player-001: 500 Internal Server Err
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_returns_array** -- failed on setup with "AssertionError: Failed to submit score for player-001: 500 Internal Server Err
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_entries_have_required_fields** -- failed on setup with "AssertionError: Failed to submit score for player-001: 500 Internal Server Err
+1. **testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_sorted_descending** -- failed on setup with "AssertionError: Failed to submit score for player-001: 500 Internal Server Err
+
+**Test Results**: 21 passed, 73 failed out of 94
