@@ -23,6 +23,11 @@ on:
     paths:
       - 'testing-v2/scenarios/*/iterations/iteration-*/**'
 
+permissions:
+  issues: write
+  contents: write
+  pull-requests: write
+
 jobs:
   # Check if the latest commit is a CI evaluation commit (which should not
   # re-trigger the test suite). pull_request_target ignores [skip ci] in
