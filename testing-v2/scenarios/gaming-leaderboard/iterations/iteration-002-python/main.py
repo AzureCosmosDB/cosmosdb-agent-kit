@@ -2,6 +2,7 @@
 
 import os
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -10,8 +11,6 @@ from azure.cosmos import PartitionKey
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
-
-app = FastAPI(title="Gaming Leaderboard API")
 
 COSMOS_ENDPOINT = os.environ.get("COSMOS_ENDPOINT", "https://localhost:8081")
 COSMOS_KEY = os.environ.get(
@@ -31,9 +30,9 @@ scores_container = None
 leaderboard_container = None
 
 
-@app.on_event("startup")
-async def startup():
-    """Initialize Cosmos DB client and ensure database/containers exist."""
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Initialize and cleanup Cosmos DB client."""
     global cosmos_client, database, players_container, scores_container, leaderboard_container
 
     cosmos_client = CosmosClient(COSMOS_ENDPOINT, credential=COSMOS_KEY)
@@ -58,14 +57,14 @@ async def startup():
         partition_key=PartitionKey(path="/region"),
     )
 
+    yield
 
-@app.on_event("shutdown")
-async def shutdown():
-    """Close Cosmos DB client."""
-    global cosmos_client
     if cosmos_client:
         await cosmos_client.close()
         cosmos_client = None
+
+
+app = FastAPI(title="Gaming Leaderboard API", lifespan=lifespan)
 
 
 @app.get("/health")
