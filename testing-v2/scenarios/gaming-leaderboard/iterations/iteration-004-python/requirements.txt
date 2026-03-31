@@ -1,0 +1,6 @@
+# Gaming Leaderboard API - Python Dependencies
+fastapi>=0.110.0
+uvicorn[standard]>=0.24.0
+azure-cosmos>=4.7.0
+aiohttp>=3.13.3
+pydantic>=2.5.0
