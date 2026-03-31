@@ -1,0 +1,1599 @@
+{
+  "batch_issue": 80,
+  "scenario": "gaming-leaderboard",
+  "language": "python",
+  "skills": "yes",
+  "pr_numbers": "86,87,90,88,89",
+  "aggregate": {
+    "iterations": 5,
+    "startup_failures": 0,
+    "build_failures": 0,
+    "build_startup_status": [
+      {
+        "build": true,
+        "startup": true
+      },
+      {
+        "build": true,
+        "startup": true
+      },
+      {
+        "build": true,
+        "startup": true
+      },
+      {
+        "build": true,
+        "startup": true
+      },
+      {
+        "build": true,
+        "startup": true
+      }
+    ],
+    "pass_rate": {
+      "mean": 55.5,
+      "stddev": 18.6,
+      "min": 22.3,
+      "max": 63.8,
+      "values": [
+        22.3,
+        63.8,
+        63.8,
+        63.8,
+        63.8
+      ]
+    },
+    "score": {
+      "mean": 4.2,
+      "stddev": 1.8,
+      "min": 1,
+      "max": 5,
+      "values": [
+        1,
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    "passed": {
+      "mean": 52.2,
+      "values": [
+        21,
+        60,
+        60,
+        60,
+        60
+      ]
+    },
+    "failed": {
+      "mean": 40.2,
+      "values": [
+        72,
+        33,
+        32,
+        32,
+        32
+      ]
+    },
+    "total": {
+      "mean": 94,
+      "values": [
+        94,
+        94,
+        94,
+        94,
+        94
+      ]
+    },
+    "test_consistency": {
+      "build_startup::app_startup": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "build_startup::build_compilation": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestCreatePlayer::test_create_player_response_has_required_fields": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestCreatePlayer::test_create_player_returns_201": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestCreatePlayer::test_create_player_returns_correct_data": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestCreatePlayer::test_new_player_has_zero_stats": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestDeletePlayer::test_delete_nonexistent_player_returns_404": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestDeletePlayer::test_delete_player_returns_204": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestDeletePlayer::test_deleted_player_returns_404_on_get": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 2,
+        "fail_count": 3,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 40.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGetPlayer::test_get_existing_player": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGetPlayer::test_get_nonexistent_player_returns_404": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGetPlayer::test_get_player_has_required_fields": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGetPlayer::test_get_player_stats_updated_after_scores": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGetPlayerScores::test_score_history_contains_all_player_scores": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGetPlayerScores::test_score_history_entries_have_required_fields": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGetPlayerScores::test_score_history_for_nonexistent_player_returns_404": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGetPlayerScores::test_score_history_only_shows_own_scores": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGetPlayerScores::test_score_history_ordered_by_most_recent_first": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGetPlayerScores::test_score_history_respects_limit": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGetPlayerScores::test_score_history_returns_200": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGetPlayerScores::test_score_history_returns_array": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_entries_have_required_fields": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_ranks_sequential": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_respects_top_parameter": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_returns_200": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_returns_array": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_sorted_descending": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestGlobalLeaderboard::test_global_leaderboard_top_player_is_highest_scorer": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestHealth::test_health_returns_200": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestPlayerRank::test_nonexistent_player_rank_returns_404": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestPlayerRank::test_player_rank_correct_for_top_player": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestPlayerRank::test_player_rank_has_required_fields": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestPlayerRank::test_player_rank_neighbors_have_required_fields": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestPlayerRank::test_player_rank_neighbors_is_array": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestPlayerRank::test_player_rank_returns_200": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestRegionalLeaderboard::test_regional_leaderboard_entries_have_required_fields": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestRegionalLeaderboard::test_regional_leaderboard_only_contains_region_players": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestRegionalLeaderboard::test_regional_leaderboard_returns_200": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestRegionalLeaderboard::test_regional_leaderboard_sorted_descending": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestSubmitScore::test_submit_score_response_has_required_fields": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestSubmitScore::test_submit_score_returns_201": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestSubmitScore::test_submit_score_returns_correct_data": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestUpdatePlayer::test_update_nonexistent_player_returns_404": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestUpdatePlayer::test_update_player_preserves_stats": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestUpdatePlayer::test_update_player_reflects_new_display_name": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestUpdatePlayer::test_update_player_response_has_required_fields": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_api_contract.TestUpdatePlayer::test_update_player_returns_200": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_cosmos_infrastructure.TestContainerDesign::test_has_multiple_containers_or_synthetic_keys": {
+        "outcomes": [
+          "failed",
+          "failed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 2,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_cosmos_infrastructure.TestContainerDesign::test_leaderboard_container_uses_synthetic_key": {
+        "outcomes": [
+          "failed",
+          "failed",
+          "skipped",
+          "skipped",
+          "skipped"
+        ],
+        "pass_count": 0,
+        "fail_count": 2,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_cosmos_infrastructure.TestContainerDesign::test_player_container_uses_player_id_key": {
+        "outcomes": [
+          "skipped",
+          "skipped",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_cosmos_infrastructure.TestCrossBoundaryConsistency::test_leaderboard_entries_denormalized": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_cosmos_infrastructure.TestCrossBoundaryConsistency::test_player_stats_stored_correctly": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_cosmos_infrastructure.TestCrossBoundaryConsistency::test_synthetic_partition_key_value_format": {
+        "outcomes": [
+          "error",
+          "passed",
+          "skipped",
+          "skipped",
+          "skipped"
+        ],
+        "pass_count": 1,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 20.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_cosmos_infrastructure.TestDocumentStructure::test_documents_have_schema_version": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_cosmos_infrastructure.TestDocumentStructure::test_documents_have_type_discriminator": {
+        "outcomes": [
+          "error",
+          "passed",
+          "failed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 2,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_cosmos_infrastructure.TestLeaderboardIndexing::test_has_composite_indexes": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_cosmos_infrastructure.TestLeaderboardIndexing::test_has_custom_indexing_policy": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_cosmos_infrastructure.TestPlayerScoreSerialization::test_etag_present_on_player_documents": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_cosmos_infrastructure.TestPlayerScoreSerialization::test_scores_stored_as_numbers": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_cosmos_infrastructure.TestThroughputConfiguration::test_throughput_is_configured": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_data_integrity.TestDataPersistence::test_database_is_created": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_data_integrity.TestDataPersistence::test_player_document_exists_in_cosmos": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_data_integrity.TestIndexingPolicy::test_containers_have_indexing_policy": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_data_integrity.TestPartitionKeyDesign::test_containers_have_partition_keys": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_data_integrity.TestPartitionKeyDesign::test_no_container_uses_id_as_sole_partition_key": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestComputedFieldAccuracy::test_average_score_mathematically_correct": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestComputedFieldAccuracy::test_best_score_is_maximum": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestComputedFieldAccuracy::test_new_score_updates_stats": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestComputedFieldAccuracy::test_player_with_single_score_stats": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestComputedFieldAccuracy::test_total_games_count_correct": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestDataTypeCorrectness::test_leaderboard_entry_types": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestDataTypeCorrectness::test_player_stats_types": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestDataTypeCorrectness::test_score_submission_returns_correct_types": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestDuplicateHandling::test_create_duplicate_player_does_not_return_500": {
+        "outcomes": [
+          "passed",
+          "failed",
+          "failed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 2,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestEdgeCases::test_empty_region_leaderboard": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestEdgeCases::test_leaderboard_no_duplicate_players": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestEdgeCases::test_top_parameter_one": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestEdgeCases::test_top_parameter_zero_returns_empty": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestEdgeCases::test_zero_score_submission": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestInvalidInput::test_create_player_empty_body_returns_4xx": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestInvalidInput::test_create_player_missing_required_fields_returns_4xx": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestInvalidInput::test_submit_score_for_nonexistent_player_returns_4xx": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestInvalidInput::test_submit_score_missing_player_id_returns_4xx": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestInvalidInput::test_submit_score_missing_score_returns_4xx": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestInvalidInput::test_submit_score_negative_value_returns_4xx": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestLeaderboardTiebreaking::test_tied_scores_have_sequential_ranks": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestLeaderboardTiebreaking::test_tied_scores_sorted_by_display_name_ascending": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestRapidOperations::test_concurrent_score_submissions_all_counted": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestRapidOperations::test_rapid_score_submissions_all_counted": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 80.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestUpdateDeleteConsistency::test_deleted_player_removed_from_leaderboard": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestUpdateDeleteConsistency::test_deleted_player_scores_not_in_history": {
+        "outcomes": [
+          "error",
+          "passed",
+          "passed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 2,
+        "fail_count": 3,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 40.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestUpdateDeleteConsistency::test_updated_region_reflected_in_regional_leaderboard": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestWriteReadConsistency::test_created_player_fully_retrievable": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestWriteReadConsistency::test_player_rank_score_matches_leaderboard": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestWriteReadConsistency::test_regional_filter_matches_stored_region": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      },
+      "testing-v2.scenarios.gaming-leaderboard.tests.test_robustness.TestWriteReadConsistency::test_score_reflected_in_leaderboard": {
+        "outcomes": [
+          "error",
+          "failed",
+          "failed",
+          "failed",
+          "failed"
+        ],
+        "pass_count": 0,
+        "fail_count": 5,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-fail",
+        "pass_rate": 0.0
+      }
+    },
+    "category_stats": {
+      "api_contract": {
+        "mean": 55.1,
+        "stddev": 18.4,
+        "min": 22.2,
+        "max": 64.4,
+        "values": [
+          22.2,
+          64.4,
+          64.4,
+          62.2,
+          62.2
+        ]
+      },
+      "build_startup": {
+        "mean": 100.0,
+        "stddev": 0.0,
+        "min": 100.0,
+        "max": 100.0,
+        "values": [
+          100.0,
+          100.0,
+          100.0,
+          100.0,
+          100.0
+        ]
+      },
+      "cosmos_infrastructure": {
+        "mean": 63.1,
+        "stddev": 22.7,
+        "min": 23.1,
+        "max": 76.9,
+        "values": [
+          23.1,
+          69.2,
+          69.2,
+          76.9,
+          76.9
+        ]
+      },
+      "data_integrity": {
+        "mean": 96.0,
+        "stddev": 8.9,
+        "min": 80.0,
+        "max": 100.0,
+        "values": [
+          80.0,
+          100.0,
+          100.0,
+          100.0,
+          100.0
+        ]
+      },
+      "robustness": {
+        "mean": 46.4,
+        "stddev": 18.7,
+        "min": 12.9,
+        "max": 54.8,
+        "values": [
+          12.9,
+          54.8,
+          54.8,
+          54.8,
+          54.8
+        ]
+      }
+    }
+  }
+}
