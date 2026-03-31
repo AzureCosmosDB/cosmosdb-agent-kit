@@ -102,10 +102,23 @@ jobs:
 
             # Fallback: search PR titles for the issue's iteration name
             if [ -z "$PR_NUM" ] || [ "$PR_NUM" = "null" ]; then
-              echo "  Body search found no PR, trying title search..."
-              ISSUE_TITLE=$(gh issue view "$ISSUE_NUM" --json title --jq '.title')
-              PR_NUM=$(gh pr list --state all --search "in:title \"${ISSUE_TITLE}\"" \
-                --json number --jq '.[0].number' 2>/dev/null || echo "")
+                echo "  Body search found no PR, trying iteration-name title search..."
+                ISSUE_BODY=$(gh issue view "$ISSUE_NUM" --json body --jq '.body')
+                ITER_NAME=$(printf '%s' "$ISSUE_BODY" | grep -oE 'iteration-[0-9]{3}-[A-Za-z0-9._-]+' | head -1)
+                if [ -n "$ITER_NAME" ]; then
+                  PR_NUM=$(gh pr list --state all --search "in:title \"${ITER_NAME}\"" \
+                    --json number --jq '.[0].number' 2>/dev/null || echo "")
+                else
+                  echo "  WARNING: Could not extract iteration name from issue #${ISSUE_NUM}"
+                fi
+              fi
+
+              # Final fallback: search PR titles for the full child issue title
+              if [ -z "$PR_NUM" ] || [ "$PR_NUM" = "null" ]; then
+                echo "  Iteration-name search found no PR, trying full issue title..."
+                ISSUE_TITLE=$(gh issue view "$ISSUE_NUM" --json title --jq '.title')
+                PR_NUM=$(gh pr list --state all --search "in:title \"${ISSUE_TITLE}\"" \
+                  --json number --jq '.[0].number' 2>/dev/null || echo "")
             fi
 
             if [ -n "$PR_NUM" ] && [ "$PR_NUM" != "null" ]; then
