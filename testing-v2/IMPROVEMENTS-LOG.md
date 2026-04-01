@@ -116,6 +116,7 @@ Each improvement entry should include:
 **Score Improvement Trend**:
 | Iteration | Language | Score | Key Issues |
 |-----------|----------|-------|------------|
+| 2026-04-01 | gaming-leaderboard | Batch #191 (skills, python) | Aggregated 5 iterations | See batch-results/ |
 | 001 | .NET | 7/10 | O(N) ranking, missing ETag |
 | 002 | Java | 7/10 | OFFSET/LIMIT, API build errors |
 | 003 | Python | 9/10 | Only skill bug (fixed), model consistency |
@@ -275,6 +276,7 @@ Each improvement entry should include:
 
 | Aspect | Iter-001 (.NET) | Iter-002 (Java) | Delta |
 |--------|----------------|----------------|-------|
+| 2026-04-01 | gaming-leaderboard | Batch #191 (skills, python) | Aggregated 5 iterations | See batch-results/ |
 | Rank computation | ❌ O(N) scan | ✅ COUNT-based | ✅ Improved |
 | Schema versioning | ❌ Missing | ✅ Applied | ✅ Improved |
 | Build success | ✅ First try | ❌ 3 fixes needed | ❌ Regression |
@@ -1044,6 +1046,7 @@ After completing the iteration successfully, user provided GitHub samples showin
 
 | Aspect | Iter-001 (.NET) | Iter-001 (Java) | Delta |
 |--------|----------------|----------------|-------|
+| 2026-04-01 | gaming-leaderboard | Batch #191 (skills, python) | Aggregated 5 iterations | See batch-results/ |
 | HPK design | ✅ /tenantId, /projectId | ✅ /tenantId, /type, /projectId | ✅ Added /type level |
 | Build success | ❌ Newtonsoft.Json issue | ❌ CircularDependency | ⟷ Different issues |
 | Endpoint testing | ❌ Packaging prevented | ✅ All 13 endpoints tested | ✅ Improved |
