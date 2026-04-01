@@ -40,11 +40,6 @@ on:
   repository_dispatch:
     types: [test-iteration]
 
-permissions:
-  issues: write
-  contents: write
-  pull-requests: write
-
 jobs:
   detect-iteration:
     name: Detect changed iteration
