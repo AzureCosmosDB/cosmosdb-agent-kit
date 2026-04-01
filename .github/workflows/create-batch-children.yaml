@@ -46,6 +46,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          REPO="${{ github.repository }}"
 
           # Resolve the batch issue number
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -62,7 +63,7 @@ jobs:
           echo "Batch issue: #${BATCH_ISSUE}"
 
           # Fetch the issue body
-          BODY=$(gh issue view "$BATCH_ISSUE" --json body --jq '.body')
+          BODY=$(gh issue view "$BATCH_ISSUE" --repo "$REPO" --json body --jq '.body')
 
           # Parse form fields from the issue body
           # GitHub issue forms render as: ### Label\n\nvalue\n
@@ -107,10 +108,11 @@ jobs:
 
           # Ensure required labels exist (gh issue create fails if they don't)
           for lbl in "testing" "iteration" "batch-child"; do
-            gh label create "$lbl" --color "C2E0C6" 2>/dev/null || true
+            gh label create "$lbl" --repo "$REPO" --color "C2E0C6" 2>/dev/null || true
           done
           BATCH_LABEL="batch-${BATCH_ISSUE}"
           gh label create "$BATCH_LABEL" \
+            --repo "$REPO" \
             --description "Child of batch test #${BATCH_ISSUE}" \
             --color "C2E0C6" \
             2>/dev/null || true
@@ -231,6 +233,7 @@ jobs:
             echo "Creating child issue ${i}/${ITERATIONS}: ${TITLE}"
 
             CREATE_OUTPUT=$(gh issue create \
+              --repo "$REPO" \
               --title "$TITLE" \
               --body "$ISSUE_BODY" \
               --label "testing,iteration,batch-child,${BATCH_LABEL}" 2>&1) || true
@@ -240,7 +243,20 @@ jobs:
             if [ -n "$CHILD_NUM" ]; then
               echo "  Created issue #${CHILD_NUM}"
               ISSUE_BODY_WITH_CHILD_NUM="${ISSUE_BODY//<assigned-after-create>/$CHILD_NUM}"
-              gh issue edit "$CHILD_NUM" --body "$ISSUE_BODY_WITH_CHILD_NUM" >/dev/null
+              # Newly created issues can be briefly unavailable to GraphQL lookups.
+              # Retry the body update and continue even if it ultimately fails.
+              UPDATED="false"
+              for attempt in 1 2 3 4 5; do
+                if gh issue edit "$CHILD_NUM" --repo "$REPO" --body "$ISSUE_BODY_WITH_CHILD_NUM" >/dev/null 2>&1; then
+                  UPDATED="true"
+                  break
+                fi
+                echo "  Body update retry ${attempt}/5 for issue #${CHILD_NUM}"
+                sleep 2
+              done
+              if [ "$UPDATED" != "true" ]; then
+                echo "  WARNING: Could not update body for issue #${CHILD_NUM}; continuing"
+              fi
               CHILD_ISSUES+=("$CHILD_NUM")
             else
               echo "  ERROR: Failed to create child issue for run ${i}"
@@ -254,9 +270,15 @@ jobs:
           CHILD_LIST=$(IFS=','; echo "${CHILD_ISSUES[*]}")
           echo "Child issues: ${CHILD_LIST}"
 
+          CREATED_COUNT=${#CHILD_ISSUES[@]}
+          if [ "$CREATED_COUNT" -eq 0 ]; then
+            echo "ERROR: No child issues were created"
+            exit 1
+          fi
+
           # Post summary on parent issue
           SUMMARY="## Batch Children Created\n\n"
-          SUMMARY+="Created **${ITERATIONS}** child issues for batch test #${BATCH_ISSUE}.\n\n"
+          SUMMARY+="Created **${CREATED_COUNT}** child issues for batch test #${BATCH_ISSUE}.\n\n"
           SUMMARY+="| Setting | Value |\n"
           SUMMARY+="|---------|-------|\n"
           SUMMARY+="| Scenario | ${SCENARIO} |\n"
@@ -292,5 +314,5 @@ jobs:
           SUMMARY+="A ready-to-copy \`@copilot\` evaluation prompt is posted as a comment on that PR. "
           SUMMARY+="Copy-paste it as a new comment to trigger Copilot to analyze the consistent failures and create/update rules.\n"
 
-          gh issue comment "$BATCH_ISSUE" --body "$(echo -e "$SUMMARY")"
+          gh issue comment "$BATCH_ISSUE" --repo "$REPO" --body "$(echo -e "$SUMMARY")"
           echo "Posted summary on batch issue #${BATCH_ISSUE}"
