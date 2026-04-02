@@ -18,6 +18,76 @@ Each improvement entry should include:
 
 ## Improvements
 
+#### 2026-04-02: Batch #191 — Gaming Leaderboard (Python / Skills Loaded)
+
+- **Scenario**: gaming-leaderboard
+- **Batch issue**: #191
+- **Language**: Python (skills loaded)
+- **Iterations evaluated**: 5 (PRs #197, #198, #199, #200, #201)
+- **Result**: ⚠️ PARTIAL — No consistent failures, but near-consistent cascade delete/update failures reveal a rule gap
+- **Mean score**: 7.6/10 (σ=3.7) — High stochasticity driven by iteration 2's catastrophic 25.5% pass rate vs. 90–100% in others
+
+**Summary of Aggregate Results**:
+
+| Metric | Value |
+|--------|-------|
+| Pass Rate (mean) | 81.3% |
+| Pass Rate (std dev) | 31.4% |
+| Always-fail tests | **0** |
+| Always-pass tests | 26 (27%) |
+| Flaky tests | 70 (73%) |
+
+**Consistent Failures**: None. Per the batch evaluation recipe, no new rules are strictly required when there are zero always-fail tests. However, two near-consistent failure patterns at 20% pass rate revealed a genuine gap in the existing rule set.
+
+**Near-Consistent Failure Analysis** (lowest pass-rate flaky tests):
+
+| Test | Pass Rate | Pattern |
+|------|-----------|---------|
+| `TestUpdateDeleteConsistency::test_deleted_player_removed_from_leaderboard` | 20% | `failed, error, failed, failed, passed` |
+| `TestUpdateDeleteConsistency::test_deleted_player_scores_not_in_history` | 20% | `failed, error, failed, failed, passed` |
+| `TestUpdateDeleteConsistency::test_updated_region_reflected_in_regional_leaderboard` | 40% | `passed, error, failed, failed, passed` |
+
+**Root Cause Analysis**:
+
+- `test_deleted_player_removed_from_leaderboard` and `test_deleted_player_scores_not_in_history` (20%): Agents correctly implement the DELETE endpoint returning 204, but fail to cascade-delete related documents in other containers (score history documents, leaderboard entry documents). The player is deleted but "ghost" entries remain in derived containers, causing leaderboards to still show deleted players and score history to return 200 instead of 404.
+
+- `test_updated_region_reflected_in_regional_leaderboard` (40%): Agents update the player document's region field but fail to cascade-update leaderboard entries. The old regional leaderboard entry (with the previous region as the partition key) is not removed, and no entry is created in the new region's partition.
+
+**Classification**: **Unclear existing rule** — `model-denormalize-reads.md` discusses keeping denormalized data updated when source changes (e.g., "When category changes, update products using Change Feed"), but has **zero guidance on cascade deletes** when the source document is deleted, and no guidance on fields that change the partition key of derived documents.
+
+**Rules Updated** 🔧:
+
+1. **`model-denormalize-reads.md`** — Added "Cascade Delete and Update of Denormalized Documents" section (HIGH impact)
+   - Explicitly documents that deleting a source document requires deleting all derived/related documents in all containers
+   - Documents that updating a field used as partition key in derived documents requires delete-and-recreate (not just update)
+   - Added Python and C# code examples for correct cascade delete and cascade update patterns
+   - Added checklist: "Every DELETE endpoint must cascade to all containers holding derived data"
+
+**Issues Encountered**:
+
+1. **Cascade delete of derived documents not implemented** — ⚠️ NEAR-CONSISTENT (80% fail rate excluding error iteration)
+   - Problem: Agents implement DELETE returning 204 but orphan score and leaderboard documents in other containers
+   - Impact: Deleted players appear in leaderboards; score history returns 200 instead of 404
+   - Classification: Unclear existing rule (denormalize rule existed but omitted cascade delete guidance)
+   - Solution: Updated `model-denormalize-reads.md` with explicit cascade delete pattern
+
+2. **Cascade update of partition-key field not implemented** — ⚠️ NEAR-CONSISTENT (60% fail rate excluding error iteration)
+   - Problem: Agents update player region but don't move leaderboard entries between regional partitions
+   - Impact: Player appears in wrong regional leaderboard after region change
+   - Classification: Unclear existing rule (same gap as above)
+   - Solution: Same rule update covers this case (delete-and-recreate in new partition)
+
+3. **High iteration-to-iteration variance** — σ=31.4% — considered too high for confident assessment
+   - Iteration 2 scored only 25.5% (1/10) while iterations 3–5 scored 92–100%
+   - All 70 "flaky" tests show `error` in iteration 2, suggesting that iteration had a structural implementation failure unrelated to Cosmos DB skill gaps
+   - Recommendation: Run additional iterations to reduce variance and confirm the cascade patterns
+
+**Files Modified**:
+- ✅ `skills/cosmosdb-best-practices/rules/model-denormalize-reads.md` — UPDATED (added cascade delete/update section)
+- ✅ `skills/cosmosdb-best-practices/AGENTS.md` — Recompiled (81 total rules)
+
+---
+
 #### 2026-03-12: New Rules — Parameterized TOP and Composite Index Directions
 
 - **Scenario**: gaming-leaderboard
