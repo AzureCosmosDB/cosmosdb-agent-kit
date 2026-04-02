@@ -52,3 +52,8 @@
 
 **Impact:** HIGH  
 **Description:** Vector search configuration enables AI-powered semantic search and RAG patterns. Proper embedding storage, indexing, and query optimization are essential for performance and accuracy.
+
+## 12. Full-Text Search (fts)
+
+**Impact:** HIGH  
+**Description:** Native full-text search (FTS) provides inverted-index-backed keyword matching, BM25 relevance ranking, and language-aware tokenization. Requires three coordinated changes: an account-level capability flag, a container fullTextPolicy, and a fullTextIndexes entry in the indexing policy.
