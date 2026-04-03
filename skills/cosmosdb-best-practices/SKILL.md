@@ -98,6 +98,10 @@ Reference these guidelines when:
 - [sdk-diagnostics](rules/sdk-diagnostics.md) - Log diagnostics for troubleshooting
 - [sdk-serialization-enums](rules/sdk-serialization-enums.md) - Serialize enums as strings not integers
 - [sdk-emulator-ssl](rules/sdk-emulator-ssl.md) - Configure SSL and connection mode for Cosmos DB Emulator
+- [sdk-ifnonematch-create](AGENTS.md#421-use-ifnonematchetag-for-conditional-creates-to-prevent-duplicates) - Use `setIfNoneMatchETag("*")` on `createItem` to reject duplicates atomically (409 on conflict)
+- [sdk-no-shared-request-options](AGENTS.md#422-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls) - Never reuse a `CosmosItemRequestOptions` instance across multiple `createItem` calls — SDK mutates it internally, causing wrong partition key on second call
+- [sdk-patch-incr](AGENTS.md#423-use-the-patch-api-for-atomic-counter-increments) - Use `CosmosPatchOperations.incr()` for atomic counter increments — no read RU, no ETag conflict cycle
+- [sdk-bypage-empty-token](AGENTS.md#424-guard-against-empty-continuation-tokens-before-calling-bypage) - Guard against empty-string continuation tokens before calling `byPage()` — pass `null` for first page, never `""`
 - [sdk-etag-concurrency](rules/sdk-etag-concurrency.md) - Use ETags for optimistic concurrency on read-modify-write operations
 - [sdk-java-content-response](rules/sdk-java-content-response.md) - Enable content response on write operations (Java)
 - [sdk-java-cosmos-config](rules/sdk-java-cosmos-config.md) - Configure Cosmos DB initialization correctly in Spring Boot
@@ -161,6 +165,15 @@ Reference these guidelines when:
 - [vector-normalize-embeddings](rules/vector-normalize-embeddings.md) - Normalize embeddings for cosine similarity
 - [vector-distance-query](rules/vector-distance-query.md) - Use VectorDistance for similarity search
 - [vector-repository-pattern](rules/vector-repository-pattern.md) - Implement a repository pattern for vector search
+
+### 12. Full-Text Search (HIGH)
+
+- [fts-enable-capability](AGENTS.md#121-enable-full-text-search-capability-on-account) - Enable `EnableNoSQLFullTextSearch` capability on the account — prerequisite for all FTS functions
+- [fts-full-text-policy](AGENTS.md#122-define-full-text-policy-on-the-container) - Define `fullTextPolicy` on the container with correct language code (`en-US`, case-sensitive)
+- [fts-index-policy](AGENTS.md#123-add-full-text-index-in-the-indexing-policy) - Add `fullTextIndexes` entry in the indexing policy to build the inverted index
+- [fts-contains-query](AGENTS.md#124-use-fulltextcontains-for-keyword-matching) - Use `FullTextContains` / `FullTextContainsAll` / `FullTextContainsAny` instead of `CONTAINS(LOWER(...))`
+- [fts-score-ranking](AGENTS.md#125-use-fulltextscore-for-relevance-ranking) - Use `ORDER BY RANK FullTextScore(path, term)` for BM25 relevance ranking
+- [fts-hybrid-query](AGENTS.md#126-combine-fts-with-range-filters-for-hybrid-queries) - Combine FTS predicates with range/equality filters; put most selective filter first
 
 ## How to Use
 

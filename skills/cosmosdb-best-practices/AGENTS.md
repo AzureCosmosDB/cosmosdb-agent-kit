@@ -53,23 +53,27 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 4.1 [Use Async APIs for Better Throughput](#41-use-async-apis-for-better-throughput)
    - 4.2 [Configure Threshold-Based Availability Strategy (Hedging)](#42-configure-threshold-based-availability-strategy-hedging-)
    - 4.3 [Configure Partition-Level Circuit Breaker](#43-configure-partition-level-circuit-breaker)
-   - 4.4 [Use Direct Connection Mode for Production](#44-use-direct-connection-mode-for-production)
-   - 4.5 [Log Diagnostics for Troubleshooting](#45-log-diagnostics-for-troubleshooting)
-   - 4.6 [Configure SSL and connection mode for Cosmos DB Emulator](#46-configure-ssl-and-connection-mode-for-cosmos-db-emulator)
-   - 4.7 [Use ETags for optimistic concurrency on read-modify-write operations](#47-use-etags-for-optimistic-concurrency-on-read-modify-write-operations)
-   - 4.8 [Configure Excluded Regions for Dynamic Failover](#48-configure-excluded-regions-for-dynamic-failover)
-   - 4.9 [Unwrap CosmosItemResponse and enable content response in Java SDK](#49-unwrap-cosmositemresponse-and-enable-content-response-in-java-sdk)
-   - 4.10 [Use dependent @Bean methods for Cosmos DB initialization in Spring Boot](#410-use-dependent-bean-methods-for-cosmos-db-initialization-in-spring-boot)
-   - 4.11 [Spring Boot and Java version compatibility for Cosmos DB SDK](#411-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
-   - 4.12 [Configure local development environment to avoid cloud connection conflicts](#412-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
-   - 4.13 [Explicitly reference Newtonsoft.Json package](#413-explicitly-reference-newtonsoft-json-package)
-   - 4.14 [Configure Preferred Regions for Availability](#414-configure-preferred-regions-for-availability)
-   - 4.15 [Include aiohttp When Using Python Async SDK](#415-include-aiohttp-when-using-python-async-sdk)
-   - 4.16 [Handle 429 Errors with Retry-After](#416-handle-429-errors-with-retry-after)
-   - 4.17 [Use consistent enum serialization between Cosmos SDK and application layer](#417-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
-   - 4.18 [Reuse CosmosClient as Singleton](#418-reuse-cosmosclient-as-singleton)
-   - 4.19 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#419-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
-   - 4.20 [Use CosmosRepository correctly and handle Iterable return types](#420-use-cosmosrepository-correctly-and-handle-iterable-return-types)
+   - 4.4 [Use IfNoneMatchETag("*") for conditional creates to prevent duplicates](#44-use-ifnonematchetag-for-conditional-creates-to-prevent-duplicates)
+   - 4.5 [Use Direct Connection Mode for Production](#45-use-direct-connection-mode-for-production)
+   - 4.6 [Guard against empty continuation tokens before calling byPage](#46-guard-against-empty-continuation-tokens-before-calling-bypage)
+   - 4.7 [Log Diagnostics for Troubleshooting](#47-log-diagnostics-for-troubleshooting)
+   - 4.8 [Configure SSL and connection mode for Cosmos DB Emulator](#48-configure-ssl-and-connection-mode-for-cosmos-db-emulator)
+   - 4.9 [Use ETags for optimistic concurrency on read-modify-write operations](#49-use-etags-for-optimistic-concurrency-on-read-modify-write-operations)
+   - 4.10 [Configure Excluded Regions for Dynamic Failover](#410-configure-excluded-regions-for-dynamic-failover)
+   - 4.11 [Unwrap CosmosItemResponse and enable content response in Java SDK](#411-unwrap-cosmositemresponse-and-enable-content-response-in-java-sdk)
+   - 4.12 [Use dependent @Bean methods for Cosmos DB initialization in Spring Boot](#412-use-dependent-bean-methods-for-cosmos-db-initialization-in-spring-boot)
+   - 4.13 [Spring Boot and Java version compatibility for Cosmos DB SDK](#413-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
+   - 4.14 [Configure local development environment to avoid cloud connection conflicts](#414-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
+   - 4.15 [Explicitly reference Newtonsoft.Json package](#415-explicitly-reference-newtonsoft-json-package)
+   - 4.16 [Use the Patch API for atomic counter increments](#416-use-the-patch-api-for-atomic-counter-increments)
+   - 4.17 [Configure Preferred Regions for Availability](#417-configure-preferred-regions-for-availability)
+   - 4.18 [Include aiohttp When Using Python Async SDK](#418-include-aiohttp-when-using-python-async-sdk)
+   - 4.19 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#419-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
+   - 4.20 [Handle 429 Errors with Retry-After](#420-handle-429-errors-with-retry-after)
+   - 4.21 [Use consistent enum serialization between Cosmos SDK and application layer](#421-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
+   - 4.22 [Reuse CosmosClient as Singleton](#422-reuse-cosmosclient-as-singleton)
+   - 4.23 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#423-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
+   - 4.24 [Use CosmosRepository correctly and handle Iterable return types](#424-use-cosmosrepository-correctly-and-handle-iterable-return-types)
 5. [Indexing Strategies](#5-indexing-strategies) — **MEDIUM-HIGH**
    - 5.1 [Composite Index Directions Must Match ORDER BY](#51-composite-index-directions-must-match-order-by)
    - 5.2 [Use Composite Indexes for ORDER BY](#52-use-composite-indexes-for-order-by)
@@ -3456,7 +3460,66 @@ Reference: [Performance tips - .NET SDK Circuit Breaker](https://learn.microsoft
 Reference: [Performance tips - Java SDK Circuit Breaker](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-java-sdk-v4#partition-level-circuit-breaker)
 Reference: [Performance tips - Python SDK Circuit Breaker](https://learn.microsoft.com/en-gb/azure/cosmos-db/performance-tips-python-sdk#partition-level-circuit-breaker)
 
-### 4.4 Use Direct Connection Mode for Production
+### 4.4 Use IfNoneMatchETag("*") for conditional creates to prevent duplicates
+
+**Impact: HIGH** (prevents duplicate documents on concurrent or retried creates without a prior read)
+
+## Use IfNoneMatchETag("*") for Conditional Creates to Prevent Duplicates
+
+**Impact: HIGH (prevents duplicate documents on concurrent or retried creates without a prior read)**
+
+When creating a document that must be unique (e.g., user credentials keyed by email), pass `IfNoneMatchETag("*")` on the `createItem` options. Cosmos DB rejects the write with HTTP 409 Conflict if a document with the same `id` in the same partition already exists, making duplicate detection atomic and free of an extra read.
+
+**Incorrect (upsert silently overwrites existing records):**
+
+```java
+// ❌ upsertItem overwrites an existing user-credentials document silently
+// A duplicate email gets no error — the old credentials are lost
+container.upsertItem(credentialsDto, new PartitionKey(email), null).block();
+```
+
+**Correct (conditional create — 409 on duplicate):**
+
+```java
+// ✅ createItem with IfNoneMatchETag("*") rejects if the document already exists
+CosmosItemRequestOptions options = new CosmosItemRequestOptions()
+    .setIfNoneMatchETag("*");  // Reject if any document exists with this id+PK
+
+try {
+    credentialsContainer
+        .createItem(credentialsDto, new PartitionKey(email), options)
+        .block();
+} catch (CosmosException ex) {
+    if (ex.getStatusCode() == 409) {
+        // Email already registered — surface as domain error
+        throw new AlreadyExistsException("Email already in use: " + email);
+    }
+    throw ex;
+}
+```
+
+```java
+// ✅ Reactive chain
+credentialsContainer
+    .createItem(credentialsDto, new PartitionKey(email),
+        new CosmosItemRequestOptions().setIfNoneMatchETag("*"))
+    .onErrorMap(CosmosException.class, ex ->
+        ex.getStatusCode() == 409
+            ? new AlreadyExistsException("Email already in use")
+            : ex);
+```
+
+**Why `"*"` (wildcard):** In HTTP `If-None-Match: *` semantics, `"*"` means "match any existing document". Combined with `createItem` (not `upsertItem`), the server rejects the write if _any_ document with the same `id` and partition key already exists — regardless of its ETag value.
+
+**Key Points:**
+- Use `createItem` + `setIfNoneMatchETag("*")`, never `upsertItem`, when uniqueness is a domain invariant
+- The 409 check is done atomically server-side — no extra read RU consumed
+- Gated on the document's `id` field + partition key (not arbitrary field values)
+- Particularly critical for email-keyed credential stores and idempotent API endpoints
+
+Reference: [Optimistic concurrency in Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/database-transactions-optimistic-concurrency)
+
+### 4.5 Use Direct Connection Mode for Production
 
 **Impact: HIGH** (reduces latency by 30-50%)
 
@@ -3551,7 +3614,73 @@ Required firewall ports for Direct mode:
 
 Reference: [Direct vs Gateway connection modes](https://learn.microsoft.com/azure/cosmos-db/nosql/sdk-connection-modes)
 
-### 4.5 Log Diagnostics for Troubleshooting
+### 4.6 Guard against empty continuation tokens before calling byPage
+
+**Impact: HIGH** (empty string token causes runtime "INVALID JSON in continuation token" error; null is the correct sentinel for first-page requests)
+
+## Guard Against Empty Continuation Tokens Before Calling byPage
+
+**Impact: HIGH (empty string token causes runtime `INVALID JSON in continuation token` error; `null` is the correct sentinel for first-page requests)**
+
+When integrating Cosmos DB pagination with frameworks that use empty strings as default values for "no token" (e.g., gRPC/proto3, where string fields default to `""`), passing `""` to `byPage(continuationToken, pageSize)` triggers a server-side parse error. The correct sentinel for "no paging state" is `null`.
+
+**Incorrect (empty string passed as continuation token):**
+
+```java
+// ❌ gRPC/proto3: string fields default to "" — NOT null
+String pagingState = request.getPagingState();  // returns "" on first call
+
+// Passing "" to byPage causes:
+// CosmosException: INVALID JSON in continuation token
+return container.queryItems(querySpec, opts, Video.class)
+    .byPage(pagingState, pageSize)          // ❌ "" is not a valid token
+    .next()
+    .toFuture();
+```
+
+**Correct (null-guard before passing to byPage):**
+
+```java
+// ✅ Convert empty string to null before passing as continuation token
+String raw = request.getPagingState();     // "" on first call, token on subsequent calls
+String continuationToken = (raw == null || raw.isEmpty()) ? null : raw;
+
+return container.queryItems(querySpec, opts, Video.class)
+    .byPage(continuationToken, pageSize)   // ✅ null = first page, token = continuation
+    .next()
+    .map(page -> new ResultListPage<>(page.getResults(), page.getContinuationToken()))
+    .switchIfEmpty(Mono.just(new ResultListPage<>()))
+    .toFuture();
+```
+
+```java
+// ✅ Or with Optional pattern
+Optional<String> pageState = Optional.ofNullable(
+    raw == null || raw.isEmpty() ? null : raw);
+
+return container.queryItems(querySpec, opts, Video.class)
+    .byPage(pageState.orElse(null), pageSize)
+    .next()
+    .toFuture();
+```
+
+**General pattern for any pagination layer:**
+
+| Input value | Meaning | Pass to byPage as |
+|-------------|---------|------------------|
+| `null` | First page | `null` |
+| `""` (empty string) | First page (proto3/gRPC default) | `null` |
+| `"eyJ..."` (token) | Continuation | Pass as-is |
+
+**Key Points:**
+- `byPage(String continuationToken, int pageSize)` — `continuationToken` must be `null` for the first page request, never `""`
+- This issue appears in any integration where the paging state field has a non-null empty default: gRPC/proto3 strings, Jackson deserialization of missing JSON fields, HTTP query parameters
+- `page.getContinuationToken()` returns `null` when there are no more pages — map `null` back to `""` when sending to clients that expect non-null strings (e.g., proto3 response fields)
+- `switchIfEmpty(Mono.just(new ResultListPage<>()))` handles the case where the query matches zero documents and `byPage(...).next()` emits nothing
+
+Reference: [Query with continuation tokens (Java SDK)](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-get-started)
+
+### 4.7 Log Diagnostics for Troubleshooting
 
 **Impact: MEDIUM** (enables root cause analysis)
 
@@ -3671,7 +3800,7 @@ Key diagnostic fields:
 
 Reference: [Capture diagnostics](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-dotnet-sdk)
 
-### 4.6 Configure SSL and connection mode for Cosmos DB Emulator
+### 4.8 Configure SSL and connection mode for Cosmos DB Emulator
 
 **Impact: MEDIUM** (enables local development with all SDKs)
 
@@ -3882,7 +4011,7 @@ System.setProperty("COSMOS.EMULATOR_SSL_TRUST_ALL", "true");  // INEFFECTIVE!
 
 Reference: [Use the Azure Cosmos DB Emulator for local development](https://learn.microsoft.com/azure/cosmos-db/emulator)
 
-### 4.7 Use ETags for optimistic concurrency on read-modify-write operations
+### 4.9 Use ETags for optimistic concurrency on read-modify-write operations
 
 **Impact: HIGH** (prevents lost updates in concurrent write scenarios)
 
@@ -4083,7 +4212,7 @@ public void updateProjectTaskCounts(String tenantId, String projectId) {
 
 Reference: [Optimistic concurrency control in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/database-transactions-optimistic-concurrency#optimistic-concurrency-control)
 
-### 4.8 Configure Excluded Regions for Dynamic Failover
+### 4.10 Configure Excluded Regions for Dynamic Failover
 
 **Impact: MEDIUM** (enables dynamic routing control without code changes)
 
@@ -4227,7 +4356,7 @@ var outageOptions = new ItemRequestOptions
 Reference: [Performance tips - .NET SDK Excluded Regions](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-dotnet-sdk-v3#excluded-regions)
 Reference: [Performance tips - Java SDK Excluded Regions](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-java-sdk-v4#excluded-regions)
 
-### 4.9 Unwrap CosmosItemResponse and enable content response in Java SDK
+### 4.11 Unwrap CosmosItemResponse and enable content response in Java SDK
 
 **Impact: MEDIUM** (prevents type errors from missing getItem() on reads and null content on writes)
 
@@ -4433,7 +4562,7 @@ Enabling content response does NOT increase RU cost - the document is already fe
 
 Reference: [Azure Cosmos DB Java SDK best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-java)
 
-### 4.10 Use dependent @Bean methods for Cosmos DB initialization in Spring Boot
+### 4.12 Use dependent @Bean methods for Cosmos DB initialization in Spring Boot
 
 **Impact: HIGH** (prevents circular dependency, startup failures, class name collisions, and compile errors)
 
@@ -4681,7 +4810,7 @@ References:
 - [`CosmosAsyncClient.createDatabaseIfNotExists()` Javadoc](https://learn.microsoft.com/java/api/com.azure.cosmos.cosmosasyncclient?view=azure-java-stable)
 - [`AbstractCosmosConfiguration` Javadoc](https://learn.microsoft.com/java/api/com.azure.spring.data.cosmos.config.abstractcosmosconfiguration?view=azure-java-stable)
 
-### 4.11 Spring Boot and Java version compatibility for Cosmos DB SDK
+### 4.13 Spring Boot and Java version compatibility for Cosmos DB SDK
 
 **Impact: CRITICAL** (Prevents build failures due to version incompatibility between Spring Boot and Java)
 
@@ -4812,7 +4941,7 @@ export PATH=$JAVA_HOME/bin:$PATH
 - [Spring Boot 2.7.x System Requirements](https://docs.spring.io/spring-boot/docs/2.7.x/reference/html/getting-started.html#getting-started-system-requirements)
 - [Azure Cosmos DB Java SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-java-v4)
 
-### 4.12 Configure local development environment to avoid cloud connection conflicts
+### 4.14 Configure local development environment to avoid cloud connection conflicts
 
 **Impact: MEDIUM** (prevents accidental connections to production instead of emulator)
 
@@ -4983,7 +5112,7 @@ azure:
 
 Reference: [Azure Cosmos DB Emulator](https://learn.microsoft.com/azure/cosmos-db/emulator)
 
-### 4.13 Explicitly reference Newtonsoft.Json package
+### 4.15 Explicitly reference Newtonsoft.Json package
 
 **Impact: MEDIUM** (Prevents build failures and security vulnerabilities from missing or outdated Newtonsoft.Json dependency)
 
@@ -5085,7 +5214,78 @@ Solution:
 
 Reference: [Managing Newtonsoft.Json Dependencies](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-dotnet-sdk-v3?tabs=trace-net-core#managing-newtonsoftjson-dependencies)
 
-### 4.14 Configure Preferred Regions for Availability
+### 4.16 Use the Patch API for atomic counter increments
+
+**Impact: HIGH** (eliminates read-modify-write for counters; reduces RU cost and eliminates concurrency conflicts)
+
+## Use the Patch API for Atomic Counter Increments
+
+**Impact: HIGH (eliminates read-modify-write for counters; reduces RU cost and eliminates concurrency conflicts)**
+
+For fields that act as counters (view counts, rating totals, like counts), `patchItem` with `CosmosPatchOperations.incr()` performs a server-side atomic increment without a prior read. This is cheaper (no read RU), faster, and free of the ETag conflict/retry cycle.
+
+**Incorrect (read-modify-write for counters):**
+
+```java
+// ❌ Read-modify-write: 1 read RU + 1 write RU, subject to ETag conflicts at scale
+CosmosItemResponse<Video> resp = container.readItem(videoId,
+    new PartitionKey(videoId), Video.class).block();
+Video video = resp.getItem();
+video.setViews(video.getViews() + 1);
+container.upsertItem(video, new PartitionKey(videoId), null).block();
+```
+
+**Correct (Patch API — server-side atomic increment):**
+
+```java
+// ✅ Atomic increment — no read required, no ETag conflict possible
+CosmosPatchOperations ops = CosmosPatchOperations.create()
+    .increment("/views", 1);      // Atomic add, server-side
+
+container.patchItem(
+    videoId,
+    new PartitionKey(videoId),
+    ops,
+    Video.class
+).block();
+```
+
+```java
+// ✅ Patch multiple counters in one round-trip (e.g., rate-video: two fields)
+CosmosPatchOperations ratingOps = CosmosPatchOperations.create()
+    .increment("/ratingsCount", 1)
+    .increment("/ratingsTotal", ratingValue);
+
+videosContainer.patchItem(
+    videoId, new PartitionKey(videoId), ratingOps, Video.class).block();
+```
+
+```java
+// ✅ Async / reactive
+CosmosPatchOperations ops = CosmosPatchOperations.create().increment("/views", 1);
+
+return container.patchItem(videoId, new PartitionKey(videoId), ops, Video.class)
+    .then();  // Mono<Void> — caller doesn't need the updated document
+```
+
+**Patch operations supported:**
+- `incr(path, value)` — numeric increment (positive or negative)
+- `set(path, value)` — set a field to a new value
+- `add(path, value)` — add to an array or set a field
+- `remove(path)` — remove a field
+- `replace(path, value)` — replace an existing field (fails if absent)
+- `move(from, to)` — rename a field
+
+**Key Points:**
+- `incr()` requires the field to already exist as a numeric type in the document; initialize it to `0` on document creation
+- At most 10 patch operations per `patchItem` call
+- Patch is idempotent for `set`/`replace` but **not** for `incr` — a retried increment will double-count. Use conditional patch (`setFilterPredicate`) or accept the retry risk for high-volume counters
+- RU cost: ~1 write RU (same as a regular write), no read RU
+- Prefer Patch over Stored Procedures for simple counter increments — Patch is natively supported without custom server-side code
+
+Reference: [Partial document update (Patch API)](https://learn.microsoft.com/azure/cosmos-db/partial-document-update)
+
+### 4.17 Configure Preferred Regions for Availability
 
 **Impact: HIGH** (enables automatic failover, reduces latency)
 
@@ -5181,7 +5381,7 @@ Best practices:
 
 Reference: [Configure preferred regions](https://learn.microsoft.com/azure/cosmos-db/nosql/tutorial-global-distribution)
 
-### 4.15 Include aiohttp When Using Python Async SDK
+### 4.18 Include aiohttp When Using Python Async SDK
 
 **Impact: HIGH** (prevents application startup failure)
 
@@ -5229,7 +5429,66 @@ from azure.cosmos import CosmosClient
 
 Reference: [Azure Cosmos DB Python SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-python)
 
-### 4.16 Handle 429 Errors with Retry-After
+### 4.19 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
+
+**Impact: HIGH** (causes wrong partition key to be sent, producing silent data corruption or 400/404 errors)
+
+## Never Share a Single CosmosItemRequestOptions Instance Across Multiple createItem Calls
+
+**Impact: HIGH (causes wrong partition key to be sent, producing silent data corruption or 400/404 errors)**
+
+`CosmosItemRequestOptions` is a mutable object. The SDK may mutate the options object internally during request preparation (e.g., stamping the resolved partition key). Reusing the same instance across two `createItem` calls causes the second call to inherit state from the first, resulting in an incorrect partition key being sent to the service.
+
+**Incorrect (shared mutable options — second call sends wrong partition key):**
+
+```java
+// ❌ Anti-pattern: one options instance reused for two different createItem calls
+CosmosItemRequestOptions options = new CosmosItemRequestOptions()
+    .setIfNoneMatchETag("*");
+
+// First call: writes UserCredentials with PK = email
+credentialsContainer.createItem(credentials, new PartitionKey(email), options).block();
+
+// Second call: SDK re-uses the mutated options — may send PK = email (WRONG)
+// instead of PK = userId, causing misrouted write or silent corruption
+usersContainer.createItem(userProfile, new PartitionKey(userId), options).block();
+```
+
+**Correct (separate instance per call):**
+
+```java
+// ✅ Each createItem gets its own fresh options instance
+CosmosItemRequestOptions credsOptions = new CosmosItemRequestOptions()
+    .setIfNoneMatchETag("*");
+CosmosItemRequestOptions userOptions = new CosmosItemRequestOptions()
+    .setIfNoneMatchETag("*");
+
+credentialsContainer
+    .createItem(credentials, new PartitionKey(email), credsOptions).block();
+usersContainer
+    .createItem(userProfile, new PartitionKey(userId), userOptions).block();
+```
+
+```java
+// ✅ Or construct inline to make sharing structurally impossible
+credentialsContainer.createItem(
+    credentials, new PartitionKey(email),
+    new CosmosItemRequestOptions().setIfNoneMatchETag("*")).block();
+
+usersContainer.createItem(
+    userProfile, new PartitionKey(userId),
+    new CosmosItemRequestOptions().setIfNoneMatchETag("*")).block();
+```
+
+**Key Points:**
+- `CosmosItemRequestOptions` is **not thread-safe and not reuse-safe** across different requests
+- The bug is especially insidious because: (a) the first call succeeds, (b) the second call may also succeed but route to the wrong partition, (c) the document appears at the wrong partition key value, breaking point reads
+- The same rule applies to `CosmosQueryRequestOptions` and `CosmosPatchItemRequestOptions`
+- Prefer inline construction (`new CosmosItemRequestOptions()...`) to make accidental sharing impossible by inspection
+
+Reference: [Java SDK createItem](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-get-started)
+
+### 4.20 Handle 429 Errors with Retry-After
 
 **Impact: HIGH** (prevents cascading failures)
 
@@ -5346,7 +5605,7 @@ await Task.WhenAll(tasks);
 
 Reference: [Handle rate limiting](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-request-rate-too-large)
 
-### 4.17 Use consistent enum serialization between Cosmos SDK and application layer
+### 4.21 Use consistent enum serialization between Cosmos SDK and application layer
 
 **Impact: critical** (undefined)
 
@@ -5443,7 +5702,7 @@ public class Order
 - Point reads work but filtered queries don't
 - API returns different enum format than stored in Cosmos DB
 
-### 4.18 Reuse CosmosClient as Singleton
+### 4.22 Reuse CosmosClient as Singleton
 
 **Impact: CRITICAL** (prevents connection exhaustion)
 
@@ -5564,7 +5823,7 @@ public class CosmosDbHostedService : IHostedService
 
 Reference: [CosmosClient best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-dotnet)
 
-### 4.19 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
+### 4.23 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
 
 **Impact: CRITICAL** (prevents startup failures and data access errors in Spring Data Cosmos applications)
 
@@ -5676,7 +5935,7 @@ public class Owner {
 
 Reference: [Spring Data Azure Cosmos DB annotations](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-spring-data)
 
-### 4.20 Use CosmosRepository correctly and handle Iterable return types
+### 4.24 Use CosmosRepository correctly and handle Iterable return types
 
 **Impact: HIGH** (prevents ClassCastException and query failures in Spring Data Cosmos repositories)
 
