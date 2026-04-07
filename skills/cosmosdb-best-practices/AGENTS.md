@@ -47,7 +47,7 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 3.5 [Use Continuation Tokens for Pagination](#35-use-continuation-tokens-for-pagination)
    - 3.6 [Use Parameterized Queries](#36-use-parameterized-queries)
    - 3.7 [Use Point Reads Instead of Queries for Known ID and Partition Key](#37-use-point-reads-instead-of-queries-for-known-id-and-partition-key)
-   - 3.8 [Use Literal Integers for TOP, Never Parameters](#38-use-literal-integers-for-top-never-parameters)
+   - 3.8 [Parameterize TOP Values Safely](#38-parameterize-top-values-safely)
    - 3.9 [Project Only Needed Fields](#39-project-only-needed-fields)
 4. [SDK Best Practices](#4-sdk-best-practices) — **HIGH**
    - 4.1 [Use Async APIs for Better Throughput](#41-use-async-apis-for-better-throughput)
@@ -1628,6 +1628,43 @@ var doc = await container.ReadItemAsync<Document>(
         .Build());
 ```
 
+**Python SDK example (hierarchical partition keys):**
+
+```python
+from azure.cosmos import PartitionKey
+
+# Incorrect: single-level partition key for a large tenant workload
+container = await database.create_container_if_not_exists(
+    id="documents",
+    partition_key=PartitionKey(path="/tenantId"),
+)
+
+# Correct: hierarchical partition key (broadest -> narrowest)
+container = await database.create_container_if_not_exists(
+    id="documents",
+    partition_key=PartitionKey(
+        path=["/tenantId", "/year", "/month"],
+        kind="MultiHash",
+    ),
+)
+
+# Point read with full partition key path values
+item = await container.read_item(
+    item="doc-123",
+    partition_key=["acme-corp", 2026, 1],
+)
+
+# Prefix query scoped to Level 1 + Level 2
+items = container.query_items(
+    query="SELECT * FROM c WHERE c.tenantId = @tenant AND c.year = @year",
+    parameters=[
+        {"name": "@tenant", "value": "acme-corp"},
+        {"name": "@year", "value": 2026},
+    ],
+    partition_key=["acme-corp", 2026],
+)
+```
+
 **Order levels from broadest to narrowest scope.** HPK prefix queries work left-to-right — a query can efficiently target Level 1 alone, Levels 1+2, or Levels 1+2+3, but cannot efficiently target Level 3 alone without scanning all Level 1 and Level 2 combinations. Place the property that appears in the most queries at Level 1 (broadest), the next most common at Level 2, and the most granular at Level 3. This ensures the dominant access pattern always benefits from prefix-based routing.
 
 **❌ Wrong — narrow before broad:**
@@ -1680,7 +1717,7 @@ Benefits of HPK:
 - Queries can target specific levels for efficiency
 - Natural data organization (tenant → year → month)
 
-Reference: [Hierarchical partition keys](https://learn.microsoft.com/azure/cosmos-db/hierarchical-partition-keys)
+Reference: [Hierarchical partition keys](https://learn.microsoft.com/en-us/azure/cosmos-db/hierarchical-partition-keys?tabs=python%2Cbicep#sdk)
 
 ### 2.4 Choose High-Cardinality Partition Keys
 
@@ -2565,6 +2602,56 @@ public async Task<IActionResult> GetProducts(
 }
 ```
 
+```python
+# ❌ Anti-pattern: OFFSET/LIMIT cost grows with page depth
+async def get_scores_page_with_offset(container, player_id: str, page: int, page_size: int = 20):
+    offset = (page - 1) * page_size
+    query = (
+        "SELECT * FROM c "
+        "WHERE c.playerId = @playerId "
+        "ORDER BY c.submittedAt DESC "
+        f"OFFSET {offset} LIMIT {page_size}"
+    )
+    items = container.query_items(
+        query=query,
+        parameters=[{"name": "@playerId", "value": player_id}],
+        partition_key=player_id,
+    )
+    return [item async for item in items]
+
+
+# ✅ Preferred: continuation token pagination (stable RU per page)
+async def get_scores_page(
+    container,
+    player_id: str,
+    page_size: int = 20,
+    continuation_token: str | None = None,
+):
+    query = (
+        "SELECT * FROM c "
+        "WHERE c.playerId = @playerId "
+        "ORDER BY c.submittedAt DESC"
+    )
+
+    results = container.query_items(
+        query=query,
+        parameters=[{"name": "@playerId", "value": player_id}],
+        partition_key=player_id,
+        max_item_count=page_size,
+    )
+
+    pager = results.by_page(continuation_token=continuation_token)
+    page = await pager.__anext__()
+    items = [item async for item in page]
+
+    return {
+        "items": items,
+        "continuationToken": pager.continuation_token,
+    }
+```
+
+Python SDK note: Continuation tokens are supported for single-partition queries. Always set `partition_key` when using `by_page()`.
+
 ```csharp
 // Streaming through all results
 public async IAsyncEnumerable<Product> GetAllProducts()
@@ -2627,7 +2714,7 @@ public PagedResult<Task> getTasksByProject(
 
 **Rule of thumb:** If a query can return more than 100 items, it **must** use pagination.
 
-Reference: [Pagination in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/query/pagination)
+Reference: [Pagination in Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/query/pagination)
 
 ### 3.6 Use Parameterized Queries
 
@@ -2853,55 +2940,58 @@ var responses = await Task.WhenAll(tasks);
 
 Reference: [Point reads in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-read-item) | [ReadMany — read multiple items](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-dotnet-read-item#read-multiple-items) | [Read many items fast (Java)](https://devblogs.microsoft.com/cosmosdb/read-many-items-fast-with-the-java-sdk-for-azure-cosmos-db/)
 
-### 3.8 Use Literal Integers for TOP, Never Parameters
+### 3.8 Parameterize TOP Values Safely
 
-**Impact: HIGH** (prevents query failures at runtime)
+**Impact: HIGH** (prevents incorrect query guidance and keeps parameterization secure)
 
-## Use Literal Integers for TOP, Never Parameters
+## Parameterize TOP Values Safely
 
-The `TOP` keyword in Cosmos DB SQL requires a literal integer — it does **not** support parameterized values. Using `@param` in `SELECT TOP @param` will fail at runtime with a query syntax error.
+Cosmos DB SQL supports both literal and parameterized values for `TOP`. Prefer parameterized `TOP` values for consistency with secure query practices. Ensure the parameter value is an integer.
 
-**Incorrect (parameterized TOP — fails at runtime):**
-
-```python
-# This causes a 400 Bad Request or runtime error
-query = "SELECT TOP @top * FROM c ORDER BY c.score DESC"
-params = [{"name": "@top", "value": 10}]
-items = container.query_items(query, parameters=params, enable_cross_partition_query=True)
-```
-
-```csharp
-// This will also fail
-var query = new QueryDefinition("SELECT TOP @top * FROM c ORDER BY c.score DESC")
-    .WithParameter("@top", 10);
-```
-
-**Correct (literal integer in TOP clause):**
+**Incorrect (string interpolation for TOP):**
 
 ```python
-# Use a literal integer for TOP — validate and cast to int to prevent injection
-top = int(top)  # Ensures it's a safe integer
+# Avoid string interpolation when parameterization works
+top = int(top)
 query = f"SELECT TOP {top} * FROM c ORDER BY c.score DESC"
 items = container.query_items(query, enable_cross_partition_query=True)
 ```
 
 ```csharp
-// Interpolate a validated integer for TOP
+// Avoid interpolating TOP directly when parameters are available
 int topN = 10;
 var query = new QueryDefinition($"SELECT TOP {topN} * FROM c ORDER BY c.score DESC");
 ```
 
+**Correct (parameterized TOP):**
+
 ```python
-# Keep other values parameterized — only TOP must be literal
-top = int(top)
-query = f"SELECT TOP {top} * FROM c WHERE c.gameId = @gameId ORDER BY c.score DESC"
-params = [{"name": "@gameId", "value": game_id}]
+# TOP can be parameterized
+query = "SELECT TOP @top * FROM c ORDER BY c.score DESC"
+params = [{"name": "@top", "value": int(top)}]
 items = container.query_items(query, parameters=params, enable_cross_partition_query=True)
 ```
 
-Always cast the TOP value to `int` before interpolation to ensure it is a safe integer and prevent injection.
+```csharp
+var query = new QueryDefinition("SELECT TOP @top * FROM c ORDER BY c.score DESC")
+    .WithParameter("@top", 10);
+```
 
-Reference: [SQL query TOP keyword](https://learn.microsoft.com/azure/cosmos-db/nosql/query/select#top-keyword)
+```python
+# Keep all query values parameterized, including TOP
+query = "SELECT TOP @top * FROM c WHERE c.gameId = @gameId ORDER BY c.score DESC"
+params = [
+    {"name": "@top", "value": int(top)},
+    {"name": "@gameId", "value": game_id},
+]
+items = container.query_items(query, parameters=params, enable_cross_partition_query=True)
+```
+
+Use a literal integer in `TOP` only when it is genuinely constant at authoring time (for example, `TOP 10`).
+
+References:
+- [Parameterized queries](https://learn.microsoft.com/azure/cosmos-db/nosql/query/parameterized-queries)
+- [SQL query TOP keyword](https://learn.microsoft.com/azure/cosmos-db/nosql/query/select#top-keyword)
 
 ### 3.9 Project Only Needed Fields
 
@@ -4805,6 +4895,19 @@ public class CosmosDbConfig extends AbstractCosmosConfiguration {
 - Always call `createDatabaseIfNotExists()` before `createContainerIfNotExists()`
 - When extending `AbstractCosmosConfiguration`, use `@Bean` (not `@Override`) on `cosmosClientBuilder()`
 
+**Global Jackson fallback for Cosmos system metadata:**
+
+When entity classes miss `@JsonIgnoreProperties(ignoreUnknown = true)`, reads can fail with `UnrecognizedPropertyException` on Cosmos system fields (for example `_rid`, `_self`, `_etag`, `_ts`). Add a global fallback in Spring Boot:
+
+```yaml
+spring:
+    jackson:
+        deserialization:
+            fail-on-unknown-properties: false
+```
+
+This is a defense-in-depth safety net and does not replace correct entity annotations.
+
 References:
 - [Spring Framework @Bean documentation](https://docs.spring.io/spring-framework/reference/core/beans/java/bean-annotation.html)
 - [`CosmosAsyncClient.createDatabaseIfNotExists()` Javadoc](https://learn.microsoft.com/java/api/com.azure.cosmos.cosmosasyncclient?view=azure-java-stable)
@@ -5858,8 +5961,10 @@ public class Owner {
 import com.azure.spring.data.cosmos.core.mapping.Container;
 import com.azure.spring.data.cosmos.core.mapping.PartitionKey;
 import com.azure.spring.data.cosmos.core.mapping.GeneratedValue;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.data.annotation.Id;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 @Container(containerName = "owners")
 public class Owner {
 
@@ -5878,6 +5983,8 @@ public class Owner {
     }
 }
 ```
+
+Add `@JsonIgnoreProperties(ignoreUnknown = true)` to every Cosmos entity class so deserialization ignores Cosmos DB system metadata (`_rid`, `_self`, `_etag`, `_ts`, `_lsn`). This reinforces the serialization safety guidance from `model-json-serialization` at the point where entities are usually generated.
 
 **Key annotation mappings:**
 
@@ -6859,6 +6966,42 @@ await container.ReplaceThroughputAsync(
 // Now scales between 2,000-20,000 RU/s
 ```
 
+```python
+from azure.cosmos import PartitionKey, ThroughputProperties
+
+# Incorrect: fixed throughput for variable workload
+container = await database.create_container_if_not_exists(
+    id="orders",
+    partition_key=PartitionKey(path="/customerId"),
+    offer_throughput=10000,  # Fixed 10,000 RU/s, not autoscale
+)
+
+# Correct: autoscale throughput for variable workload
+container = await database.create_container_if_not_exists(
+    id="orders-autoscale",
+    partition_key=PartitionKey(path="/customerId"),
+    offer_throughput=ThroughputProperties(
+        auto_scale_max_throughput=10000,
+    ),
+)
+# Scales automatically between 1,000-10,000 RU/s
+```
+
+```python
+from azure.cosmos import ThroughputProperties
+
+# Read current throughput settings
+throughput = await container.get_throughput()
+print(f"Manual throughput: {throughput.offer_throughput}")
+print(f"Autoscale max: {throughput.auto_scale_max_throughput}")
+
+# Update autoscale max throughput
+await container.replace_throughput(
+    ThroughputProperties(auto_scale_max_throughput=20000)
+)
+# Now scales between 2,000-20,000 RU/s
+```
+
 Cost comparison example:
 - Fixed 10,000 RU/s: ~$584/month (always)
 - Autoscale 10,000 max: $58-$584/month (based on usage)
@@ -6874,7 +7017,7 @@ When to use fixed:
 - Steady, predictable workloads (utilization > 66%)
 - Cost-sensitive workloads with known patterns
 
-Reference: [Autoscale throughput](https://learn.microsoft.com/azure/cosmos-db/provision-throughput-autoscale)
+Reference: [Autoscale throughput](https://learn.microsoft.com/en-us/azure/cosmos-db/provision-throughput-autoscale)
 
 ### 6.2 Understand Burst Capacity
 

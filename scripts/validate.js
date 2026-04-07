@@ -13,6 +13,23 @@ const RULES_DIR = path.join(__dirname, '..', 'skills', 'cosmosdb-best-practices'
 
 const VALID_IMPACTS = ['CRITICAL', 'HIGH', 'MEDIUM-HIGH', 'MEDIUM', 'LOW-MEDIUM', 'LOW'];
 
+function normalizeTags(tags) {
+    if (Array.isArray(tags)) {
+        return tags
+            .map(tag => String(tag).trim())
+            .filter(Boolean);
+    }
+
+    if (typeof tags === 'string') {
+        return tags
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(Boolean);
+    }
+
+    return null;
+}
+
 async function validateRules() {
     const files = await glob('*.md', { cwd: RULES_DIR });
     let errors = 0;
@@ -35,7 +52,8 @@ async function validateRules() {
             fileErrors.push(`Invalid impact "${data.impact}". Must be one of: ${VALID_IMPACTS.join(', ')}`);
         }
         if (!data.impactDescription) fileErrors.push('Missing impactDescription');
-        if (!data.tags || !Array.isArray(data.tags)) fileErrors.push('Missing or invalid tags array');
+        const tags = normalizeTags(data.tags);
+        if (!tags || tags.length === 0) fileErrors.push('Missing or invalid tags');
 
         // Check content has Incorrect and Correct sections
         if (!body.includes('**Incorrect')) {
