@@ -2,6 +2,8 @@
 
 A collection of skills for AI coding agents working with Azure Cosmos DB. Skills are packaged instructions and scripts that extend agent capabilities.
 
+![agent-kit-cosmosdb (1)](https://github.com/user-attachments/assets/0a2c2e5f-62ee-4741-adda-9af790980761)
+
 Skills follow the [Agent Skills](https://agentskills.io/) format.
 
 ## Available Skills
