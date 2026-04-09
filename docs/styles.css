@@ -258,6 +258,41 @@ main {
   margin: 0.35rem 0 0;
 }
 
+.integration-content {
+  margin-top: 0.8rem;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.integration-card {
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: #0a142fd4;
+  padding: 1rem;
+}
+
+.integration-card h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+}
+
+.integration-card p {
+  margin: 0.5rem 0;
+  font-size: 0.92rem;
+}
+
+.integration-card a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.integration-card a:hover {
+  color: var(--accent-2);
+}
+
 .quickstart pre {
   margin: 0.8rem 0 0;
   padding: 0.9rem;
@@ -377,7 +412,8 @@ textarea:focus {
 @media (max-width: 900px) {
   .hero-metrics,
   .card-grid,
-  .form-grid {
+  .form-grid,
+  .integration-content {
     grid-template-columns: 1fr;
   }
 
