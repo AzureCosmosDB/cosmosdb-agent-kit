@@ -1,0 +1,25 @@
+<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Blue planet background -->
+  <circle cx="150" cy="150" r="100" fill="#2B6DB6"/>
+  
+  <!-- Cyan ring/orbit -->
+  <ellipse cx="150" cy="150" rx="130" ry="90" fill="none" stroke="#00D4FF" stroke-width="24"/>
+  
+  <!-- White clouds on left -->
+  <ellipse cx="80" cy="170" rx="45" ry="35" fill="#F5F5F5"/>
+  <ellipse cx="100" cy="180" rx="40" ry="30" fill="#F5F5F5"/>
+  
+  <!-- White clouds on right -->
+  <ellipse cx="220" cy="120" rx="50" ry="38" fill="#F5F5F5"/>
+  <ellipse cx="245" cy="135" rx="40" ry="32" fill="#F5F5F5"/>
+  
+  <!-- Top left star -->
+  <g transform="translate(50, 30)">
+    <polygon points="0,-20 5,-5 20,-2 10,8 12,23 0,17 -12,23 -10,8 -20,-2 -5,-5" fill="#00D4FF"/>
+  </g>
+  
+  <!-- Bottom right star -->
+  <g transform="translate(320, 310)">
+    <polygon points="0,-20 5,-5 20,-2 10,8 12,23 0,17 -12,23 -10,8 -20,-2 -5,-5" fill="#00D4FF"/>
+  </g>
+</svg>
