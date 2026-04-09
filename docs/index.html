@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cosmos DB Agent Kit</title>
+    <meta
+      name="description"
+      content="A curated, production-ready toolkit of Cosmos DB agent skills, testing scenarios, and best-practice rules."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="noise" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <a class="logo" href="#top">CosmosDB Agent Kit</a>
+      <nav>
+        <a href="#highlights">Highlights</a>
+        <a href="#skills">Skills</a>
+        <a href="#testing">Testing</a>
+        <a href="#survey">Survey</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero reveal">
+        <p class="eyebrow">Agent skills for real-world Cosmos DB decisions</p>
+        <h1>Build Better AI Coding Agents for Cosmos DB</h1>
+        <p class="lead">
+          Cosmos DB Agent Kit packages practical rules, deterministic scenarios, and evaluation workflows
+          so your agents ship faster, spend fewer RUs, and avoid costly modeling mistakes.
+        </p>
+        <div class="hero-actions">
+          <a class="btn primary" href="https://github.com/AzureCosmosDB/cosmosdb-agent-kit" target="_blank" rel="noreferrer">View on GitHub</a>
+          <a class="btn ghost" href="https://github.com/AzureCosmosDB/cosmosdb-agent-kit#installation" target="_blank" rel="noreferrer">Install Kit</a>
+        </div>
+        <div class="hero-metrics">
+          <article>
+            <h2>45+</h2>
+            <p>Cosmos DB best-practice rules</p>
+          </article>
+          <article>
+            <h2>5</h2>
+            <p>Core test scenarios for multi-language iterations</p>
+          </article>
+          <article>
+            <h2>2</h2>
+            <p>Testing frameworks (<code>testing</code> and <code>testing-v2</code>)</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="highlights" class="panel reveal stagger-parent">
+        <h2>Why Teams Use It</h2>
+        <div class="card-grid">
+          <article class="card stagger-item">
+            <h3>High-Impact Rules First</h3>
+            <p>
+              Critical guidance for partition strategy, data modeling, and query tuning is prioritized so agents
+              make correct architectural choices before code generation drifts.
+            </p>
+          </article>
+          <article class="card stagger-item">
+            <h3>Deterministic Evaluations</h3>
+            <p>
+              Scenario contracts and stable test harnesses make regressions visible quickly and reduce noise across
+              iteration comparisons.
+            </p>
+          </article>
+          <article class="card stagger-item">
+            <h3>Portable Skill Format</h3>
+            <p>
+              Skills follow the Agent Skills format, making the same guidance reusable across Copilot, Claude Code,
+              and other compatible tools.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="skills" class="panel alt reveal">
+        <h2>Skill Coverage Snapshot</h2>
+        <div class="pill-row">
+          <span>Data Modeling</span>
+          <span>Partition Design</span>
+          <span>Query Optimization</span>
+          <span>SDK Practices</span>
+          <span>Indexing</span>
+          <span>Throughput</span>
+          <span>Global Distribution</span>
+          <span>Monitoring</span>
+        </div>
+        <p>
+          The <code>cosmosdb-best-practices</code> skill includes tactical guidance for SQL API usage, vector search setup,
+          full-text search, consistency, and operational diagnostics.
+        </p>
+      </section>
+
+      <section id="testing" class="panel reveal stagger-parent">
+        <h2>Testing Workflows</h2>
+        <div class="timeline">
+          <article class="timeline-item stagger-item">
+            <h3>1. Pick a scenario</h3>
+            <p>Use the templates in <code>testing-v2/scenarios/</code> to define <code>SCENARIO.md</code> and API contracts.</p>
+          </article>
+          <article class="timeline-item stagger-item">
+            <h3>2. Run an iteration</h3>
+            <p>Create iteration folders, generate implementation code, and track per-iteration outcomes.</p>
+          </article>
+          <article class="timeline-item stagger-item">
+            <h3>3. Evaluate + improve</h3>
+            <p>Classify failures, add/adjust rules, rebuild AGENTS docs, and update improvement logs.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel quickstart reveal">
+        <h2>Quick Start</h2>
+        <pre><code>npx skills add AzureCosmosDB/cosmosdb-agent-kit
+npm install
+npm run validate
+npm run build</code></pre>
+      </section>
+
+      <section id="survey" class="panel survey reveal">
+        <h2>Help Improve the Agent Kit</h2>
+        <p>
+          Share what is working and where you want deeper guidance. Submitting opens a prefilled GitHub issue in this repository.
+        </p>
+
+        <form id="feedback-form" novalidate>
+          <div class="form-grid">
+            <label>
+              Your role
+              <select name="role" required>
+                <option value="" selected disabled>Select one</option>
+                <option>App developer</option>
+                <option>Platform engineer</option>
+                <option>Data engineer</option>
+                <option>AI engineer</option>
+                <option>Other</option>
+              </select>
+            </label>
+
+            <label>
+              How often do you use the kit?
+              <select name="frequency" required>
+                <option value="" selected disabled>Select one</option>
+                <option>Daily</option>
+                <option>Weekly</option>
+                <option>Monthly</option>
+                <option>Just evaluating</option>
+              </select>
+            </label>
+
+            <label>
+              Overall usefulness (1-5)
+              <input name="usefulness" type="number" min="1" max="5" required />
+            </label>
+
+            <label>
+              Rule clarity (1-5)
+              <input name="clarity" type="number" min="1" max="5" required />
+            </label>
+
+            <label>
+              Scenario coverage (1-5)
+              <input name="coverage" type="number" min="1" max="5" required />
+            </label>
+
+            <label>
+              Example quality (1-5)
+              <input name="examples" type="number" min="1" max="5" required />
+            </label>
+
+            <label class="full-width">
+              What has been most valuable?
+              <textarea name="valuable" rows="3" required></textarea>
+            </label>
+
+            <label class="full-width">
+              Where did the agent output still fail you?
+              <textarea name="pain" rows="3" required></textarea>
+            </label>
+
+            <label class="full-width">
+              What should we add next?
+              <textarea name="wishlist" rows="3" required></textarea>
+            </label>
+
+            <label class="full-width">
+              Optional contact (GitHub handle or email)
+              <input name="contact" type="text" />
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn primary">Submit Survey</button>
+            <p id="form-status" role="status" aria-live="polite"></p>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>Built for the Cosmos DB agent ecosystem.</p>
+      <a href="https://github.com/AzureCosmosDB/cosmosdb-agent-kit" target="_blank" rel="noreferrer">Contribute on GitHub</a>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>

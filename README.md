@@ -34,6 +34,32 @@ Azure Cosmos DB performance optimization guidelines containing 45+ rules across 
 npx skills add AzureCosmosDB/cosmosdb-agent-kit
 ```
 
+## Website
+
+A project website is available in `docs/` and is designed for GitHub Pages publishing.
+
+- Main page: `docs/index.html`
+- Styles: `docs/styles.css`
+- Interactions + survey flow: `docs/app.js`
+
+The website includes a feedback survey that opens a prefilled GitHub issue so users can share improvements for Agent Kit without requiring a backend service.
+
+### Preview locally
+
+```bash
+# Option 1: VS Code Live Server
+# open docs/index.html with Live Server
+
+# Option 2: Python static server
+python -m http.server 8080 --directory docs
+```
+
+Then open `http://localhost:8080`.
+
+### Publish with GitHub Pages
+
+In repository settings, set Pages source to `Deploy from a branch`, branch `main`, folder `/docs`.
+
 ## Usage
 
 Skills are automatically available once installed. The agent will use them when relevant tasks are detected.
