@@ -70,6 +70,15 @@ main,
   font-weight: 700;
   text-decoration: none;
   letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.logo-icon {
+  height: 32px;
+  width: 32px;
+  display: block;
 }
 
 nav {
