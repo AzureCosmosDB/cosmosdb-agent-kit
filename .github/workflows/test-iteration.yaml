@@ -996,7 +996,8 @@ jobs:
             try {
               const report = JSON.parse(fs.readFileSync('test-report.json', 'utf8'));
               const failCount = report.summary.failed + report.summary.errors;
-              const total = report.summary.total;
+              // Guard: collection errors can give total=0 with failCount>0
+              const total = Math.max(report.summary.total, failCount);
               failureSummary = `${failCount} of ${total} tests failed.`;
             } catch (e) {
               failureSummary = 'Test results could not be parsed.';
