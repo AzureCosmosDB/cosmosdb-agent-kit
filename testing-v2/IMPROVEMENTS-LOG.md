@@ -18,6 +18,65 @@ Each improvement entry should include:
 
 ## Improvements
 
+#### 2026-04-15: Batch #209 — Multitenant SaaS (Java / Skills Loaded)
+
+- **Scenario**: multitenant-saas
+- **Batch issue**: #209
+- **Language**: Java (skills loaded)
+- **Iterations evaluated**: 5 (PRs #215, #216, #219, #217, #218)
+- **Result**: ⚠️ PARTIAL — No consistent failures, but 40% startup failure rate limits confidence
+- **Mean score**: 6.4/10 (σ=4.9) — High variance driven by 2 startup failures (0% pass rate) vs. 100% pass rate in successful iterations
+
+**Summary of Aggregate Results**:
+
+| Metric | Value |
+|--------|-------|
+| Pass Rate (mean) | 60.0% |
+| Pass Rate (std dev) | 54.8% |
+| Always-fail tests | **0** |
+| Always-pass tests | 1 (1%) — `build_startup::build_compilation` |
+| Flaky tests | 74 (99%) |
+| Startup failures | 2/5 iterations |
+
+**Consistent Failures**: None. Per the batch evaluation recipe, no new rules are required when there are zero always-fail tests.
+
+**Startup Failure Analysis**:
+
+The sole driver of all test failures is startup: when `app_startup` fails (iterations 2 and 4), every subsequent test returns `missing` (0% pass rate). When startup succeeds (iterations 1, 3, 5), all 73 tests pass at 100%. The `app_startup` test shows a 60% pass rate with outcomes: `passed, failed, passed, failed, passed`.
+
+The startup failures are caused by the Java Cosmos DB SDK's SSL/Netty behavior when connecting to the local emulator. The pattern (odd iterations pass, even fail) indicates that 40% of agent-generated implementations use an SSL initialization approach that fails in CI, while 60% use a working approach.
+
+**Classification: SDK/framework quirk (startup-only)** — Not a functional Cosmos DB skill gap. When startup succeeds, skill coverage is perfect across all categories.
+
+**Category Results (successful iterations only)**:
+
+| Category | Pass Rate (when startup works) |
+|----------|-------------------------------|
+| API Contract | 100.0% |
+| Cosmos Infrastructure | 100.0% |
+| Data Integrity | 100.0% |
+
+**Issues Encountered**:
+
+1. **Java Cosmos SDK SSL initialization flakiness (40% startup failure rate)** — 🔧 SDK QUIRK
+   - Problem: 2/5 agent-generated Java implementations use an SSL bypass that fails at startup (likely `SSLContext.setDefault()` without Netty override)
+   - Impact: All tests return `missing` — 0% pass rate for those iterations
+   - Classification: SDK/framework quirk — existing `sdk-emulator-ssl.md` lacks clear programmatic Java CI bypass guidance
+   - Status: ⚠️ Noted — below the always-fail threshold per batch evaluation recipe; no new rule created at this time
+
+**Rules Created** 🆕: None (no always-fail tests)
+
+**Rules Updated** 🔧: None (no always-fail tests)
+
+**Lessons for Next Iterations**:
+1. Java startup reliability needs improvement — the existing `sdk-emulator-ssl.md` rule may need a clearer programmatic Java bypass section for CI environments where filesystem certificate import is not feasible
+2. When startup succeeds, Java agents correctly implement all multitenant-saas Cosmos DB patterns (HPK, type discriminators, tenant isolation, composite indexes, analytics)
+3. Consider adding more Java iterations to determine if startup can reach consistent 100% with improved rule guidance
+
+**Files Modified**: None (no rule changes required for zero always-fail tests)
+
+---
+
 #### 2026-04-02: Batch #191 — Gaming Leaderboard (Python / Skills Loaded)
 
 - **Scenario**: gaming-leaderboard
@@ -31,7 +90,6 @@ Each improvement entry should include:
 
 | Metric | Value |
 |--------|-------|
-| 2026-04-15 | multitenant-saas | Batch #209 (skills, java) | Aggregated 5 iterations | See batch-results/ |
 | Pass Rate (mean) | 81.3% |
 | Pass Rate (std dev) | 31.4% |
 | Always-fail tests | **0** |
@@ -44,7 +102,6 @@ Each improvement entry should include:
 
 | Test | Pass Rate | Pattern |
 |------|-----------|---------|
-| 2026-04-15 | multitenant-saas | Batch #209 (skills, java) | Aggregated 5 iterations | See batch-results/ |
 | `TestUpdateDeleteConsistency::test_deleted_player_removed_from_leaderboard` | 20% | `failed, error, failed, failed, passed` |
 | `TestUpdateDeleteConsistency::test_deleted_player_scores_not_in_history` | 20% | `failed, error, failed, failed, passed` |
 | `TestUpdateDeleteConsistency::test_updated_region_reflected_in_regional_leaderboard` | 40% | `passed, error, failed, failed, passed` |
@@ -188,7 +245,6 @@ Each improvement entry should include:
 **Score Improvement Trend**:
 | Iteration | Language | Score | Key Issues |
 |-----------|----------|-------|------------|
-| 2026-04-15 | multitenant-saas | Batch #209 (skills, java) | Aggregated 5 iterations | See batch-results/ |
 | 2026-04-01 | gaming-leaderboard | Batch #191 (skills, python) | Aggregated 5 iterations | See batch-results/ |
 | 001 | .NET | 7/10 | O(N) ranking, missing ETag |
 | 002 | Java | 7/10 | OFFSET/LIMIT, API build errors |
@@ -349,7 +405,6 @@ Each improvement entry should include:
 
 | Aspect | Iter-001 (.NET) | Iter-002 (Java) | Delta |
 |--------|----------------|----------------|-------|
-| 2026-04-15 | multitenant-saas | Batch #209 (skills, java) | Aggregated 5 iterations | See batch-results/ |
 | 2026-04-01 | gaming-leaderboard | Batch #191 (skills, python) | Aggregated 5 iterations | See batch-results/ |
 | Rank computation | ❌ O(N) scan | ✅ COUNT-based | ✅ Improved |
 | Schema versioning | ❌ Missing | ✅ Applied | ✅ Improved |
@@ -1120,7 +1175,6 @@ After completing the iteration successfully, user provided GitHub samples showin
 
 | Aspect | Iter-001 (.NET) | Iter-001 (Java) | Delta |
 |--------|----------------|----------------|-------|
-| 2026-04-15 | multitenant-saas | Batch #209 (skills, java) | Aggregated 5 iterations | See batch-results/ |
 | 2026-04-01 | gaming-leaderboard | Batch #191 (skills, python) | Aggregated 5 iterations | See batch-results/ |
 | HPK design | ✅ /tenantId, /projectId | ✅ /tenantId, /type, /projectId | ✅ Added /type level |
 | Build success | ❌ Newtonsoft.Json issue | ❌ CircularDependency | ⟷ Different issues |
