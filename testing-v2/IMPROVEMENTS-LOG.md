@@ -31,6 +31,7 @@ Each improvement entry should include:
 
 | Metric | Value |
 |--------|-------|
+| 2026-04-15 | multitenant-saas | Batch #209 (skills, java) | Aggregated 5 iterations | See batch-results/ |
 | Pass Rate (mean) | 81.3% |
 | Pass Rate (std dev) | 31.4% |
 | Always-fail tests | **0** |
@@ -43,6 +44,7 @@ Each improvement entry should include:
 
 | Test | Pass Rate | Pattern |
 |------|-----------|---------|
+| 2026-04-15 | multitenant-saas | Batch #209 (skills, java) | Aggregated 5 iterations | See batch-results/ |
 | `TestUpdateDeleteConsistency::test_deleted_player_removed_from_leaderboard` | 20% | `failed, error, failed, failed, passed` |
 | `TestUpdateDeleteConsistency::test_deleted_player_scores_not_in_history` | 20% | `failed, error, failed, failed, passed` |
 | `TestUpdateDeleteConsistency::test_updated_region_reflected_in_regional_leaderboard` | 40% | `passed, error, failed, failed, passed` |
@@ -186,6 +188,7 @@ Each improvement entry should include:
 **Score Improvement Trend**:
 | Iteration | Language | Score | Key Issues |
 |-----------|----------|-------|------------|
+| 2026-04-15 | multitenant-saas | Batch #209 (skills, java) | Aggregated 5 iterations | See batch-results/ |
 | 2026-04-01 | gaming-leaderboard | Batch #191 (skills, python) | Aggregated 5 iterations | See batch-results/ |
 | 001 | .NET | 7/10 | O(N) ranking, missing ETag |
 | 002 | Java | 7/10 | OFFSET/LIMIT, API build errors |
@@ -346,6 +349,7 @@ Each improvement entry should include:
 
 | Aspect | Iter-001 (.NET) | Iter-002 (Java) | Delta |
 |--------|----------------|----------------|-------|
+| 2026-04-15 | multitenant-saas | Batch #209 (skills, java) | Aggregated 5 iterations | See batch-results/ |
 | 2026-04-01 | gaming-leaderboard | Batch #191 (skills, python) | Aggregated 5 iterations | See batch-results/ |
 | Rank computation | ❌ O(N) scan | ✅ COUNT-based | ✅ Improved |
 | Schema versioning | ❌ Missing | ✅ Applied | ✅ Improved |
@@ -1116,6 +1120,7 @@ After completing the iteration successfully, user provided GitHub samples showin
 
 | Aspect | Iter-001 (.NET) | Iter-001 (Java) | Delta |
 |--------|----------------|----------------|-------|
+| 2026-04-15 | multitenant-saas | Batch #209 (skills, java) | Aggregated 5 iterations | See batch-results/ |
 | 2026-04-01 | gaming-leaderboard | Batch #191 (skills, python) | Aggregated 5 iterations | See batch-results/ |
 | HPK design | ✅ /tenantId, /projectId | ✅ /tenantId, /type, /projectId | ✅ Added /type level |
 | Build success | ❌ Newtonsoft.Json issue | ❌ CircularDependency | ⟷ Different issues |
