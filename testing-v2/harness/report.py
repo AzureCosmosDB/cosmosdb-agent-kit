@@ -294,7 +294,11 @@ def _cli_main():
     failures = int(suite.get("failures", 0))
     errors = int(suite.get("errors", 0))
     skipped = int(suite.get("skipped", 0))
-    passed = total - failures - errors - skipped
+    # Guard: pytest collection/setup errors can produce errors>0 with tests=0.
+    # Treat those errors as failed tests so total is never less than failure count.
+    if total == 0 and (failures + errors) > 0:
+        total = failures + errors
+    passed = max(0, total - failures - errors - skipped)
     pass_rate = round(passed / total * 100, 1) if total > 0 else 0
 
     # --- Categorize test results by file for better signal reporting ---

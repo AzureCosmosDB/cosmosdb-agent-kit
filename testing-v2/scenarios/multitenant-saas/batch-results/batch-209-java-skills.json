@@ -1,0 +1,1265 @@
+{
+  "batch_issue": 209,
+  "scenario": "multitenant-saas",
+  "language": "java",
+  "skills": "yes",
+  "pr_numbers": "215,216,219,217,218",
+  "aggregate": {
+    "iterations": 5,
+    "startup_failures": 2,
+    "build_failures": 0,
+    "build_startup_status": [
+      {
+        "build": true,
+        "startup": true
+      },
+      {
+        "build": true,
+        "startup": false
+      },
+      {
+        "build": true,
+        "startup": true
+      },
+      {
+        "build": true,
+        "startup": false
+      },
+      {
+        "build": true,
+        "startup": true
+      }
+    ],
+    "pass_rate": {
+      "mean": 60.0,
+      "stddev": 54.8,
+      "min": 0.0,
+      "max": 100.0,
+      "values": [
+        100.0,
+        0.0,
+        100.0,
+        0.0,
+        100.0
+      ]
+    },
+    "score": {
+      "mean": 6.4,
+      "stddev": 4.9,
+      "min": 1,
+      "max": 10,
+      "values": [
+        10,
+        1,
+        10,
+        1,
+        10
+      ]
+    },
+    "passed": {
+      "mean": 43.8,
+      "values": [
+        73,
+        0,
+        73,
+        0,
+        73
+      ]
+    },
+    "failed": {
+      "mean": 0,
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "total": {
+      "mean": 43.8,
+      "values": [
+        73,
+        0,
+        73,
+        0,
+        73
+      ]
+    },
+    "test_consistency": {
+      "build_startup::app_startup": {
+        "outcomes": [
+          "passed",
+          "failed",
+          "passed",
+          "failed",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 2,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "build_startup::build_compilation": {
+        "outcomes": [
+          "passed",
+          "passed",
+          "passed",
+          "passed",
+          "passed"
+        ],
+        "pass_count": 5,
+        "fail_count": 0,
+        "miss_count": 0,
+        "total_runs": 5,
+        "stability": "always-pass",
+        "pass_rate": 100.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestCreateProject::test_create_project_response_fields": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestCreateProject::test_create_project_returns_201": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestCreateTask::test_create_task_default_status_is_todo": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestCreateTask::test_create_task_response_fields": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestCreateTask::test_create_task_returns_201": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestCreateTenant::test_create_tenant_generates_unique_ids": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestCreateTenant::test_create_tenant_has_created_at": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestCreateTenant::test_create_tenant_response_fields": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestCreateTenant::test_create_tenant_returns_201": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestCreateUser::test_create_user_generates_unique_ids": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestCreateUser::test_create_user_response_fields": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestCreateUser::test_create_user_returns_201": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestGetProject::test_get_nonexistent_project_returns_404": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestGetProject::test_get_project_returns_200": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestGetProject::test_get_project_returns_correct_name": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestGetTenant::test_get_nonexistent_tenant_returns_404": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestGetTenant::test_get_tenant_returns_200": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestGetTenant::test_get_tenant_returns_correct_name": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestHealth::test_health_response_has_status": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestHealth::test_health_returns_200": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestListProjectTasks::test_list_tasks_returns_200": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestListProjectTasks::test_list_tasks_returns_array": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestListProjectTasks::test_mobile_app_has_4_seeded_tasks": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestListProjectTasks::test_website_redesign_has_3_seeded_tasks": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestListProjects::test_acme_has_at_least_2_seeded_projects": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestListProjects::test_list_projects_returns_200": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestListProjects::test_startup_has_at_least_1_seeded_project": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestListUsers::test_acme_has_at_least_3_seeded_users": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestListUsers::test_list_users_returns_200": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestListUsers::test_list_users_returns_array": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestListUsers::test_startup_has_at_least_2_seeded_users": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestQueryTasksByStatus::test_query_blocked_tasks_in_acme": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestQueryTasksByStatus::test_query_by_status_returns_200": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestQueryTasksByStatus::test_query_done_tasks_in_acme": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestQueryTasksByStatus::test_query_in_progress_tasks_in_acme": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestQueryTasksByStatus::test_query_todo_tasks_in_acme": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestTenantAnalytics::test_acme_analytics_counts": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestTenantAnalytics::test_acme_tasks_by_priority_breakdown": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestTenantAnalytics::test_acme_tasks_by_status_breakdown": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestTenantAnalytics::test_analytics_response_fields": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestTenantAnalytics::test_analytics_returns_200": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestTenantIsolation::test_analytics_reflect_only_own_tenant": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestTenantIsolation::test_tenant_0_cannot_see_tenant_1_projects": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestTenantIsolation::test_tenant_1_cannot_see_tenant_0_users": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestTenantIsolation::test_tenant_1_tasks_isolated": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestUserTasks::test_alice_has_tasks": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestUserTasks::test_bob_has_tasks_across_projects": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestUserTasks::test_user_tasks_all_belong_to_user": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestUserTasks::test_user_tasks_returns_200": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_api_contract.TestUserTasks::test_user_tasks_returns_array": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_cosmos_infrastructure.TestContainerPartitionKeys::test_container_uses_tenant_partition_key": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_cosmos_infrastructure.TestContainerPartitionKeys::test_hierarchical_partition_keys": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_cosmos_infrastructure.TestContainerPartitionKeys::test_no_id_only_partition_key": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_cosmos_infrastructure.TestCrossBoundaryConsistency::test_task_fields_match_api": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_cosmos_infrastructure.TestCrossBoundaryConsistency::test_tenant_data_stored_correctly": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_cosmos_infrastructure.TestCrossBoundaryConsistency::test_tenant_isolation_in_cosmos": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_cosmos_infrastructure.TestCrossBoundaryConsistency::test_user_fields_preserved": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_cosmos_infrastructure.TestDocumentStructure::test_schema_version_present": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_cosmos_infrastructure.TestDocumentStructure::test_type_discriminator_present": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_cosmos_infrastructure.TestEnumSerialization::test_priority_stored_as_string": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_cosmos_infrastructure.TestEnumSerialization::test_role_stored_as_string": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_cosmos_infrastructure.TestEnumSerialization::test_status_stored_as_string": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_cosmos_infrastructure.TestIndexingPolicies::test_composite_index_for_task_queries": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_cosmos_infrastructure.TestIndexingPolicies::test_custom_indexing_policy": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_cosmos_infrastructure.TestThroughputConfiguration::test_throughput_is_set": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_cosmos_infrastructure.TestTimestampSerialization::test_timestamps_are_iso_strings": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_data_integrity.TestDataPersistence::test_tasks_persisted": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_data_integrity.TestDataPersistence::test_tenants_exist_in_cosmos": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_data_integrity.TestHierarchicalPartitionKeys::test_check_hierarchical_keys": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_data_integrity.TestIndexingPolicy::test_composite_indexes_for_queries": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_data_integrity.TestIndexingPolicy::test_containers_have_indexing_policy": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_data_integrity.TestPartitionKeyDesign::test_no_id_only_partition_key": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      },
+      "testing-v2.scenarios.multitenant-saas.tests.test_data_integrity.TestPartitionKeyDesign::test_partition_key_includes_tenant_id": {
+        "outcomes": [
+          "passed",
+          "missing",
+          "passed",
+          "missing",
+          "passed"
+        ],
+        "pass_count": 3,
+        "fail_count": 0,
+        "miss_count": 2,
+        "total_runs": 5,
+        "stability": "flaky",
+        "pass_rate": 60.0
+      }
+    },
+    "category_stats": {
+      "api_contract": {
+        "mean": 100.0,
+        "stddev": 0.0,
+        "min": 100.0,
+        "max": 100.0,
+        "values": [
+          100.0,
+          100.0,
+          100.0
+        ]
+      },
+      "build_startup": {
+        "mean": 80.0,
+        "stddev": 27.4,
+        "min": 50.0,
+        "max": 100.0,
+        "values": [
+          100.0,
+          50.0,
+          100.0,
+          50.0,
+          100.0
+        ]
+      },
+      "cosmos_infrastructure": {
+        "mean": 100.0,
+        "stddev": 0.0,
+        "min": 100.0,
+        "max": 100.0,
+        "values": [
+          100.0,
+          100.0,
+          100.0
+        ]
+      },
+      "data_integrity": {
+        "mean": 100.0,
+        "stddev": 0.0,
+        "min": 100.0,
+        "max": 100.0,
+        "values": [
+          100.0,
+          100.0,
+          100.0
+        ]
+      }
+    }
+  }
+}
