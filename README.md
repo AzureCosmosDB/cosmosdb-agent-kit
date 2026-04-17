@@ -91,6 +91,12 @@ Works with Claude Code, GitHub Copilot, Gemini CLI, and other Agent Skills-compa
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a dated history of improvements to the skills themselves (new rules, rule clarifications, new categories).
+
+Each entry links to the PR that introduced the change. When you merge a PR that adds or updates a rule, add a new dated entry at the top.
+
 ## License
 
 MIT
