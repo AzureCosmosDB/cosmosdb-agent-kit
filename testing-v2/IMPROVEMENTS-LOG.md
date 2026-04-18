@@ -1244,6 +1244,43 @@ After completing the iteration successfully, user provided GitHub samples showin
 
 ---
 
+#### 2026-04-18: Batch 232 - IoT Device Telemetry (Java / skills loaded)
+
+- **Scenario**: iot-device-telemetry
+- **Iteration**: batch-232-java-skills
+- **Result**: ⚠️ PARTIAL — high stochastic variance, but 7 consistent failures identified and classified
+- **Score**: 2/10 (batch mean)
+
+**Rules Created** 🆕:
+1. **query-latest-by-timestamp.md** — Require `ORDER BY <timestamp> DESC` + `TOP 1` for deterministic latest-item queries (HIGH)
+2. **query-aggregate-single-pass.md** — Compute min/max/avg in one scoped aggregate query to avoid inconsistent stats (HIGH)
+
+**Rules Updated** 🔧:
+1. **model-schema-versioning.md** — Clarified that `schemaVersion` must be written on every persisted document type, not only primary entities (MEDIUM)
+2. **query-point-reads.md** — Added explicit parent-existence validation pattern using point reads before writing child/event records (HIGH)
+
+**Consistent Failure Classification (always-fail tests)**:
+1. `test_documents_have_schema_version` — 🔧 **Unclear existing rule**
+   - Existing rule was present (`model-schema-versioning`) but not explicit enough about applying versioning to all document types.
+2. `test_stats_humidity_values_correct` — ❌ **Cosmos DB anti-pattern**
+   - Symptom matches client-side/partial aggregation instead of one scoped aggregate query.
+3. `test_stats_temperature_min_correct` — ❌ **Cosmos DB anti-pattern**
+   - Same root cause class as humidity stats: inconsistent aggregation logic.
+4. `test_latest_reading_is_most_recent` — ❌ **Cosmos DB anti-pattern**
+   - Missing explicit `ORDER BY timestamp DESC` + `TOP 1` pattern for latest reads.
+5. `test_ingest_telemetry_empty_body_returns_4xx` — 📜 **Contract violation**
+   - API input validation behavior, not a Cosmos-specific best-practice gap.
+6. `test_ingest_telemetry_for_nonexistent_device_returns_4xx` — 🔧 **Unclear existing rule**
+   - Existing point-read guidance did not clearly instruct referential existence validation before child writes.
+7. `test_ingest_telemetry_missing_device_id_returns_4xx` — 📜 **Contract violation**
+   - Required-field validation per API contract, not a Cosmos-specific anti-pattern.
+
+**Batch Notes**:
+- Flaky tests were intentionally ignored per `testing-v2/EVALUATE.md`.
+- Rule additions are generic and reusable across domains (not scenario-specific framing).
+
+---
+
 ## Release History
 
 ### v1.0.0 (Initial Release)

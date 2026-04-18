@@ -40,15 +40,17 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 2.7 [Align Partition Key with Query Patterns](#27-align-partition-key-with-query-patterns)
    - 2.8 [Create Synthetic Partition Keys When Needed](#28-create-synthetic-partition-keys-when-needed)
 3. [Query Optimization](#3-query-optimization) — **HIGH**
-   - 3.1 [Minimize Cross-Partition Queries](#31-minimize-cross-partition-queries)
-   - 3.2 [Avoid Full Container Scans](#32-avoid-full-container-scans)
-   - 3.3 [Detect and Redirect Analytical Queries Away from Transactional Containers](#33-detect-and-redirect-analytical-queries-away-from-transactional-containers)
-   - 3.4 [Order Filters by Selectivity](#34-order-filters-by-selectivity)
-   - 3.5 [Use Continuation Tokens for Pagination](#35-use-continuation-tokens-for-pagination)
-   - 3.6 [Use Parameterized Queries](#36-use-parameterized-queries)
-   - 3.7 [Use Point Reads Instead of Queries for Known ID and Partition Key](#37-use-point-reads-instead-of-queries-for-known-id-and-partition-key)
-   - 3.8 [Parameterize TOP Values Safely](#38-parameterize-top-values-safely)
-   - 3.9 [Project Only Needed Fields](#39-project-only-needed-fields)
+   - 3.1 [Compute min/max/avg with one scoped aggregate query](#31-compute-min-max-avg-with-one-scoped-aggregate-query)
+   - 3.2 [Minimize Cross-Partition Queries](#32-minimize-cross-partition-queries)
+   - 3.3 [Avoid Full Container Scans](#33-avoid-full-container-scans)
+   - 3.4 [Query "latest" documents with explicit ORDER BY and TOP 1](#34-query-latest-documents-with-explicit-order-by-and-top-1)
+   - 3.5 [Detect and Redirect Analytical Queries Away from Transactional Containers](#35-detect-and-redirect-analytical-queries-away-from-transactional-containers)
+   - 3.6 [Order Filters by Selectivity](#36-order-filters-by-selectivity)
+   - 3.7 [Use Continuation Tokens for Pagination](#37-use-continuation-tokens-for-pagination)
+   - 3.8 [Use Parameterized Queries](#38-use-parameterized-queries)
+   - 3.9 [Use Point Reads Instead of Queries for Known ID and Partition Key](#39-use-point-reads-instead-of-queries-for-known-id-and-partition-key)
+   - 3.10 [Parameterize TOP Values Safely](#310-parameterize-top-values-safely)
+   - 3.11 [Project Only Needed Fields](#311-project-only-needed-fields)
 4. [SDK Best Practices](#4-sdk-best-practices) — **HIGH**
    - 4.1 [Use Async APIs for Better Throughput](#41-use-async-apis-for-better-throughput)
    - 4.2 [Configure Threshold-Based Availability Strategy (Hedging)](#42-configure-threshold-based-availability-strategy-hedging-)
@@ -1173,6 +1175,10 @@ Reference: [Data modeling in Azure Cosmos DB](https://learn.microsoft.com/azure/
 
 Include schema version in documents to handle evolution gracefully. This enables safe migrations and backward-compatible reads.
 
+For multi-entity or event-heavy workloads, apply this to **every persisted document type** (for example: metadata documents, events, telemetry records, and denormalized read models), not just top-level business entities.
+
+Use a consistent field name such as `schemaVersion` (camelCase) and set it at write time so raw document checks, migrations, and mixed-version readers all work reliably.
+
 **Incorrect (no version tracking):**
 
 ```csharp
@@ -2117,7 +2123,73 @@ References:
 
 **Impact: HIGH**
 
-### 3.1 Minimize Cross-Partition Queries
+### 3.1 Compute min/max/avg with one scoped aggregate query
+
+**Impact: HIGH** (prevents incorrect stats from partial reads or mismatched filters)
+
+## Compute min/max/avg with one scoped aggregate query
+
+For endpoint statistics, compute `MIN`, `MAX`, and `AVG` from the same filtered dataset in a single Cosmos DB query whenever possible. Avoid mixing values from separate queries, partial pages, or different time windows, which produces mathematically inconsistent results.
+
+**Incorrect (client-side aggregation over partial or inconsistent data):**
+
+```java
+// ❌ Reads only first page and computes stats from incomplete data
+CosmosPagedIterable<JsonNode> page = container.queryItems(
+    "SELECT * FROM c WHERE c.deviceId = @deviceId",
+    new CosmosQueryRequestOptions(),
+    JsonNode.class
+);
+
+List<JsonNode> docs = page.stream().limit(50).toList(); // arbitrary subset
+double min = docs.stream().mapToDouble(d -> d.get("temperature").asDouble()).min().orElse(0);
+double max = docs.stream().mapToDouble(d -> d.get("temperature").asDouble()).max().orElse(0);
+double avg = docs.stream().mapToDouble(d -> d.get("temperature").asDouble()).average().orElse(0);
+```
+
+```python
+# ❌ Different filters per metric cause inconsistent results
+min_q = "SELECT VALUE MIN(c.humidity) FROM c WHERE c.deviceId = @id"
+max_q = "SELECT VALUE MAX(c.humidity) FROM c WHERE c.deviceId = @id AND c.timestamp > @start"
+avg_q = "SELECT VALUE AVG(c.humidity) FROM c WHERE c.deviceId = @id AND c.timestamp > @start"
+```
+
+**Correct (single-pass aggregate query with consistent filters):**
+
+```java
+// ✅ One query, one filter set, consistent aggregate outputs
+String sql = """
+    SELECT
+      MIN(c.temperature) AS minTemp,
+      MAX(c.temperature) AS maxTemp,
+      AVG(c.temperature) AS avgTemp,
+      MIN(c.humidity) AS minHumidity,
+      MAX(c.humidity) AS maxHumidity,
+      AVG(c.humidity) AS avgHumidity
+    FROM c
+    WHERE c.deviceId = @deviceId
+      AND c.timestamp >= @start
+      AND c.timestamp <= @end
+    """;
+```
+
+```python
+# ✅ Use one scoped aggregate query
+query = """
+SELECT
+  MIN(c.value) AS minValue,
+  MAX(c.value) AS maxValue,
+  AVG(c.value) AS avgValue
+FROM c
+WHERE c.entityId = @id AND c.timestamp >= @start AND c.timestamp <= @end
+"""
+```
+
+Use a partition key aligned with the aggregation scope (for example, per-entity/per-device stats) so the query stays efficient and predictable.
+
+Reference: [Aggregate functions in Azure Cosmos DB for NoSQL](https://learn.microsoft.com/azure/cosmos-db/nosql/query/aggregate-functions) | [Query performance tips](https://learn.microsoft.com/azure/cosmos-db/nosql/performance-tips-query-sdk)
+
+### 3.2 Minimize Cross-Partition Queries
 
 **Impact: HIGH** (reduces RU by 5-100x)
 
@@ -2230,7 +2302,7 @@ Strategies to avoid cross-partition:
 
 Reference: [Query patterns](https://learn.microsoft.com/azure/cosmos-db/nosql/query/getting-started)
 
-### 3.2 Avoid Full Container Scans
+### 3.3 Avoid Full Container Scans
 
 **Impact: HIGH** (prevents unbounded RU consumption)
 
@@ -2314,7 +2386,71 @@ Console.WriteLine($"Index Hit: {response.Diagnostics}");
 
 Reference: [Query optimization](https://learn.microsoft.com/azure/cosmos-db/nosql/query-metrics)
 
-### 3.3 Detect and Redirect Analytical Queries Away from Transactional Containers
+### 3.4 Query "latest" documents with explicit ORDER BY and TOP 1
+
+**Impact: HIGH** (prevents stale or nondeterministic "latest item" results)
+
+## Query "latest" documents with explicit ORDER BY and TOP 1
+
+When returning the latest item for an entity (latest reading, latest status, most recent event), always query with an explicit time field sort and `TOP 1`: `ORDER BY <timestampField> DESC`. Without explicit ordering, Cosmos DB does not guarantee result order and may return an older document.
+
+**Incorrect (no deterministic ordering):**
+
+```java
+// ❌ No ORDER BY: can return an older document
+String sql = "SELECT TOP 1 * FROM c WHERE c.deviceId = @deviceId";
+SqlQuerySpec spec = new SqlQuerySpec(
+    sql,
+    List.of(new SqlParameter("@deviceId", deviceId))
+);
+```
+
+```python
+# ❌ Client picks "first" item from an unordered query
+query = "SELECT * FROM c WHERE c.userId = @uid"
+items = list(container.query_items(
+    query=query,
+    parameters=[{"name": "@uid", "value": user_id}],
+    enable_cross_partition_query=True
+))
+latest = items[0] if items else None
+```
+
+**Correct (explicit timestamp sort + TOP 1):**
+
+```java
+// ✅ Deterministic latest item by timestamp
+String sql = """
+    SELECT TOP 1 * FROM c
+    WHERE c.deviceId = @deviceId AND IS_DEFINED(c.timestamp)
+    ORDER BY c.timestamp DESC
+    """;
+SqlQuerySpec spec = new SqlQuerySpec(
+    sql,
+    List.of(new SqlParameter("@deviceId", deviceId))
+);
+```
+
+```python
+# ✅ Deterministic latest item
+query = """
+SELECT TOP 1 * FROM c
+WHERE c.userId = @uid AND IS_DEFINED(c.createdAt)
+ORDER BY c.createdAt DESC
+"""
+items = list(container.query_items(
+    query=query,
+    parameters=[{"name": "@uid", "value": user_id}],
+    enable_cross_partition_query=True
+))
+latest = items[0] if items else None
+```
+
+If the query can span partitions, define the needed index policy for your filter + sort pattern (for example, a composite index when required by your query shape).
+
+Reference: [ORDER BY in Azure Cosmos DB for NoSQL](https://learn.microsoft.com/azure/cosmos-db/nosql/query/order-by) | [TOP keyword](https://learn.microsoft.com/azure/cosmos-db/nosql/query/keywords#top)
+
+### 3.5 Detect and Redirect Analytical Queries Away from Transactional Containers
 
 **Impact: HIGH** (prevents RU starvation, 429 throttling cascades, and query timeouts)
 
@@ -2421,7 +2557,7 @@ References:
 - [Analytical store overview](https://learn.microsoft.com/azure/cosmos-db/analytical-store-introduction)
 - [Change Feed materialized views pattern](https://learn.microsoft.com/azure/cosmos-db/nosql/change-feed-design-patterns#materialized-views)
 
-### 3.4 Order Filters by Selectivity
+### 3.6 Order Filters by Selectivity
 
 **Impact: MEDIUM** (reduces intermediate result sets)
 
@@ -2496,7 +2632,7 @@ var query3 = "SELECT * FROM c WHERE c.status IN ('a', 'b') AND c.customerId = @i
 
 Reference: [Query optimization tips](https://learn.microsoft.com/azure/cosmos-db/nosql/performance-tips-query-sdk)
 
-### 3.5 Use Continuation Tokens for Pagination
+### 3.7 Use Continuation Tokens for Pagination
 
 **Impact: HIGH** (enables efficient large result sets)
 
@@ -2716,7 +2852,7 @@ public PagedResult<Task> getTasksByProject(
 
 Reference: [Pagination in Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/query/pagination)
 
-### 3.6 Use Parameterized Queries
+### 3.8 Use Parameterized Queries
 
 **Impact: MEDIUM** (improves security and query plan caching)
 
@@ -2804,7 +2940,7 @@ Benefits:
 
 Reference: [Parameterized queries](https://learn.microsoft.com/azure/cosmos-db/nosql/query/parameterized-queries)
 
-### 3.7 Use Point Reads Instead of Queries for Known ID and Partition Key
+### 3.9 Use Point Reads Instead of Queries for Known ID and Partition Key
 
 **Impact: HIGH** (1 RU vs ~2.5 RU per single-document lookup)
 
@@ -2928,6 +3064,28 @@ var tasks = new[]
 var responses = await Task.WhenAll(tasks);
 ```
 
+### Validate parent existence with a point read before writing child records
+
+When writing a child/event document that references a parent entity (for example, reading → device, line item → order), do a parent point read first if your API requires rejecting unknown parents. This keeps referential checks cheap and avoids orphaned documents.
+
+```java
+// ✅ Fast referential validation (1 RU point read) before write
+try {
+    container.readItem(deviceId, new PartitionKey(deviceId), Device.class);
+} catch (CosmosException ex) {
+    if (ex.getStatusCode() == 404) {
+        throw new IllegalArgumentException("Unknown deviceId");
+    }
+    throw ex;
+}
+// write telemetry only after parent exists
+```
+
+```python
+# ❌ No existence check: creates orphan child records
+container.upsert_item({"id": event_id, "deviceId": device_id, "value": 42})
+```
+
 ### When to Use Each Approach
 
 | Scenario | Approach |
@@ -2940,7 +3098,7 @@ var responses = await Task.WhenAll(tasks);
 
 Reference: [Point reads in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-read-item) | [ReadMany — read multiple items](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-dotnet-read-item#read-multiple-items) | [Read many items fast (Java)](https://devblogs.microsoft.com/cosmosdb/read-many-items-fast-with-the-java-sdk-for-azure-cosmos-db/)
 
-### 3.8 Parameterize TOP Values Safely
+### 3.10 Parameterize TOP Values Safely
 
 **Impact: HIGH** (prevents incorrect query guidance and keeps parameterization secure)
 
@@ -2993,7 +3151,7 @@ References:
 - [Parameterized queries](https://learn.microsoft.com/azure/cosmos-db/nosql/query/parameterized-queries)
 - [SQL query TOP keyword](https://learn.microsoft.com/azure/cosmos-db/nosql/query/select#top-keyword)
 
-### 3.9 Project Only Needed Fields
+### 3.11 Project Only Needed Fields
 
 **Impact: HIGH** (reduces RU and network by 30-80%)
 
