@@ -93,9 +93,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for a dated history of improvements to the skills themselves (new rules, rule clarifications, new categories).
+See [CHANGELOG.md](CHANGELOG.md) for a dated history of updates to the agent kit, including the `cosmosdb-best-practices` skill and the testing framework. Each entry links to the PR that introduced the change.
 
-Each entry links to the PR that introduced the change. When you merge a PR that adds or updates a rule, add a new dated entry at the top.
+When you merge a PR, add a new dated entry at the top of `CHANGELOG.md`.
 
 ## License
 
