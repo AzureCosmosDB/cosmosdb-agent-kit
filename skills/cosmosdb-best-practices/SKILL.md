@@ -75,6 +75,7 @@ Reference these guidelines when:
 
 ### 3. Query Optimization (HIGH)
 
+- [query-aggregate-single-pass](rules/query-aggregate-single-pass.md) - Compute min/max/avg with one scoped aggregate query
 - [query-avoid-cross-partition](rules/query-avoid-cross-partition.md) - Minimize cross-partition queries
 - [query-use-projections](rules/query-use-projections.md) - Project only needed fields; prefer dedicated result types for projections
 - [query-pagination](rules/query-pagination.md) - Use continuation tokens for pagination
@@ -82,6 +83,7 @@ Reference these guidelines when:
 - [query-parameterize](rules/query-parameterize.md) - Use parameterized queries
 - [query-order-filters](rules/query-order-filters.md) - Order filters by selectivity
 - [query-top-literal](rules/query-top-literal.md) - Use literal integers for TOP, never parameters
+- [query-latest-by-timestamp](rules/query-latest-by-timestamp.md) - Query "latest" documents with explicit ORDER BY and TOP 1
 - [query-olap-detection](rules/query-olap-detection.md) - Detect and redirect analytical queries away from transactional containers
 - [query-point-reads](rules/query-point-reads.md) - Use point reads (ReadItem) instead of queries when id and partition key are known
 
