@@ -125,6 +125,28 @@ var tasks = new[]
 var responses = await Task.WhenAll(tasks);
 ```
 
+### Validate parent existence with a point read before writing child records
+
+When writing a child/event document that references a parent entity (for example, reading → device, line item → order), do a parent point read first if your API requires rejecting unknown parents. This keeps referential checks cheap and avoids orphaned documents.
+
+```java
+// ✅ Fast referential validation (1 RU point read) before write
+try {
+    container.readItem(deviceId, new PartitionKey(deviceId), Device.class);
+} catch (CosmosException ex) {
+    if (ex.getStatusCode() == 404) {
+        throw new IllegalArgumentException("Unknown deviceId");
+    }
+    throw ex;
+}
+// write telemetry only after parent exists
+```
+
+```python
+# ❌ No existence check: creates orphan child records
+container.upsert_item({"id": event_id, "deviceId": device_id, "value": 42})
+```
+
 ### When to Use Each Approach
 
 | Scenario | Approach |
