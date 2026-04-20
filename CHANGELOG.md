@@ -52,13 +52,13 @@ Expanded and clarified five existing rules so agents apply them correctly:
 - Added a brand-new **Full-Text Search** category with 6 rules (12.1–12.6) covering the capability flag, `fullTextPolicy`, `fullTextIndexes`, BM25 ranking, keyword matching, and hybrid queries.
 - Skill now totals 89 rules across 12 categories.
 
-## 2026-04-02 — Cascade delete/update guidance ([#208](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/208))
+## 2026-04-02 — Cascade delete/update guidance + first batch run ([#208](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/208))
 
-- Extended `model-denormalize-reads` with explicit cascade semantics:
+- **First batch run: Batch #191** (`gaming-leaderboard`, Python, skills loaded) — 5 iterations aggregated through the new batch pipeline end-to-end, producing the first statistical evaluation and validating the framework.
+- Extended `model-denormalize-reads` with explicit cascade semantics surfaced by that batch:
   - Deleting a source document must also delete all derived/embedded copies in other containers.
   - Updating a field used as a partition key in derived containers requires delete-and-recreate in the new partition.
 - Added Python and C# examples for both patterns.
-- Surfaced by the batch-191 gaming-leaderboard evaluation.
 
 ## 2026-04-01 — Batch workflow fixes
 
@@ -103,15 +103,19 @@ Expanded and clarified five existing rules so agents apply them correctly:
 - Rule 5.2 `index-exclude-unused` ([#40](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/40)) — reordered so exclude-all-first is the primary indexing pattern.
 - CI: narrowed path filters to iteration subdirectories only ([#37](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/37)).
 
-## 2026-03-21 — testing-v2 framework merged ([#35](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/35))
+## 2026-03-21 — Testing framework v2 merged ([#35](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/35))
 
-- Merged the `testing-v2` framework with scenarios, API contracts, infrastructure / SDK / behavioral tests, build-signal capture, deep evaluation prompts, automated commit-back, and source archiving.
-- Established `testing-v2/` as the current framework; `testing/` retained as a historical reference.
+- **Testing framework v2** ([`testing-v2/`](testing-v2/)): merged the next-generation framework that replaces manual iteration runs with an automated CI harness.
+  - Harness: `testing-v2/harness/report.py`, `evaluate.py`, `aggregate.py`, `conftest_base.py` (shared pytest fixtures).
+  - Machine-readable **API contracts** (`api-contract.yaml`) per scenario, so tests are generated from the contract instead of re-written per iteration.
+  - Infrastructure, SDK, and behavioral test categories; build-signal capture; deep-evaluation prompts; automated commit-back and source archiving.
+  - GitHub Actions workflow `test-iteration.yaml` drives each iteration end-to-end (spin up emulator → Copilot generates code → run tests → post results → archive).
+- `testing-v2/` becomes the current framework; `testing/` is retained as a historical reference.
 
-## 2026-03-19 to 2026-03-20 — Batch testing framework + build-startup category
+## 2026-03-19 to 2026-03-20 — Batch testing capability + build-startup category
 
-- Added the batch testing framework for statistical significance (multiple iterations per scenario).
-- `/batch-start` comment replaces assign-Copilot as the batch trigger; auto-create labels and auto-generate `/aggregate` commands with child-issue numbers.
+- **Batch testing capability** added for statistical significance (multiple iterations per scenario per run). New workflows: `create-batch-children.yaml` fans a batch issue into N child iteration issues; `auto-trigger-tests.yaml` kicks off CI for each child PR.
+- `/batch-start` comment replaces assign-Copilot as the batch trigger; labels are auto-created; `/aggregate` commands are auto-generated with child-issue numbers.
 - Aggregate fixes: iterate runs to find test artifacts, correct issue→PR resolution, per-category stats.
 - Added a deep-evaluation step to the batch flow and next-steps instructions in the batch issue body.
 - Exposed `build_startup` as a visible test category in reports; fixed summary-PR creation and skipped it for control runs; added auto-generation to `create-scenario`.
@@ -155,10 +159,10 @@ Expanded and clarified five existing rules so agents apply them correctly:
 
 ## 2026-03-11 — testing-v2 automation + Python async SDK rule
 
-- Added `sdk-python-async-deps` (rule 4.15) — `azure.cosmos.aio.CosmosClient` requires `aiohttp` in `requirements.txt`.
-- Found via gaming-leaderboard iteration-001-python (testing-v2 PR #2).
-- Added testing-v2 automation: issue templates, CI workflow, recipes, and 5 scenarios.
+- **CI automation scaffolding** for testing-v2: issue templates (Run Test Iteration, Create New Scenario), the `test-iteration.yaml` CI workflow, the recipes (`CREATE-SCENARIO.md`, `EVALUATE.md`), and the initial five v2 scenarios migrated from v1.
+- Added a **Python-dependency-verification step** in CI so missing optional dependencies fail fast at startup instead of producing confusing test errors.
 - Auto-trigger `@copilot` for startup and test failures; handle app-startup failures gracefully in CI.
+- Added `sdk-python-async-deps` (rule 4.15) — `azure.cosmos.aio.CosmosClient` requires `aiohttp` in `requirements.txt`. Found via gaming-leaderboard iteration-001-python (testing-v2 PR #2).
 
 ## 2026-03-03 — SDK version currency rule
 
@@ -231,10 +235,11 @@ No new rules from IoT iterations — existing rule set covered all observed issu
 - Enhanced `sdk-emulator-ssl` to cover .NET, Python, and Node.js (previously Java-only).
 - Added iteration-002-dotnet validating skills on `ecommerce-order-api`.
 
-## 2026-01-27 — Testing framework born + first rule from iteration findings
+## 2026-01-27 — Testing framework v1 created + first rule from iteration findings
 
-- Added `sdk-serialization-enums` — fixes a real bug where the .NET SDK stored enums as integers while queries searched for strings, causing status queries to return empty results (ecommerce-order-api baseline).
-- Established that every test iteration must load the `cosmosdb-best-practices` skill before code generation — otherwise the iteration is a baseline, not a skill test. Updated `testing/README.md` and the iteration template to require a "Skills Verification" step. Iteration-001-dotnet of `ecommerce-order-api` was retroactively marked as the baseline (no skills).
+- **Testing framework v1** ([`testing/`](testing/)): added the initial framework — `testing/README.md`, the iteration template (`_iteration-template.md`), the scenario template (`_scenario-template.md`), and the first five scenarios (`ecommerce-order-api`, `gaming-leaderboard`, `iot-device-telemetry`, `ai-chat-rag`, `multitenant-saas`). Iterations were run manually and documented per-folder.
+- Established that every iteration must load the `cosmosdb-best-practices` skill before code generation — otherwise the iteration is a baseline, not a skill test. Added a "Skills Verification" step to the iteration template. Iteration-001-dotnet of `ecommerce-order-api` was retroactively marked as the baseline (no skills).
+- Added `sdk-serialization-enums` — fixes a real bug where the .NET SDK stored enums as integers while queries searched for strings, causing status queries to return empty results (first rule sourced from iteration findings).
 
 ## 2026-01-23 — Contribution scaffolding
 
