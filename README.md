@@ -10,7 +10,7 @@ Skills follow the [Agent Skills](https://agentskills.io/) format.
 
 ### cosmosdb-best-practices
 
-Azure Cosmos DB performance optimization guidelines containing 45+ rules across 8 categories, prioritized by impact.
+Azure Cosmos DB performance optimization guidelines containing 90+ rules across 12 categories, prioritized by impact.
 
 **Use when:**
 - Writing new code that interacts with Cosmos DB
