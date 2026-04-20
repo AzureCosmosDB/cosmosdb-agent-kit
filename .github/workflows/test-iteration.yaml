@@ -705,6 +705,7 @@ jobs:
           # Stage evaluation files
           git add "testing-v2/scenarios/${SCENARIO}/iterations/${ITERATION}/"
           git add "testing-v2/IMPROVEMENTS-LOG.md"
+          git add "CHANGELOG.md"
 
           if git diff --cached --quiet; then
             echo "No changes to commit"
@@ -780,6 +781,7 @@ jobs:
                 `create new rules if needed (rules must be GENERIC — not scenario-specific; ` +
                 `any app hitting the same Cosmos DB pattern should benefit), ` +
                 `update \`testing-v2/IMPROVEMENTS-LOG.md\`, ` +
+                `update \`CHANGELOG.md\` with a concise entry, ` +
                 `run \`npm run build\`\n` +
                 `8. Commit all changes to this PR branch`;
             } else {
@@ -808,7 +810,8 @@ jobs:
                 `   - **Score Summary**: per-category scores (both as-is and estimated with-skills)\n` +
                 `7. Do NOT create or update any rules — this is a control run\n` +
                 `8. Update \`testing-v2/IMPROVEMENTS-LOG.md\` noting this was a control run\n` +
-                `9. Commit all changes to this PR branch. **IMPORTANT**: Include \`[skip ci]\` ` +
+                `9. Add a concise entry to \`CHANGELOG.md\` noting this control run and key findings\n` +
+                `10. Commit all changes to this PR branch. **IMPORTANT**: Include \`[skip ci]\` ` +
                 `in your commit message to prevent CI from re-running (e.g., ` +
                 `"Deep evaluation for iteration-NNN [skip ci]"). This is a control run — ` +
                 `no code fixes or iteration is expected.`;
@@ -1041,7 +1044,7 @@ jobs:
                 `3. Read the existing rules in \`skills/cosmosdb-best-practices/rules/\`\n` +
                 `4. Classify each failure (contract violation, missing rule, unclear rule, SDK quirk)\n` +
                 `5. Fix contract violations directly in the generated code\n` +
-                `6. Create new rules if needed, update \`testing-v2/IMPROVEMENTS-LOG.md\`\n` +
+                `6. Create new rules if needed, update \`testing-v2/IMPROVEMENTS-LOG.md\`, update \`CHANGELOG.md\`\n` +
                 `7. Run \`npm run build\` to regenerate AGENTS.md\n` +
                 `8. Commit all changes to this PR branch`;
             } else {

@@ -313,7 +313,7 @@ jobs:
             sed -i "/^|.*---|/a\\${ENTRY}" "$LOG_FILE"
           fi
 
-          git add "$RESULTS_DIR/" "$LOG_FILE"
+          git add "$RESULTS_DIR/" "$LOG_FILE" "CHANGELOG.md"
           git commit -m "Batch #${BATCH_ISSUE}: aggregate results for ${SCENARIO} (${SKILLS_LABEL}, ${LANGUAGE}) [skip ci]"
           git push origin "$BRANCH"
 
@@ -475,7 +475,8 @@ jobs:
           9. Ignore **Flaky Tests** — these are LLM stochasticity, not skill gaps
           10. Run \`npm run build\` to regenerate AGENTS.md
           11. Update \`testing-v2/IMPROVEMENTS-LOG.md\` with the batch evaluation results
-          12. Commit all changes to this PR branch
+          12. Add a concise entry to \`CHANGELOG.md\` summarizing the batch evaluation and any rules created/updated
+          13. Commit all changes to this PR branch
           PROMPTEOF
           else
             cat >> /tmp/eval-comment.md <<PROMPTEOF
@@ -495,7 +496,8 @@ jobs:
              - Number of build/startup failures out of total iterations
              - Consistent test failures and which existing rules would have prevented them
              - Any failures that NO existing rule covers (these are gaps needing new rules)
-          10. Commit all changes to this PR branch with \`[skip ci]\` in the commit message
+          10. Add a concise entry to \`CHANGELOG.md\` noting the control batch run and key findings
+          11. Commit all changes to this PR branch with \`[skip ci]\` in the commit message
           PROMPTEOF
           fi
 

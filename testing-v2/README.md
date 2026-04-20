@@ -34,7 +34,8 @@ new rules to prevent them in future iterations.
 │     If tests failed, CI posts a ready-to-copy @copilot command.       │
 │     Post it as a comment → Copilot evaluates failures, creates new    │
 │     rules in skills/cosmosdb-best-practices/rules/, regenerates       │
-│     AGENTS.md, updates IMPROVEMENTS-LOG.md, and commits to the PR.   │
+│     AGENTS.md, updates IMPROVEMENTS-LOG.md and CHANGELOG.md,        │
+│     and commits to the PR.                                            │
 └───────────────────────┬───────────────────────────────────────────────┘
                         ▼
 ┌───────────────────────────────────────────────────────────────────────┐
@@ -370,7 +371,7 @@ follows this recipe when asked to evaluate failures on a PR.
 2. **Evaluation**: Copilot classifies this as "Cosmos DB anti-pattern"
 3. **Rule created**: `rules/partition-avoid-id-only.md`, `npm run build` regenerates AGENTS.md
 4. **Iteration 002 (Python)**: Agent loads the updated rules → partition key test passes
-5. **Logged**: Entry added to `testing-v2/IMPROVEMENTS-LOG.md`
+5. **Logged**: Entry added to `testing-v2/IMPROVEMENTS-LOG.md` and `CHANGELOG.md`
 
 ### Control Run vs Skills Run — Different Workflows
 
@@ -513,6 +514,7 @@ Copilot will:
 - Classify each failure per `testing-v2/EVALUATE.md`
 - Create or update rules for real skill gaps (skills runs only)
 - Update `testing-v2/IMPROVEMENTS-LOG.md`
+- Update `CHANGELOG.md` with a concise summary
 - Commit everything to the summary PR branch
 
 > **Alternative:** You can also trigger aggregation from **Actions** → **Aggregate Batch
@@ -667,6 +669,7 @@ Configure per-iteration via `iteration-config.yaml`.
 | `testing-v2/CREATE-SCENARIO.md` | Recipe for scenario creation | Maintainer |
 | `testing-v2/EVALUATE.md` | Recipe for failure evaluation + rule creation | Maintainer |
 | `testing-v2/IMPROVEMENTS-LOG.md` | Log of discovered gaps and rules created | Agent + Human |
+| `CHANGELOG.md` | Concise history of all changes (rules, testing, infra) | Agent + Human |
 | `testing-v2/harness/conftest_base.py` | Shared pytest fixtures (including Cosmos DB direct access) | Maintainer |
 | `testing-v2/harness/evaluate.py` | Automated evaluation and ITERATION.md generation | Maintainer |
 | `testing-v2/harness/report.py` | Structured JSON + Markdown test reports with category breakdowns | Maintainer |

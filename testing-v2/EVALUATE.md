@@ -127,7 +127,7 @@ For failures classified as "Contract violation":
 3. Fix the generated code to match the contract
 4. Commit the fix to the PR branch
 
-### Step 6: Update IMPROVEMENTS-LOG.md
+### Step 6: Update IMPROVEMENTS-LOG.md and CHANGELOG.md
 
 Add an entry to `testing-v2/IMPROVEMENTS-LOG.md` with this format:
 
@@ -160,6 +160,16 @@ Add an entry to `testing-v2/IMPROVEMENTS-LOG.md` with this format:
 **Lessons for Next Iteration**: <what to improve>
 ```
 
+Then add a concise entry at the **top** of `CHANGELOG.md` (below the `---` separator) summarizing what changed:
+
+```markdown
+## YYYY-MM-DD — short summary ([#NNN](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/NNN))
+
+- What changed / why it matters.
+```
+
+Keep CHANGELOG entries brief — a few bullets covering rules created/updated and the trigger (scenario / iteration / batch). The detailed per-iteration evaluation stays in `testing-v2/IMPROVEMENTS-LOG.md`.
+
 ### Step 7: Run the build
 
 After creating or updating any rules:
@@ -177,6 +187,7 @@ Commit all changes to the PR branch:
 - New/updated rule files in `skills/cosmosdb-best-practices/rules/`
 - Regenerated `skills/cosmosdb-best-practices/AGENTS.md`
 - Updated `testing-v2/IMPROVEMENTS-LOG.md`
+- Updated `CHANGELOG.md`
 - Any code fixes in the iteration directory
 
 ## Scoring Guide
@@ -237,7 +248,8 @@ process differs from single-iteration evaluation:
    "Unclear existing rule", or "SDK/framework quirk"
 4. Run `npm run build` to regenerate AGENTS.md
 5. Update `testing-v2/IMPROVEMENTS-LOG.md`
-6. Commit to the summary PR branch
+6. Add a concise entry to `CHANGELOG.md`
+7. Commit to the summary PR branch
 
 ### Control Run Batch Evaluation
 
@@ -245,4 +257,5 @@ For control runs (skills=no), do NOT create or update rules. Instead:
 1. List which consistent failures would have been prevented by existing rules
 2. Note any gaps where no existing rule covers the failure
 3. Update IMPROVEMENTS-LOG.md with the analysis
-4. Commit with `[skip ci]` in the message
+4. Add a concise entry to `CHANGELOG.md` noting the control batch run and key findings
+5. Commit with `[skip ci]` in the message
