@@ -106,6 +106,7 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 9.1 [Use Change Feed for cross-partition query optimization with materialized views](#91-use-change-feed-for-cross-partition-query-optimization-with-materialized-views)
    - 9.2 [Use count-based or cached rank approaches instead of full partition scans for ranking](#92-use-count-based-or-cached-rank-approaches-instead-of-full-partition-scans-for-ranking)
    - 9.3 [Use a service layer to hydrate document references before rendering](#93-use-a-service-layer-to-hydrate-document-references-before-rendering)
+   - 9.4 [Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known](#94-use-point-reads-for-ai-grounding-and-rag-retrieval-when-id-is-known)
 10. [Developer Tooling](#10-developer-tooling) — **MEDIUM**
    - 10.1 [Use Azure Cosmos DB Emulator for local development and testing](#101-use-azure-cosmos-db-emulator-for-local-development-and-testing)
    - 10.2 [Use Azure Cosmos DB VS Code extension for routine inspection and management](#102-use-azure-cosmos-db-vs-code-extension-for-routine-inspection-and-management)
@@ -2979,6 +2980,18 @@ def get_player(self, player_id: str, game_id: str):
     # Unnecessary query engine invocation
 ```
 
+```typescript
+// ❌ Query instead of point read — id and partition key both known
+const { resources } = await container.items
+  .query<Order>({
+    query: 'SELECT * FROM c WHERE c.id = @id',
+    parameters: [{ name: '@id', value: orderId }],
+  }, { partitionKey: userId })
+  .fetchAll();
+return resources[0] ?? null;
+// ~2.92 RU — goes through the query engine for a single known document
+```
+
 **Correct (point read — bypasses query engine):**
 
 ```csharp
@@ -3002,6 +3015,12 @@ CosmosItemResponse<Order> response = container.readItem(
     new PartitionKey(customerId),
     Order.class);
 return response.getItem();
+```
+
+```typescript
+// ✅ Point read in Node.js — 1 RU, no query engine overhead
+const { resource: order } = await container.item(orderId, userId).read<Order>();
+return order ?? null;
 ```
 
 ### Multiple Known Documents — ReadMany vs. Parallel Point Reads
@@ -3062,6 +3081,28 @@ var tasks = new[]
 };
 
 var responses = await Task.WhenAll(tasks);
+```
+
+```typescript
+// ❌ OR/IN across partitions — fans out to every partition
+const { resources } = await container.items.query<Order>({
+  query: 'SELECT * FROM c WHERE c.id IN (@a, @b, @c)',
+  parameters: [
+    { name: '@a', value: 'order-1' },
+    { name: '@b', value: 'order-2' },
+    { name: '@c', value: 'order-3' },
+  ],
+}).fetchAll();
+
+// ✅ Parallel point reads (@azure/cosmos v4 does not expose readMany;
+//    use bounded-concurrency parallel reads for batched lookups)
+const results = await Promise.all([
+  container.item('order-1', 'user-alice').read<Order>(),
+  container.item('order-2', 'user-bob').read<Order>(),
+  container.item('order-3', 'user-alice').read<Order>(),
+]);
+return results.map(r => r.resource).filter(Boolean);
+// Total RU ≈ N × 1.0; bound concurrency with a limiter for larger batches
 ```
 
 ### Validate parent existence with a point read before writing child records
@@ -3153,7 +3194,7 @@ References:
 
 ### 3.11 Project Only Needed Fields
 
-**Impact: HIGH** (reduces RU and network by 30-80%)
+**Impact: HIGH** (reduces payload size, network bandwidth, and client memory; RU savings scale with document size — negligible on small flat docs, substantial on multi-KB/MB documents and large result sets)
 
 ## Project Only Needed Fields
 
@@ -3204,7 +3245,8 @@ var orders = await container.GetItemQueryIterator<OrderSummary>(
     requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(customerId) }
 ).ReadNextAsync();
 
-// 70% less data transferred, proportionally lower RU
+// Substantial payload-size reduction; RU savings depend on document size
+// (significant on large/nested docs, negligible on small flat docs)
 ```
 
 ```csharp
@@ -3267,6 +3309,47 @@ List<PlayerSummary> getTopPlayers(@Param("key") String key);
 ```
 
 ⚠️ Deserializing projected results into the full entity type is acceptable when the entity is small, the unprojected fields are not misleading, or the surrounding framework expects that type (e.g., Spring Data repository methods, EF Core entities). In these cases, ensure the intent is clear through comments or naming so that future maintainers do not mistakenly revert to `SELECT *`.
+
+### Node.js / TypeScript (@azure/cosmos v4)
+
+```typescript
+// ❌ Anti-pattern: SELECT * pulls every field including future additions
+const bad = {
+  query: 'SELECT * FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC',
+  parameters: [{ name: '@userId', value: userId }],
+};
+
+// ✅ Preferred: project only the fields the caller consumes
+const good = {
+  query: `
+    SELECT c.id, c.userId, c.status, c.total, c.createdAt
+    FROM c
+    WHERE c.userId = @userId
+    ORDER BY c.createdAt DESC
+  `,
+  parameters: [{ name: '@userId', value: userId }],
+};
+
+// TypeScript: dedicated result type matches the projected fields
+interface OrderSummary {
+  id: string;
+  userId: string;
+  status: string;
+  total: number;
+  createdAt: string;
+}
+const { resources } = await container.items
+  .query<OrderSummary>(good, { partitionKey: userId })
+  .fetchAll();
+
+// Single-column scalar with SELECT VALUE
+const { resources: statuses } = await container.items
+  .query<string>({
+    query: 'SELECT VALUE c.status FROM c WHERE c.userId = @u',
+    parameters: [{ name: '@u', value: userId }],
+  }, { partitionKey: userId })
+  .fetchAll();
+```
 
 Savings multiply with:
 - Large documents (MB-sized)
@@ -6392,6 +6475,10 @@ Reference: [Composite index sort order](https://learn.microsoft.com/azure/cosmos
 
 Create composite indexes for queries with ORDER BY on multiple properties. Without them, queries may fail or require expensive client-side sorting.
 
+The default indexing policy indexes every property but does **not** create composite indexes. Any query that combines a `WHERE` equality filter with `ORDER BY` on a different field needs a composite index declared explicitly, or the query will either fail in production or require expensive client-side sorting.
+
+> **Emulator warning:** The Cosmos DB emulator silently permits `ORDER BY` queries without a matching composite index and returns identical RU charges. Production containers reject the same query with *"The order by query does not have a corresponding composite index that it can be served from."* Always declare composite indexes at container-create time — do not rely on emulator success as validation.
+
 **Incorrect (ORDER BY without composite index):**
 
 ```csharp
@@ -6547,11 +6634,76 @@ policy.setCompositeIndexes(Arrays.asList(statusSort, assigneeSort));
 **Why type discriminators need composite indexes:**
 When a single container holds multiple entity types (tenant, user, project, task), queries always filter by `type`. Without a composite index on `(type, sortField)`, the query engine cannot efficiently sort within a single entity type. This is especially costly in containers with millions of mixed-type documents.
 
+### Node.js / TypeScript (@azure/cosmos v4)
+
+**Incorrect (container created with default indexing policy — no composites):**
+
+```typescript
+// ❌ No indexingPolicy → default (indexes everything, no composite)
+await database.containers.createIfNotExists({
+  id: 'orders',
+  partitionKey: { paths: ['/userId'] },
+});
+
+// This query works on the emulator but FAILS in production:
+await container.items.query({
+  query: 'SELECT * FROM c WHERE c.userId = @u ORDER BY c.createdAt DESC',
+  parameters: [{ name: '@u', value: userId }],
+}, { partitionKey: userId }).fetchAll();
+```
+
+**Correct (composite indexes declared at container creation):**
+
+```typescript
+import { IndexingPolicy } from '@azure/cosmos';
+
+// ✅ Declare composite indexes alongside container creation
+const ordersIndexingPolicy: IndexingPolicy = {
+  indexingMode: 'consistent',
+  automatic: true,
+  includedPaths: [{ path: '/*' }],
+  excludedPaths: [{ path: '/"_etag"/?' }],
+  compositeIndexes: [
+    // WHERE c.userId = @u ORDER BY c.createdAt DESC
+    [
+      { path: '/userId', order: 'ascending' },
+      { path: '/createdAt', order: 'descending' },
+    ],
+    // WHERE c.userId = @u AND c.status = @s ORDER BY c.createdAt DESC
+    [
+      { path: '/userId', order: 'ascending' },
+      { path: '/status', order: 'ascending' },
+      { path: '/createdAt', order: 'descending' },
+    ],
+  ],
+};
+
+await database.containers.createIfNotExists({
+  id: 'orders',
+  partitionKey: { paths: ['/userId'] },
+  indexingPolicy: ordersIndexingPolicy,
+});
+```
+
+**Updating an existing container's indexing policy:**
+
+```typescript
+// Replace indexing policy on an existing container
+const { resource: existing } = await database.container('orders').read();
+await database.container('orders').replace({
+  id: 'orders',
+  partitionKey: existing!.partitionKey,
+  indexingPolicy: ordersIndexingPolicy,
+});
+// Indexing is rebuilt in the background; monitor indexTransformationProgress
+```
+
 Rules:
 - Composite index order must match ORDER BY exactly
 - First path can be equality filter
 - Include both ASC/DESC variants for flexibility
 - Maximum 8 paths per composite index
+- Composite indexes consume additional write RU — declare only the composites you actually query against
 - **Always** define composite indexes when using type discriminators in shared containers
 - Include `/type` as the first path in multi-tenant composite indexes
 
@@ -8841,6 +8993,86 @@ var client = new CosmosClient(connectionString, new CosmosClientOptions
 });
 ```
 
+### Node.js / TypeScript (@azure/cosmos v4)
+
+Every `@azure/cosmos` operation exposes `requestCharge` as a top-level numeric property on the response. Capture it on every call — point reads, queries, writes, and bulk operations.
+
+**Incorrect (discarding requestCharge — no visibility into cost):**
+
+```typescript
+// ❌ requestCharge available but never captured
+const { resource } = await container.item(orderId, userId).read();
+return resource;
+// Is this costing 1 RU or 100 RU? Unknown!
+```
+
+**Correct (capturing requestCharge on reads and writes):**
+
+```typescript
+import { Container, FeedResponse } from '@azure/cosmos';
+
+// ✅ Point read — capture requestCharge
+export async function getOrder(container: Container, id: string, userId: string) {
+  const response = await container.item(id, userId).read();
+  logger.debug({
+    op: 'ReadItem',
+    container: container.id,
+    ru: response.requestCharge,
+    statusCode: response.statusCode,
+    activityId: response.activityId,
+  }, 'cosmos.readItem');
+  return response.resource;
+}
+
+// ✅ Write — create/upsert/replace/patch/delete all expose requestCharge
+export async function createOrder(container: Container, order: Order) {
+  const response = await container.items.create(order);
+  logger.debug({ op: 'CreateItem', ru: response.requestCharge }, 'cosmos.createItem');
+  return response.resource;
+}
+```
+
+**Correct (accumulating RU across query pages — single-page tracking undercounts paged results):**
+
+```typescript
+// ✅ Query — sum requestCharge across all pages
+export async function getCustomerOrders(container: Container, userId: string) {
+  const iterator = container.items.query<OrderSummary>({
+    query: 'SELECT c.id, c.userId, c.status, c.total, c.createdAt FROM c WHERE c.userId = @u ORDER BY c.createdAt DESC',
+    parameters: [{ name: '@u', value: userId }],
+  }, { partitionKey: userId });
+
+  const results: OrderSummary[] = [];
+  let totalRU = 0;
+
+  while (iterator.hasMoreResults()) {
+    const page: FeedResponse<OrderSummary> = await iterator.fetchNext();
+    results.push(...page.resources);
+    totalRU += page.requestCharge;
+  }
+
+  logger.info({ op: 'Query', container: container.id, count: results.length, totalRU }, 'cosmos.query.total');
+  if (totalRU > 100) {
+    logger.warn({ totalRU, count: results.length }, 'cosmos.query.expensive');
+  }
+  return results;
+}
+```
+
+**`requestCharge` API surface in `@azure/cosmos` v4:**
+
+| Operation | Response type | RU property |
+|-----------|---------------|-------------|
+| `container.item(id, pk).read()` | `ItemResponse<T>` | `response.requestCharge` |
+| `container.items.create(doc)` | `ItemResponse<T>` | `response.requestCharge` |
+| `container.items.upsert(doc)` | `ItemResponse<T>` | `response.requestCharge` |
+| `container.item(id, pk).replace(doc)` | `ItemResponse<T>` | `response.requestCharge` |
+| `container.item(id, pk).patch(ops)` | `ItemResponse<T>` | `response.requestCharge` |
+| `container.item(id, pk).delete()` | `ItemResponse<T>` | `response.requestCharge` |
+| `container.items.query(...).fetchAll()` | `FeedResponse<T>` | `response.requestCharge` |
+| `container.items.query(...).fetchNext()` | `FeedResponse<T>` per page | sum across pages |
+| `container.items.bulk(ops)` | `OperationResponse[]` | `op.requestCharge` per operation |
+
 Azure Monitor queries for RU analysis:
 ```kusto
 // Top expensive operations
@@ -9589,6 +9821,96 @@ private void populateRelationships(Vet vet) {
 For truly high-volume scenarios, consider denormalizing the data instead (see `model-denormalize-reads`) or using Change Feed to maintain materialized views (see `pattern-change-feed-materialized-views`).
 
 Reference: [Data modeling in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/modeling-data)
+
+### 9.4 Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known
+
+**Impact: HIGH** (1 RU point read vs ~2.5+ RU query per grounding fetch; reduces tool-call latency in LLM loops)
+
+## Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known
+
+In AI-grounded workloads an LLM tool-use loop typically resolves a concrete entity id (e.g., `orderId`, `sessionId`, `documentId`) from the user turn or tool-call arguments, then fetches the full document from Cosmos DB to build the grounding context for the model. Because the id and partition key are both known at call time, a point read should always be used instead of a query. This applies to any retrieval step that feeds data into an LLM context window — RAG retrieval, tool-call handlers, grounding functions, or agent data-fetching steps.
+
+**How to recognize this pattern — static tell-tales:**
+
+- An LLM / AI client import in the same module (e.g., `OpenAI`, `AzureOpenAI`, `ChatCompletionClient`, Semantic Kernel, LangChain)
+- A function that parses tool-call arguments or assembles a `messages` array
+- A Cosmos DB call using a single-id equality filter where the id was extracted from user input or a tool-call response
+
+**Incorrect (query when id and partition key are both available from the tool call):**
+
+```typescript
+// ❌ Generic query — id is already known from the user turn / tool call
+export async function groundOrderContext(orderId: string, userId: string) {
+  const { resources: orders } = await ordersContainer.items
+    .query<Order>({
+      query: "SELECT * FROM c WHERE c.orderId = @o",
+      parameters: [{ name: "@o", value: orderId }],
+    })
+    .fetchAll();
+
+  const { resources: events } = await eventsContainer.items
+    .query<DeliveryEvent>({
+      query: "SELECT * FROM c WHERE c.orderId = @o ORDER BY c.timestamp DESC",
+      parameters: [{ name: "@o", value: orderId }],
+    })
+    .fetchAll();
+
+  return buildGroundingContext(orders[0], events);
+}
+```
+
+```python
+# ❌ Query instead of point read — id and partition key both known
+def ground_order_context(order_id: str, user_id: str):
+    orders = list(orders_container.query_items(
+        query="SELECT * FROM c WHERE c.id = @id",
+        parameters=[{"name": "@id", "value": order_id}],
+        partition_key=user_id,
+    ))
+    return build_grounding_context(orders[0]) if orders else None
+```
+
+**Correct (point read for the primary document, partition-scoped projection for related items):**
+
+```typescript
+// ✅ Point read for the order (id + partition key both known from tool call)
+export async function groundOrderContext(orderId: string, userId: string) {
+  const orderResp = await ordersContainer.item(orderId, userId).read<Order>();
+  const order = orderResp.resource;
+  if (!order) return null;
+
+  // ✅ Partition-key-scoped projection for related event list
+  const { resources: events } = await eventsContainer.items
+    .query<DeliveryEvent>(
+      {
+        query:
+          "SELECT c.id, c.orderId, c.timestamp, c.status, c.note FROM c WHERE c.orderId = @o ORDER BY c.timestamp DESC",
+        parameters: [{ name: "@o", value: orderId }],
+      },
+      { partitionKey: orderId }
+    )
+    .fetchAll();
+
+  return buildGroundingContext(order, events);
+}
+```
+
+```python
+# ✅ Point read — 1 RU, no query engine overhead
+def ground_order_context(order_id: str, user_id: str):
+    order = orders_container.read_item(item=order_id, partition_key=user_id)
+    return build_grounding_context(order)
+```
+
+**Why this matters for AI workloads:**
+
+1. **Latency-sensitive** — each tool call adds to perceived LLM response time; a point read (1 RU, single backend hop) is the fastest possible retrieval
+2. **Throughput-sensitive** — hot conversations drive the same partition key repeatedly; cross-partition fan-out under load hot-spots a single logical partition fastest
+3. **ID is known by construction** — the LLM tool-use loop hands the agent an id parsed from the user turn or a prior tool result; agents should recognise this signal and reach for the point read
+
+See also: `query-point-reads` (general point-read guidance), `query-use-projections` (select only needed fields), `query-avoid-cross-partition` (avoid cross-partition fan-out).
+
+Reference: [Request Units — point reads cost fewer RUs than queries](https://learn.microsoft.com/azure/cosmos-db/request-units#request-unit-considerations)
 
 ---
 

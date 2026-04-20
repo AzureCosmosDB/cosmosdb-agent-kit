@@ -40,6 +40,18 @@ def get_player(self, player_id: str, game_id: str):
     # Unnecessary query engine invocation
 ```
 
+```typescript
+// ❌ Query instead of point read — id and partition key both known
+const { resources } = await container.items
+  .query<Order>({
+    query: 'SELECT * FROM c WHERE c.id = @id',
+    parameters: [{ name: '@id', value: orderId }],
+  }, { partitionKey: userId })
+  .fetchAll();
+return resources[0] ?? null;
+// ~2.92 RU — goes through the query engine for a single known document
+```
+
 **Correct (point read — bypasses query engine):**
 
 ```csharp
@@ -63,6 +75,12 @@ CosmosItemResponse<Order> response = container.readItem(
     new PartitionKey(customerId),
     Order.class);
 return response.getItem();
+```
+
+```typescript
+// ✅ Point read in Node.js — 1 RU, no query engine overhead
+const { resource: order } = await container.item(orderId, userId).read<Order>();
+return order ?? null;
 ```
 
 ### Multiple Known Documents — ReadMany vs. Parallel Point Reads
@@ -123,6 +141,28 @@ var tasks = new[]
 };
 
 var responses = await Task.WhenAll(tasks);
+```
+
+```typescript
+// ❌ OR/IN across partitions — fans out to every partition
+const { resources } = await container.items.query<Order>({
+  query: 'SELECT * FROM c WHERE c.id IN (@a, @b, @c)',
+  parameters: [
+    { name: '@a', value: 'order-1' },
+    { name: '@b', value: 'order-2' },
+    { name: '@c', value: 'order-3' },
+  ],
+}).fetchAll();
+
+// ✅ Parallel point reads (@azure/cosmos v4 does not expose readMany;
+//    use bounded-concurrency parallel reads for batched lookups)
+const results = await Promise.all([
+  container.item('order-1', 'user-alice').read<Order>(),
+  container.item('order-2', 'user-bob').read<Order>(),
+  container.item('order-3', 'user-alice').read<Order>(),
+]);
+return results.map(r => r.resource).filter(Boolean);
+// Total RU ≈ N × 1.0; bound concurrency with a limiter for larger batches
 ```
 
 ### Validate parent existence with a point read before writing child records

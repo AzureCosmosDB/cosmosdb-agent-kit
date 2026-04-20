@@ -1,7 +1,7 @@
 ---
 title: Project Only Needed Fields
 impact: HIGH
-impactDescription: reduces RU and network by 30-80%
+impactDescription: reduces payload size, network bandwidth, and client memory; RU savings scale with document size (negligible on small flat docs, substantial on multi-KB/MB documents and large result sets)
 tags: query, projection, performance, bandwidth
 ---
 
@@ -54,7 +54,8 @@ var orders = await container.GetItemQueryIterator<OrderSummary>(
     requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(customerId) }
 ).ReadNextAsync();
 
-// 70% less data transferred, proportionally lower RU
+// Substantial payload-size reduction; RU savings depend on document size
+// (significant on large/nested docs, negligible on small flat docs)
 ```
 
 ```csharp
@@ -117,6 +118,47 @@ List<PlayerSummary> getTopPlayers(@Param("key") String key);
 ```
 
 ⚠️ Deserializing projected results into the full entity type is acceptable when the entity is small, the unprojected fields are not misleading, or the surrounding framework expects that type (e.g., Spring Data repository methods, EF Core entities). In these cases, ensure the intent is clear through comments or naming so that future maintainers do not mistakenly revert to `SELECT *`.
+
+### Node.js / TypeScript (@azure/cosmos v4)
+
+```typescript
+// ❌ Anti-pattern: SELECT * pulls every field including future additions
+const bad = {
+  query: 'SELECT * FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC',
+  parameters: [{ name: '@userId', value: userId }],
+};
+
+// ✅ Preferred: project only the fields the caller consumes
+const good = {
+  query: `
+    SELECT c.id, c.userId, c.status, c.total, c.createdAt
+    FROM c
+    WHERE c.userId = @userId
+    ORDER BY c.createdAt DESC
+  `,
+  parameters: [{ name: '@userId', value: userId }],
+};
+
+// TypeScript: dedicated result type matches the projected fields
+interface OrderSummary {
+  id: string;
+  userId: string;
+  status: string;
+  total: number;
+  createdAt: string;
+}
+const { resources } = await container.items
+  .query<OrderSummary>(good, { partitionKey: userId })
+  .fetchAll();
+
+// Single-column scalar with SELECT VALUE
+const { resources: statuses } = await container.items
+  .query<string>({
+    query: 'SELECT VALUE c.status FROM c WHERE c.userId = @u',
+    parameters: [{ name: '@u', value: userId }],
+  }, { partitionKey: userId })
+  .fetchAll();
+```
 
 Savings multiply with:
 - Large documents (MB-sized)
