@@ -3,7 +3,7 @@
 Automated evaluation of test iteration results.
 
 Creates ITERATION.md in the iteration directory and updates
-testing-v2/IMPROVEMENTS-LOG.md with the test results.
+testing-v2/IMPROVEMENTS-LOG.md and CHANGELOG.md with the test results.
 
 Environment variables (set by CI):
     SCENARIO       - scenario name (e.g., gaming-leaderboard)
@@ -16,6 +16,7 @@ Reads:
 Writes:
     {ITERATION_DIR}/ITERATION.md
     testing-v2/IMPROVEMENTS-LOG.md (append or replace entry)
+    CHANGELOG.md (prepend concise entry)
 """
 
 import json
@@ -410,6 +411,50 @@ def update_improvements_log(scenario, iteration, report, skills_loaded):
     log_path.write_text(content, encoding="utf-8")
 
 
+def update_changelog(scenario, iteration, report, skills_loaded):
+    """Prepend a concise entry to CHANGELOG.md."""
+    changelog_path = Path("CHANGELOG.md")
+    if not changelog_path.exists():
+        print(f"  {changelog_path} not found, skipping")
+        return
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    summary = report.get("summary", {}) if report else {}
+    total = summary.get("total", 0)
+    passed = summary.get("passed", 0)
+    pass_rate = summary.get("pass_rate", 0)
+    score = compute_score(report)
+
+    language = iteration.rsplit("-", 1)[-1] if "-" in iteration else "unknown"
+    run_type = "skills" if skills_loaded else "control"
+
+    entry_lines = [
+        f"## {now} \u2014 {iteration} automated evaluation ({run_type})",
+        "",
+        f"- **Scenario**: {scenario}, **Language**: {language}",
+        f"- **Result**: {passed}/{total} tests passed ({pass_rate}%), score {score}/10",
+    ]
+    if not skills_loaded:
+        entry_lines.append("- Control run (no skills loaded)")
+    entry_lines.append("")
+
+    new_entry = "\n".join(entry_lines)
+    content = changelog_path.read_text(encoding="utf-8")
+
+    # Insert after the first --- separator line
+    separator = "\n---\n"
+    sep_pos = content.find(separator)
+    if sep_pos != -1:
+        insert_pos = sep_pos + len(separator)
+        content = content[:insert_pos] + "\n" + new_entry + content[insert_pos:]
+    else:
+        # Fallback: append after first heading
+        content = content.rstrip() + "\n\n" + new_entry
+
+    changelog_path.write_text(content, encoding="utf-8")
+    print(f"  Added entry to {changelog_path}")
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -449,6 +494,7 @@ def main():
 
     if report:
         update_improvements_log(scenario, iteration, report, skills_loaded)
+        update_changelog(scenario, iteration, report, skills_loaded)
 
     print("Evaluation complete")
 

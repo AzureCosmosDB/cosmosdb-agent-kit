@@ -38,7 +38,8 @@ Follow the recipe in `testing-v2/EVALUATE.md` exactly. The key steps are:
 4. Create or update rules in `skills/cosmosdb-best-practices/rules/`
 5. Run `npm run build` to regenerate AGENTS.md
 6. Update `testing-v2/IMPROVEMENTS-LOG.md`
-7. Commit everything to the PR branch
+7. Add a concise entry to `CHANGELOG.md`
+8. Commit everything to the PR branch
 
 ## Build Commands
 
