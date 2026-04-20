@@ -10,7 +10,7 @@ Skills follow the [Agent Skills](https://agentskills.io/) format.
 
 ### cosmosdb-best-practices
 
-Azure Cosmos DB performance optimization guidelines containing 45+ rules across 8 categories, prioritized by impact.
+Azure Cosmos DB performance optimization guidelines containing 90+ rules across 12 categories, prioritized by impact.
 
 **Use when:**
 - Writing new code that interacts with Cosmos DB
@@ -90,6 +90,12 @@ Works with Claude Code, GitHub Copilot, Gemini CLI, and other Agent Skills-compa
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a dated history of updates to the agent kit, including the `cosmosdb-best-practices` skill and the testing framework. Each entry links to the PR that introduced the change.
+
+When you merge a PR, add a new dated entry at the top of `CHANGELOG.md`.
 
 ## License
 
