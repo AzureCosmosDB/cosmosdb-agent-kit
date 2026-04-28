@@ -339,7 +339,7 @@ Follow the exact structure of `gaming-leaderboard/SCENARIO.md`. It must contain:
 4. **Data Model** — Entities and their relationships, expected volumes
 5. **Expected Operations** — Checklist of what's required
 6. **API Contract (V2)** section — Table of all endpoints, link to `api-contract.yaml`
-7. **Prompt to Give Agent** — One prompt per language (Python, .NET, Java, Node.js, Go)
+7. **Prompt to Give Agent** — One prompt per language (Python, .NET, Java, Node.js, Go, Rust)
 
 **The prompts are CRITICAL.** Each language prompt MUST end with this block (adapted for your scenario):
 
@@ -392,7 +392,7 @@ Before opening the PR, verify:
 - [ ] Infrastructure tests use `cosmos_containers`, `cosmos_container_map`, and `cosmos_database` fixtures
 - [ ] At least one cross-boundary test exists (write via API, read from Cosmos DB directly)
 - [ ] Enum/status fields are validated to be stored as strings (not integers)
-- [ ] `SCENARIO.md` has prompts for at least Python, .NET, Java, Node.js, and Go
+- [ ] `SCENARIO.md` has prompts for at least Python, .NET, Java, Node.js, Go, and Rust
 - [ ] Every prompt ends with the CRITICAL API Contract Requirements block
 - [ ] Every prompt includes the `iteration-config.yaml` requirement
 - [ ] The `iterations/.gitkeep` file exists
