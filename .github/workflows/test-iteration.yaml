@@ -451,6 +451,14 @@ jobs:
         run: |
           $runCmd = "${{ steps.config.outputs.run_cmd }}"
 
+          # Normalise Unix-style paths for Windows cmd.exe:
+          #   ./server  -> .\server    (forward-slash is a switch delimiter in cmd)
+          # Also ensure compiled Go/Rust binaries have .exe extension.
+          $runCmd = $runCmd -replace '^\./', '.\\'
+          if ($runCmd -match '^\.\\[\w\-]+$' -and -not $runCmd.EndsWith('.exe')) {
+            $runCmd += '.exe'
+          }
+
           $stdoutLog = Join-Path $PWD "app-output.log"
           $stderrLog = Join-Path $PWD "app-error.log"
 

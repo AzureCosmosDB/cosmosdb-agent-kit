@@ -416,8 +416,8 @@ language: go
 database: iot-device-telemetry
 port: 8080
 health: /health
-build: go build -o server .
-run: ./server
+build: go build -o server.exe .
+run: .\server.exe
 ```
 
 The Cosmos DB connection uses environment variables:

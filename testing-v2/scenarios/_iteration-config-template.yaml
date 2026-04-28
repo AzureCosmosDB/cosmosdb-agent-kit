@@ -26,7 +26,7 @@ health: /health
 #   dotnet:  dotnet build
 #   java:    mvn package -DskipTests
 #   nodejs:  npm install
-#   go:      go build -o app .
+#   go:      go build -o app.exe .
 #   rust:    cargo build --release
 build: pip install -r requirements.txt
 
@@ -41,8 +41,8 @@ build: pip install -r requirements.txt
 #   dotnet:  dotnet run --urls http://localhost:8080
 #   java:    java -jar target/app.jar --server.port=8080
 #   nodejs:  node server.js
-#   go:      ./app
-#   rust:    ./target/release/app
+#   go:      .\app.exe
+#   rust:    .\target\release\app.exe
 run: python app.py
 
 # Whether the agent loaded skills/cosmosdb-best-practices/AGENTS.md before
