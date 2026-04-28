@@ -17,9 +17,9 @@ body:
       label: Scenario
       description: Which scenario should be tested?
       options:
-        - gaming-leaderboard
-        - ecommerce-order-api
         - ai-chat-rag
+        - ecommerce-order-api
+        - gaming-leaderboard
         - iot-device-telemetry
         - multitenant-saas
     validations:
