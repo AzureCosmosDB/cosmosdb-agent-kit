@@ -652,7 +652,7 @@ The test runner is always Python (pytest + requests). The **app under test** can
 | .NET 8 | ASP.NET Web API | 5000 | `dotnet build` | `dotnet run` |
 | Java | Spring Boot 3 | 8080 | `mvn package -DskipTests` | `java -jar target/*.jar` |
 | Node.js | Express | 3000 | `npm install` | `node server.js` |
-| Go | Gin | 8080 | `go build -o server .` | `./server` |
+| Go | Gin | 8080 | `go build -o server.exe .` | `.\server.exe` |
 
 Configure per-iteration via `iteration-config.yaml`.
 
