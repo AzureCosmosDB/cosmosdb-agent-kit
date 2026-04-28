@@ -296,6 +296,10 @@ jobs:
         with:
           go-version: '1.22'
 
+      - name: Setup Rust
+        if: steps.config.outputs.language == 'rust'
+        uses: dtolnay/rust-toolchain@stable
+
       # ------------------------------------------------------------------
       # Build the iteration app
       # ------------------------------------------------------------------
@@ -397,6 +401,14 @@ jobs:
           # Node.js uses NODE_EXTRA_CA_CERTS to trust additional certificates
           "NODE_EXTRA_CA_CERTS=$env:COSMOS_CERT_PATH" >> $env:GITHUB_ENV
           Write-Host "Set NODE_EXTRA_CA_CERTS=$env:COSMOS_CERT_PATH"
+
+      - name: Trust Cosmos DB Emulator cert (Rust)
+        if: steps.config.outputs.language == 'rust' && env.COSMOS_CERT_PATH != ''
+        shell: pwsh
+        run: |
+          # Rust reqwest/hyper-tls honour SSL_CERT_FILE
+          "SSL_CERT_FILE=$env:COSMOS_CERT_PATH" >> $env:GITHUB_ENV
+          Write-Host "Set SSL_CERT_FILE=$env:COSMOS_CERT_PATH"
 
       # ------------------------------------------------------------------
       # Verify imports resolve before starting the app
