@@ -1,0 +1,124 @@
+# =============================================================================
+# Sync Scenario List
+# =============================================================================
+# Automatically updates the scenario dropdown in issue templates whenever
+# scenarios are added or removed under testing-v2/scenarios/.
+#
+# Trigger: Push to main that changes testing-v2/scenarios/*/api-contract.yaml
+# or the issue templates themselves. Also supports manual dispatch.
+# =============================================================================
+
+name: Sync Scenario List
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'testing-v2/scenarios/*/api-contract.yaml'
+      - '.github/ISSUE_TEMPLATE/run-iteration.yml'
+      - '.github/ISSUE_TEMPLATE/batch-test.yml'
+
+  workflow_dispatch: {}
+
+jobs:
+  sync-scenarios:
+    name: Update issue template dropdowns
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Discover scenarios and update templates
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Discover scenario directories that contain an api-contract.yaml
+          SCENARIOS=()
+          for contract in testing-v2/scenarios/*/api-contract.yaml; do
+            dir=$(dirname "$contract")
+            name=$(basename "$dir")
+            # Skip template/hidden directories
+            [[ "$name" == _* ]] && continue
+            SCENARIOS+=("$name")
+          done
+
+          # Sort alphabetically
+          IFS=$'\n' SCENARIOS=($(sort <<<"${SCENARIOS[*]}")); unset IFS
+
+          echo "Discovered scenarios: ${SCENARIOS[*]}"
+
+          if [ ${#SCENARIOS[@]} -eq 0 ]; then
+            echo "No scenarios found — skipping update"
+            exit 0
+          fi
+
+          # Build the YAML options block (8-space indent for issue template dropdown)
+          OPTIONS=""
+          for s in "${SCENARIOS[@]}"; do
+            OPTIONS="${OPTIONS}        - ${s}\n"
+          done
+          # Remove trailing newline
+          OPTIONS=$(echo -en "$OPTIONS")
+
+          # Update each issue template that has a scenario dropdown
+          for template in .github/ISSUE_TEMPLATE/run-iteration.yml .github/ISSUE_TEMPLATE/batch-test.yml; do
+            if [ ! -f "$template" ]; then
+              echo "Template not found: $template — skipping"
+              continue
+            fi
+
+            echo "Updating $template ..."
+
+            # Use Python for reliable multi-line YAML editing
+            python3 - "$template" "$OPTIONS" <<'PYEOF'
+          import sys, re
+
+          template_path = sys.argv[1]
+          new_options = sys.argv[2]
+
+          with open(template_path, 'r') as f:
+              content = f.read()
+
+          # Pattern: find the scenario dropdown's options block
+          # Matches from "id: scenario" through the "options:" list until the next
+          # field at the same or lower indent level (validations, next type block, etc.)
+          pattern = r'(id: scenario\n\s+attributes:\n\s+label: Scenario\n\s+description:[^\n]*\n\s+options:\n)((?:\s+- [^\n]+\n?)+)'
+
+          def replacer(m):
+              return m.group(1) + new_options + '\n'
+
+          new_content, count = re.subn(pattern, replacer, content)
+
+          if count == 0:
+              print(f"  WARNING: Could not find scenario options block in {template_path}")
+              sys.exit(0)
+
+          with open(template_path, 'w') as f:
+              f.write(new_content)
+
+          print(f"  Updated {count} scenario dropdown(s) in {template_path}")
+          PYEOF
+          done
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet .github/ISSUE_TEMPLATE/; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No changes needed — templates already up to date"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Templates updated — will commit"
+            git diff .github/ISSUE_TEMPLATE/
+          fi
+
+      - name: Commit and push
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/ISSUE_TEMPLATE/run-iteration.yml .github/ISSUE_TEMPLATE/batch-test.yml
+          git commit -m "chore: sync scenario dropdown in issue templates [skip ci]"
+          git push
