@@ -1294,3 +1294,29 @@ After completing the iteration successfully, user provided GitHub samples showin
   - Throughput & scaling (5 rules)
   - Global distribution (6 rules)
   - Monitoring & diagnostics (5 rules)
+
+#### 2026-04-30: iteration-001-rust - Ecommerce Order Api (Rust) [skills loaded]
+
+- **Scenario**: ecommerce-order-api
+- **Iteration**: iteration-001-rust
+- **Skills loaded**: Yes
+- **Result**: PARTIAL -- 85/91 tests passed (93.4%)
+- **Score**: 8/10
+
+**Results by Category**:
+- api_contract: 39 passed, 2 failed, 0 skipped
+- build_startup: 2 passed, 0 failed, 0 skipped
+- cosmos_infrastructure: 11 passed, 3 failed, 1 skipped
+- data_integrity: 5 passed, 0 failed, 0 skipped
+- robustness: 30 passed, 0 failed, 0 skipped
+
+**Issues Encountered**:
+1. **testing-v2.scenarios.ecommerce-order-api.tests.test_api_contract.TestUpdateOrderStatus::test_update_status_reflects_new_status** -- assert 409 == 200
+ +  where 409 = <Response [409]>.status_code
+1. **testing-v2.scenarios.ecommerce-order-api.tests.test_api_contract.TestUpdateOrderStatus::test_updated_status_persists_on_get** -- AssertionError: After PATCH, GET should return updated status 'delivered', got 'pending'
+assert 'pen
+1. **testing-v2.scenarios.ecommerce-order-api.tests.test_cosmos_infrastructure.TestIndexingPolicies::test_has_composite_indexes_for_order_queries** -- AssertionError: No container has composite indexes defined. E-commerce queries like 'orders by statu
+1. **testing-v2.scenarios.ecommerce-order-api.tests.test_cosmos_infrastructure.TestDocumentStructure::test_documents_have_type_discriminator** -- Failed: No documents have a type discriminator field. When a container holds multiple entity types (
+1. **testing-v2.scenarios.ecommerce-order-api.tests.test_cosmos_infrastructure.TestDocumentStructure::test_documents_have_schema_version** -- Failed: No documents have a schema version field. Include a 'schemaVersion' field in documents so fu
+
+**Test Results**: 85 passed, 6 failed out of 91
