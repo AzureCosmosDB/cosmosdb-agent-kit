@@ -83,6 +83,25 @@ const { resource: order } = await container.item(orderId, userId).read<Order>();
 return order ?? null;
 ```
 
+```rust
+// ✅ Point read in Rust (azure_data_cosmos) — 1 RU, no query engine
+use azure_data_cosmos::PartitionKey;
+
+let container = cosmos.database_client("db").container_client("orders").await;
+let pk = PartitionKey::from(customer_id.to_string());
+let response = container.read_item::<serde_json::Value>(pk, &order_id, None).await;
+match response {
+    Ok(item) => {
+        let order: Order = serde_json::from_value(item.into_body()).unwrap();
+        // Cost: 1 RU for a 1 KB document
+    }
+    Err(e) if e.http_status() == Some(azure_core::http::StatusCode::NotFound) => {
+        // Document not found
+    }
+    Err(e) => return Err(e),
+}
+```
+
 ### Multiple Known Documents — ReadMany vs. Parallel Point Reads
 
 When fetching multiple documents by known `(id, partitionKey)` pairs, you have two options:

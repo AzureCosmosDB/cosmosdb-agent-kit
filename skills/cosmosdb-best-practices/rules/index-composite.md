@@ -165,6 +165,38 @@ List<CompositePath> assigneeSort = Arrays.asList(
 policy.setCompositeIndexes(Arrays.asList(statusSort, assigneeSort));
 ```
 
+```rust
+// Rust (azure_data_cosmos): Composite indexes via JSON deserialization
+// CompositeIndex types are #[non_exhaustive], so construct via serde_json
+use azure_data_cosmos::models::{ContainerProperties, IndexingPolicy, PartitionKeyDefinition};
+
+let indexing_policy: IndexingPolicy = serde_json::from_value(serde_json::json!({
+    "automatic": true,
+    "indexingMode": "consistent",
+    "includedPaths": [{"path": "/*"}],
+    "excludedPaths": [{"path": "/_etag/?"}],
+    "compositeIndexes": [
+        [
+            {"path": "/status", "order": "ascending"},
+            {"path": "/createdAt", "order": "descending"}
+        ],
+        [
+            {"path": "/customerId", "order": "ascending"},
+            {"path": "/createdAt", "order": "descending"}
+        ]
+    ]
+})).expect("valid indexing policy JSON");
+
+let properties = ContainerProperties::new(
+    "orders".to_string(),
+    PartitionKeyDefinition::new(vec!["/customerId".to_string()]),
+)
+.with_indexing_policy(indexing_policy);
+
+// Create container with composite indexes
+db_client.create_container(properties, None).await?;
+```
+
 **Why type discriminators need composite indexes:**
 When a single container holds multiple entity types (tenant, user, project, task), queries always filter by `type`. Without a composite index on `(type, sortField)`, the query engine cannot efficiently sort within a single entity type. This is especially costly in containers with millions of mixed-type documents.
 

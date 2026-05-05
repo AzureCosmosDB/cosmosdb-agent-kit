@@ -120,4 +120,46 @@ public class CosmosDbHostedService : IHostedService
 }
 ```
 
+```rust
+// Rust (azure_data_cosmos): Singleton via Arc shared across async handlers
+use azure_data_cosmos::{
+    CosmosAccountEndpoint, CosmosAccountReference, CosmosClient, CosmosClientBuilder,
+};
+use azure_core::credentials::Secret;
+use std::sync::Arc;
+
+pub type SharedCosmos = Arc<CosmosClient>;
+
+async fn create_singleton_client(endpoint: &str, key: &str) -> SharedCosmos {
+    let endpoint: CosmosAccountEndpoint = endpoint.parse().expect("valid endpoint");
+    let account = CosmosAccountReference::with_master_key(
+        endpoint,
+        Secret::from(key.to_string()),
+    );
+    let client = CosmosClientBuilder::new()
+        .build(account)
+        .await
+        .expect("build client");
+    Arc::new(client)
+}
+
+// Share the Arc<CosmosClient> via Axum state
+#[tokio::main]
+async fn main() {
+    let cosmos = create_singleton_client("https://...", "key...").await;
+    let app = axum::Router::new()
+        .route("/orders", axum::routing::get(list_orders))
+        .with_state(cosmos); // Single client reused by all handlers
+    // ...
+}
+
+async fn list_orders(
+    axum::extract::State(cosmos): axum::extract::State<SharedCosmos>,
+) -> impl axum::response::IntoResponse {
+    let container = cosmos.database_client("db").container_client("orders").await;
+    // Use container...
+    axum::http::StatusCode::OK
+}
+```
+
 Reference: [CosmosClient best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-dotnet)

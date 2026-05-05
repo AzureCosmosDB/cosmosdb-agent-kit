@@ -210,4 +210,48 @@ System.setProperty("COSMOS.EMULATOR_SSL_TRUST_ALL", "true");  // INEFFECTIVE!
 - The emulator's well-known key is: `C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==`
 - For production, switch back to Direct mode and use your actual Cosmos DB endpoint
 
+---
+
+### Rust SDK (`azure_data_cosmos`)
+
+The Rust SDK provides a built-in method to accept the emulator's self-signed certificate:
+
+```rust
+use azure_data_cosmos::{
+    CosmosAccountEndpoint, CosmosAccountReference, CosmosClient, CosmosClientBuilder,
+};
+use azure_core::credentials::Secret;
+
+// ✅ Emulator configuration — accepts invalid certificates
+let endpoint: CosmosAccountEndpoint = "https://localhost:8081"
+    .parse()
+    .expect("valid endpoint");
+
+let account = CosmosAccountReference::with_master_key(
+    endpoint,
+    Secret::from("C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==".to_string()),
+);
+
+let client = CosmosClientBuilder::new()
+    .with_allow_emulator_invalid_certificates(true)  // Accept self-signed cert
+    .build(account)
+    .await
+    .expect("build client");
+
+// For production, omit with_allow_emulator_invalid_certificates:
+// CosmosClientBuilder::new().build(account).await
+```
+
+**Required Cargo.toml features:**
+```toml
+[dependencies]
+azure_data_cosmos = { version = "0.31", features = ["key_auth", "hmac_rust", "allow_invalid_certificates"] }
+azure_core = "0.32"
+```
+
+> **Note:** The `allow_invalid_certificates` feature must be enabled in Cargo.toml for
+> `with_allow_emulator_invalid_certificates(true)` to compile.
+
+---
+
 Reference: [Use the Azure Cosmos DB Emulator for local development](https://learn.microsoft.com/azure/cosmos-db/emulator)

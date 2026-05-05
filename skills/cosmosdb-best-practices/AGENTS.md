@@ -103,10 +103,10 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 8.4 [Track RU Consumption](#84-track-ru-consumption)
    - 8.5 [Alert on Throttling (429s)](#85-alert-on-throttling-429s-)
 9. [Design Patterns](#9-design-patterns) — **HIGH**
-   - 9.1 [Use Change Feed for cross-partition query optimization with materialized views](#91-use-change-feed-for-cross-partition-query-optimization-with-materialized-views)
-   - 9.2 [Use count-based or cached rank approaches instead of full partition scans for ranking](#92-use-count-based-or-cached-rank-approaches-instead-of-full-partition-scans-for-ranking)
-   - 9.3 [Use a service layer to hydrate document references before rendering](#93-use-a-service-layer-to-hydrate-document-references-before-rendering)
-   - 9.4 [Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known](#94-use-point-reads-for-ai-grounding-and-rag-retrieval-when-id-is-known)
+   - 9.1 [Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known](#91-use-point-reads-for-ai-grounding-and-rag-retrieval-when-id-is-known)
+   - 9.2 [Use Change Feed for cross-partition query optimization with materialized views](#92-use-change-feed-for-cross-partition-query-optimization-with-materialized-views)
+   - 9.3 [Use count-based or cached rank approaches instead of full partition scans for ranking](#93-use-count-based-or-cached-rank-approaches-instead-of-full-partition-scans-for-ranking)
+   - 9.4 [Use a service layer to hydrate document references before rendering](#94-use-a-service-layer-to-hydrate-document-references-before-rendering)
 10. [Developer Tooling](#10-developer-tooling) — **MEDIUM**
    - 10.1 [Use Azure Cosmos DB Emulator for local development and testing](#101-use-azure-cosmos-db-emulator-for-local-development-and-testing)
    - 10.2 [Use Azure Cosmos DB VS Code extension for routine inspection and management](#102-use-azure-cosmos-db-vs-code-extension-for-routine-inspection-and-management)
@@ -2939,6 +2939,37 @@ Benefits:
 - Performance: Query plan caching and reuse
 - Maintainability: Cleaner, type-safe code
 
+**Rust (`azure_data_cosmos`):**
+
+```rust
+use azure_data_cosmos::Query;
+
+// ✅ Parameterized query — safe and cacheable
+let query = Query::from("SELECT * FROM c WHERE c.customerId = @customerId")
+    .with_parameter("@customerId", customer_id)
+    .unwrap();
+
+// Multiple parameters
+let query = Query::from(
+    "SELECT * FROM c WHERE c.customerId = @cid AND c.status = @status ORDER BY c.createdAt DESC"
+)
+    .with_parameter("@cid", customer_id).unwrap()
+    .with_parameter("@status", "active").unwrap();
+
+// Aggregate query with parameters
+let query = Query::from(
+    "SELECT COUNT(1) AS totalOrders, SUM(c.total) AS totalSpent FROM c WHERE c.customerId = @cid"
+)
+    .with_parameter("@cid", customer_id).unwrap();
+```
+
+```rust
+// ❌ Anti-pattern: String interpolation (no plan caching, injection risk)
+let query = Query::from(format!(
+    "SELECT * FROM c WHERE c.customerId = '{}'", customer_id
+));
+```
+
 Reference: [Parameterized queries](https://learn.microsoft.com/azure/cosmos-db/nosql/query/parameterized-queries)
 
 ### 3.9 Use Point Reads Instead of Queries for Known ID and Partition Key
@@ -3021,6 +3052,25 @@ return response.getItem();
 // ✅ Point read in Node.js — 1 RU, no query engine overhead
 const { resource: order } = await container.item(orderId, userId).read<Order>();
 return order ?? null;
+```
+
+```rust
+// ✅ Point read in Rust (azure_data_cosmos) — 1 RU, no query engine
+use azure_data_cosmos::PartitionKey;
+
+let container = cosmos.database_client("db").container_client("orders").await;
+let pk = PartitionKey::from(customer_id.to_string());
+let response = container.read_item::<serde_json::Value>(pk, &order_id, None).await;
+match response {
+    Ok(item) => {
+        let order: Order = serde_json::from_value(item.into_body()).unwrap();
+        // Cost: 1 RU for a 1 KB document
+    }
+    Err(e) if e.http_status() == Some(azure_core::http::StatusCode::NotFound) => {
+        // Document not found
+    }
+    Err(e) => return Err(e),
+}
 ```
 
 ### Multiple Known Documents — ReadMany vs. Parallel Point Reads
@@ -3194,7 +3244,7 @@ References:
 
 ### 3.11 Project Only Needed Fields
 
-**Impact: HIGH** (reduces payload size, network bandwidth, and client memory; RU savings scale with document size — negligible on small flat docs, substantial on multi-KB/MB documents and large result sets)
+**Impact: HIGH** (reduces payload size, network bandwidth, and client memory; RU savings scale with document size (negligible on small flat docs, substantial on multi-KB/MB documents and large result sets))
 
 ## Project Only Needed Fields
 
@@ -4340,6 +4390,50 @@ System.setProperty("COSMOS.EMULATOR_SSL_TRUST_ALL", "true");  // INEFFECTIVE!
 - The emulator's well-known key is: `C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==`
 - For production, switch back to Direct mode and use your actual Cosmos DB endpoint
 
+---
+
+### Rust SDK (`azure_data_cosmos`)
+
+The Rust SDK provides a built-in method to accept the emulator's self-signed certificate:
+
+```rust
+use azure_data_cosmos::{
+    CosmosAccountEndpoint, CosmosAccountReference, CosmosClient, CosmosClientBuilder,
+};
+use azure_core::credentials::Secret;
+
+// ✅ Emulator configuration — accepts invalid certificates
+let endpoint: CosmosAccountEndpoint = "https://localhost:8081"
+    .parse()
+    .expect("valid endpoint");
+
+let account = CosmosAccountReference::with_master_key(
+    endpoint,
+    Secret::from("C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==".to_string()),
+);
+
+let client = CosmosClientBuilder::new()
+    .with_allow_emulator_invalid_certificates(true)  // Accept self-signed cert
+    .build(account)
+    .await
+    .expect("build client");
+
+// For production, omit with_allow_emulator_invalid_certificates:
+// CosmosClientBuilder::new().build(account).await
+```
+
+**Required Cargo.toml features:**
+```toml
+[dependencies]
+azure_data_cosmos = { version = "0.31", features = ["key_auth", "hmac_rust", "allow_invalid_certificates"] }
+azure_core = "0.32"
+```
+
+> **Note:** The `allow_invalid_certificates` feature must be enabled in Cargo.toml for
+> `with_allow_emulator_invalid_certificates(true)` to compile.
+
+---
+
 Reference: [Use the Azure Cosmos DB Emulator for local development](https://learn.microsoft.com/azure/cosmos-db/emulator)
 
 ### 4.9 Use ETags for optimistic concurrency on read-modify-write operations
@@ -4485,6 +4579,43 @@ except CosmosHttpResponseError as e:
 - **Always use** when updating denormalized data (see below)
 - **Skip** for append-only operations (new document creation with unique IDs)
 - **Skip** for idempotent overwrites where last-writer-wins is acceptable
+
+**Rust (`azure_data_cosmos`) equivalent:**
+
+```rust
+use azure_data_cosmos::{ItemOptions, PartitionKey};
+use azure_core::http::StatusCode;
+
+// Read document and capture ETag from response headers
+let container = cosmos.database_client("db").container_client("orders").await;
+let pk = PartitionKey::from(customer_id.to_string());
+
+// Read the current document
+let response = container.read_item::<serde_json::Value>(pk.clone(), &order_id, None)
+    .await
+    .map_err(|e| format!("read failed: {}", e))?;
+
+let etag = response.etag().map(|e| e.to_string());
+let mut order: Order = serde_json::from_value(response.into_body())?;
+
+// Modify the document
+order.status = "shipped".to_string();
+
+// Write with ETag condition — fails if document changed since read
+let options = ItemOptions::default();
+// Note: ETag-based conditional writes depend on SDK version support.
+// If ItemOptions supports if_match_etag, use it:
+// let options = options.with_if_match_etag(etag.unwrap());
+
+let item = serde_json::to_value(&order)?;
+match container.replace_item(pk, &order.id, item, Some(options)).await {
+    Ok(_) => { /* Success */ }
+    Err(e) if e.http_status() == Some(StatusCode::PreconditionFailed) => {
+        // HTTP 412: Document was modified — retry from read
+    }
+    Err(e) => return Err(e.into()),
+}
+```
 
 ### ⚠️ Critical: ETags for Denormalized Data Updates
 
@@ -6165,6 +6296,48 @@ public class CosmosDbHostedService : IHostedService
 }
 ```
 
+```rust
+// Rust (azure_data_cosmos): Singleton via Arc shared across async handlers
+use azure_data_cosmos::{
+    CosmosAccountEndpoint, CosmosAccountReference, CosmosClient, CosmosClientBuilder,
+};
+use azure_core::credentials::Secret;
+use std::sync::Arc;
+
+pub type SharedCosmos = Arc<CosmosClient>;
+
+async fn create_singleton_client(endpoint: &str, key: &str) -> SharedCosmos {
+    let endpoint: CosmosAccountEndpoint = endpoint.parse().expect("valid endpoint");
+    let account = CosmosAccountReference::with_master_key(
+        endpoint,
+        Secret::from(key.to_string()),
+    );
+    let client = CosmosClientBuilder::new()
+        .build(account)
+        .await
+        .expect("build client");
+    Arc::new(client)
+}
+
+// Share the Arc<CosmosClient> via Axum state
+#[tokio::main]
+async fn main() {
+    let cosmos = create_singleton_client("https://...", "key...").await;
+    let app = axum::Router::new()
+        .route("/orders", axum::routing::get(list_orders))
+        .with_state(cosmos); // Single client reused by all handlers
+    // ...
+}
+
+async fn list_orders(
+    axum::extract::State(cosmos): axum::extract::State<SharedCosmos>,
+) -> impl axum::response::IntoResponse {
+    let container = cosmos.database_client("db").container_client("orders").await;
+    // Use container...
+    axum::http::StatusCode::OK
+}
+```
+
 Reference: [CosmosClient best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-dotnet)
 
 ### 4.23 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
@@ -6629,6 +6802,38 @@ List<CompositePath> assigneeSort = Arrays.asList(
 );
 
 policy.setCompositeIndexes(Arrays.asList(statusSort, assigneeSort));
+```
+
+```rust
+// Rust (azure_data_cosmos): Composite indexes via JSON deserialization
+// CompositeIndex types are #[non_exhaustive], so construct via serde_json
+use azure_data_cosmos::models::{ContainerProperties, IndexingPolicy, PartitionKeyDefinition};
+
+let indexing_policy: IndexingPolicy = serde_json::from_value(serde_json::json!({
+    "automatic": true,
+    "indexingMode": "consistent",
+    "includedPaths": [{"path": "/*"}],
+    "excludedPaths": [{"path": "/_etag/?"}],
+    "compositeIndexes": [
+        [
+            {"path": "/status", "order": "ascending"},
+            {"path": "/createdAt", "order": "descending"}
+        ],
+        [
+            {"path": "/customerId", "order": "ascending"},
+            {"path": "/createdAt", "order": "descending"}
+        ]
+    ]
+})).expect("valid indexing policy JSON");
+
+let properties = ContainerProperties::new(
+    "orders".to_string(),
+    PartitionKeyDefinition::new(vec!["/customerId".to_string()]),
+)
+.with_indexing_policy(indexing_policy);
+
+// Create container with composite indexes
+db_client.create_container(properties, None).await?;
 ```
 
 **Why type discriminators need composite indexes:**
@@ -9240,7 +9445,97 @@ Reference: [Monitor throttling](https://learn.microsoft.com/azure/cosmos-db/moni
 
 **Impact: HIGH**
 
-### 9.1 Use Change Feed for cross-partition query optimization with materialized views
+### 9.1 Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known
+
+**Impact: HIGH** (1 RU point read vs ~2.5+ RU query per grounding fetch; reduces tool-call latency in LLM loops)
+
+## Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known
+
+In AI-grounded workloads an LLM tool-use loop typically resolves a concrete entity id (e.g., `orderId`, `sessionId`, `documentId`) from the user turn or tool-call arguments, then fetches the full document from Cosmos DB to build the grounding context for the model. Because the id and partition key are both known at call time, a point read should always be used instead of a query. This applies to any retrieval step that feeds data into an LLM context window — RAG retrieval, tool-call handlers, grounding functions, or agent data-fetching steps.
+
+**How to recognize this pattern — static tell-tales:**
+
+- An LLM / AI client import in the same module (e.g., `OpenAI`, `AzureOpenAI`, `ChatCompletionClient`, Semantic Kernel, LangChain)
+- A function that parses tool-call arguments or assembles a `messages` array
+- A Cosmos DB call using a single-id equality filter where the id was extracted from user input or a tool-call response
+
+**Incorrect (query when id and partition key are both available from the tool call):**
+
+```typescript
+// ❌ Generic query — id is already known from the user turn / tool call
+export async function groundOrderContext(orderId: string, userId: string) {
+  const { resources: orders } = await ordersContainer.items
+    .query<Order>({
+      query: "SELECT * FROM c WHERE c.orderId = @o",
+      parameters: [{ name: "@o", value: orderId }],
+    })
+    .fetchAll();
+
+  const { resources: events } = await eventsContainer.items
+    .query<DeliveryEvent>({
+      query: "SELECT * FROM c WHERE c.orderId = @o ORDER BY c.timestamp DESC",
+      parameters: [{ name: "@o", value: orderId }],
+    })
+    .fetchAll();
+
+  return buildGroundingContext(orders[0], events);
+}
+```
+
+```python
+# ❌ Query instead of point read — id and partition key both known
+def ground_order_context(order_id: str, user_id: str):
+    orders = list(orders_container.query_items(
+        query="SELECT * FROM c WHERE c.id = @id",
+        parameters=[{"name": "@id", "value": order_id}],
+        partition_key=user_id,
+    ))
+    return build_grounding_context(orders[0]) if orders else None
+```
+
+**Correct (point read for the primary document, partition-scoped projection for related items):**
+
+```typescript
+// ✅ Point read for the order (id + partition key both known from tool call)
+export async function groundOrderContext(orderId: string, userId: string) {
+  const orderResp = await ordersContainer.item(orderId, userId).read<Order>();
+  const order = orderResp.resource;
+  if (!order) return null;
+
+  // ✅ Partition-key-scoped projection for related event list
+  const { resources: events } = await eventsContainer.items
+    .query<DeliveryEvent>(
+      {
+        query:
+          "SELECT c.id, c.orderId, c.timestamp, c.status, c.note FROM c WHERE c.orderId = @o ORDER BY c.timestamp DESC",
+        parameters: [{ name: "@o", value: orderId }],
+      },
+      { partitionKey: orderId }
+    )
+    .fetchAll();
+
+  return buildGroundingContext(order, events);
+}
+```
+
+```python
+# ✅ Point read — 1 RU, no query engine overhead
+def ground_order_context(order_id: str, user_id: str):
+    order = orders_container.read_item(item=order_id, partition_key=user_id)
+    return build_grounding_context(order)
+```
+
+**Why this matters for AI workloads:**
+
+1. **Latency-sensitive** — each tool call adds to perceived LLM response time; a point read (1 RU, single backend hop) is the fastest possible retrieval
+2. **Throughput-sensitive** — hot conversations drive the same partition key repeatedly; cross-partition fan-out under load hot-spots a single logical partition fastest
+3. **ID is known by construction** — the LLM tool-use loop hands the agent an id parsed from the user turn or a prior tool result; agents should recognise this signal and reach for the point read
+
+See also: `query-point-reads` (general point-read guidance), `query-use-projections` (select only needed fields), `query-avoid-cross-partition` (avoid cross-partition fan-out).
+
+Reference: [Request Units — point reads cost fewer RUs than queries](https://learn.microsoft.com/azure/cosmos-db/request-units#request-unit-considerations)
+
+### 9.2 Use Change Feed for cross-partition query optimization with materialized views
 
 **Impact: HIGH** (eliminates cross-partition query overhead for admin/analytics scenarios)
 
@@ -9533,7 +9828,7 @@ Reference(s):
 [Change feed design patterns in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/change-feed-design-patterns)
 [Global Secondary Indexes (GSI) in Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/global-secondary-indexes)
 
-### 9.2 Use count-based or cached rank approaches instead of full partition scans for ranking
+### 9.3 Use count-based or cached rank approaches instead of full partition scans for ranking
 
 **Impact: HIGH** (reduces rank lookups from O(N) partition scans to O(1) or O(log N) operations)
 
@@ -9692,7 +9987,7 @@ public class ScoreBucket
 
 Reference: [Cosmos DB query optimization](https://learn.microsoft.com/azure/cosmos-db/nosql/query/getting-started)
 
-### 9.3 Use a service layer to hydrate document references before rendering
+### 9.4 Use a service layer to hydrate document references before rendering
 
 **Impact: HIGH** (bridges document storage with frameworks expecting object graphs, prevents empty/null relationship data)
 
@@ -9821,96 +10116,6 @@ private void populateRelationships(Vet vet) {
 For truly high-volume scenarios, consider denormalizing the data instead (see `model-denormalize-reads`) or using Change Feed to maintain materialized views (see `pattern-change-feed-materialized-views`).
 
 Reference: [Data modeling in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/modeling-data)
-
-### 9.4 Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known
-
-**Impact: HIGH** (1 RU point read vs ~2.5+ RU query per grounding fetch; reduces tool-call latency in LLM loops)
-
-## Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known
-
-In AI-grounded workloads an LLM tool-use loop typically resolves a concrete entity id (e.g., `orderId`, `sessionId`, `documentId`) from the user turn or tool-call arguments, then fetches the full document from Cosmos DB to build the grounding context for the model. Because the id and partition key are both known at call time, a point read should always be used instead of a query. This applies to any retrieval step that feeds data into an LLM context window — RAG retrieval, tool-call handlers, grounding functions, or agent data-fetching steps.
-
-**How to recognize this pattern — static tell-tales:**
-
-- An LLM / AI client import in the same module (e.g., `OpenAI`, `AzureOpenAI`, `ChatCompletionClient`, Semantic Kernel, LangChain)
-- A function that parses tool-call arguments or assembles a `messages` array
-- A Cosmos DB call using a single-id equality filter where the id was extracted from user input or a tool-call response
-
-**Incorrect (query when id and partition key are both available from the tool call):**
-
-```typescript
-// ❌ Generic query — id is already known from the user turn / tool call
-export async function groundOrderContext(orderId: string, userId: string) {
-  const { resources: orders } = await ordersContainer.items
-    .query<Order>({
-      query: "SELECT * FROM c WHERE c.orderId = @o",
-      parameters: [{ name: "@o", value: orderId }],
-    })
-    .fetchAll();
-
-  const { resources: events } = await eventsContainer.items
-    .query<DeliveryEvent>({
-      query: "SELECT * FROM c WHERE c.orderId = @o ORDER BY c.timestamp DESC",
-      parameters: [{ name: "@o", value: orderId }],
-    })
-    .fetchAll();
-
-  return buildGroundingContext(orders[0], events);
-}
-```
-
-```python
-# ❌ Query instead of point read — id and partition key both known
-def ground_order_context(order_id: str, user_id: str):
-    orders = list(orders_container.query_items(
-        query="SELECT * FROM c WHERE c.id = @id",
-        parameters=[{"name": "@id", "value": order_id}],
-        partition_key=user_id,
-    ))
-    return build_grounding_context(orders[0]) if orders else None
-```
-
-**Correct (point read for the primary document, partition-scoped projection for related items):**
-
-```typescript
-// ✅ Point read for the order (id + partition key both known from tool call)
-export async function groundOrderContext(orderId: string, userId: string) {
-  const orderResp = await ordersContainer.item(orderId, userId).read<Order>();
-  const order = orderResp.resource;
-  if (!order) return null;
-
-  // ✅ Partition-key-scoped projection for related event list
-  const { resources: events } = await eventsContainer.items
-    .query<DeliveryEvent>(
-      {
-        query:
-          "SELECT c.id, c.orderId, c.timestamp, c.status, c.note FROM c WHERE c.orderId = @o ORDER BY c.timestamp DESC",
-        parameters: [{ name: "@o", value: orderId }],
-      },
-      { partitionKey: orderId }
-    )
-    .fetchAll();
-
-  return buildGroundingContext(order, events);
-}
-```
-
-```python
-# ✅ Point read — 1 RU, no query engine overhead
-def ground_order_context(order_id: str, user_id: str):
-    order = orders_container.read_item(item=order_id, partition_key=user_id)
-    return build_grounding_context(order)
-```
-
-**Why this matters for AI workloads:**
-
-1. **Latency-sensitive** — each tool call adds to perceived LLM response time; a point read (1 RU, single backend hop) is the fastest possible retrieval
-2. **Throughput-sensitive** — hot conversations drive the same partition key repeatedly; cross-partition fan-out under load hot-spots a single logical partition fastest
-3. **ID is known by construction** — the LLM tool-use loop hands the agent an id parsed from the user turn or a prior tool result; agents should recognise this signal and reach for the point read
-
-See also: `query-point-reads` (general point-read guidance), `query-use-projections` (select only needed fields), `query-avoid-cross-partition` (avoid cross-partition fan-out).
-
-Reference: [Request Units — point reads cost fewer RUs than queries](https://learn.microsoft.com/azure/cosmos-db/request-units#request-unit-considerations)
 
 ---
 
