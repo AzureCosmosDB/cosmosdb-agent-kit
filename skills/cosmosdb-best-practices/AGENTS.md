@@ -65,17 +65,22 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 4.11 [Unwrap CosmosItemResponse and enable content response in Java SDK](#411-unwrap-cosmositemresponse-and-enable-content-response-in-java-sdk)
    - 4.12 [Use dependent @Bean methods for Cosmos DB initialization in Spring Boot](#412-use-dependent-bean-methods-for-cosmos-db-initialization-in-spring-boot)
    - 4.13 [Spring Boot and Java version compatibility for Cosmos DB SDK](#413-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
-   - 4.14 [Configure local development environment to avoid cloud connection conflicts](#414-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
-   - 4.15 [Explicitly reference Newtonsoft.Json package](#415-explicitly-reference-newtonsoft-json-package)
-   - 4.16 [Use the Patch API for atomic counter increments](#416-use-the-patch-api-for-atomic-counter-increments)
-   - 4.17 [Configure Preferred Regions for Availability](#417-configure-preferred-regions-for-availability)
-   - 4.18 [Include aiohttp When Using Python Async SDK](#418-include-aiohttp-when-using-python-async-sdk)
-   - 4.19 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#419-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
-   - 4.20 [Handle 429 Errors with Retry-After](#420-handle-429-errors-with-retry-after)
-   - 4.21 [Use consistent enum serialization between Cosmos SDK and application layer](#421-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
-   - 4.22 [Reuse CosmosClient as Singleton](#422-reuse-cosmosclient-as-singleton)
-   - 4.23 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#423-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
-   - 4.24 [Use CosmosRepository correctly and handle Iterable return types](#424-use-cosmosrepository-correctly-and-handle-iterable-return-types)
+   - 4.14 [Initialize Async Cosmos DB Container Before CosmosDBSaver](#414-initialize-async-cosmos-db-container-before-cosmosdbsaver)
+   - 4.15 [Use CosmosDBSaver for LangGraph Checkpointing](#415-use-cosmosdbsaver-for-langgraph-checkpointing)
+   - 4.16 [Configure local development environment to avoid cloud connection conflicts](#416-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
+   - 4.17 [Use Persistent MCP Client Sessions for Multi-Agent Applications](#417-use-persistent-mcp-client-sessions-for-multi-agent-applications)
+   - 4.18 [Handle MCP ToolMessage Content Format Variations](#418-handle-mcp-toolmessage-content-format-variations)
+   - 4.19 [Filter MCP Tools by Name Prefix for Agent Assignment](#419-filter-mcp-tools-by-name-prefix-for-agent-assignment)
+   - 4.20 [Explicitly reference Newtonsoft.Json package](#420-explicitly-reference-newtonsoft-json-package)
+   - 4.21 [Use the Patch API for atomic counter increments](#421-use-the-patch-api-for-atomic-counter-increments)
+   - 4.22 [Configure Preferred Regions for Availability](#422-configure-preferred-regions-for-availability)
+   - 4.23 [Include aiohttp When Using Python Async SDK](#423-include-aiohttp-when-using-python-async-sdk)
+   - 4.24 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#424-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
+   - 4.25 [Handle 429 Errors with Retry-After](#425-handle-429-errors-with-retry-after)
+   - 4.26 [Use consistent enum serialization between Cosmos SDK and application layer](#426-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
+   - 4.27 [Reuse CosmosClient as Singleton](#427-reuse-cosmosclient-as-singleton)
+   - 4.28 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#428-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
+   - 4.29 [Use CosmosRepository correctly and handle Iterable return types](#429-use-cosmosrepository-correctly-and-handle-iterable-return-types)
 5. [Indexing Strategies](#5-indexing-strategies) — **MEDIUM-HIGH**
    - 5.1 [Composite Index Directions Must Match ORDER BY](#51-composite-index-directions-must-match-order-by)
    - 5.2 [Use Composite Indexes for ORDER BY](#52-use-composite-indexes-for-order-by)
@@ -103,10 +108,13 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 8.4 [Track RU Consumption](#84-track-ru-consumption)
    - 8.5 [Alert on Throttling (429s)](#85-alert-on-throttling-429s-)
 9. [Design Patterns](#9-design-patterns) — **HIGH**
-   - 9.1 [Use Change Feed for cross-partition query optimization with materialized views](#91-use-change-feed-for-cross-partition-query-optimization-with-materialized-views)
-   - 9.2 [Use count-based or cached rank approaches instead of full partition scans for ranking](#92-use-count-based-or-cached-rank-approaches-instead-of-full-partition-scans-for-ranking)
-   - 9.3 [Use a service layer to hydrate document references before rendering](#93-use-a-service-layer-to-hydrate-document-references-before-rendering)
-   - 9.4 [Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known](#94-use-point-reads-for-ai-grounding-and-rag-retrieval-when-id-is-known)
+   - 9.1 [Persist Active Agent in Cosmos DB for Deterministic Routing](#91-persist-active-agent-in-cosmos-db-for-deterministic-routing)
+   - 9.2 [Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known](#92-use-point-reads-for-ai-grounding-and-rag-retrieval-when-id-is-known)
+   - 9.3 [Use Change Feed for cross-partition query optimization with materialized views](#93-use-change-feed-for-cross-partition-query-optimization-with-materialized-views)
+   - 9.4 [Use count-based or cached rank approaches instead of full partition scans for ranking](#94-use-count-based-or-cached-rank-approaches-instead-of-full-partition-scans-for-ranking)
+   - 9.5 [Use LangGraph Interrupt for Human-in-the-Loop Confirmation](#95-use-langgraph-interrupt-for-human-in-the-loop-confirmation)
+   - 9.6 [Use StateGraph with Conditional Edges for Multi-Agent Routing](#96-use-stategraph-with-conditional-edges-for-multi-agent-routing)
+   - 9.7 [Use a service layer to hydrate document references before rendering](#97-use-a-service-layer-to-hydrate-document-references-before-rendering)
 10. [Developer Tooling](#10-developer-tooling) — **MEDIUM**
    - 10.1 [Use Azure Cosmos DB Emulator for local development and testing](#101-use-azure-cosmos-db-emulator-for-local-development-and-testing)
    - 10.2 [Use Azure Cosmos DB VS Code extension for routine inspection and management](#102-use-azure-cosmos-db-vs-code-extension-for-routine-inspection-and-management)
@@ -3194,7 +3202,7 @@ References:
 
 ### 3.11 Project Only Needed Fields
 
-**Impact: HIGH** (reduces payload size, network bandwidth, and client memory; RU savings scale with document size — negligible on small flat docs, substantial on multi-KB/MB documents and large result sets)
+**Impact: HIGH** (reduces payload size, network bandwidth, and client memory; RU savings scale with document size (negligible on small flat docs, substantial on multi-KB/MB documents and large result sets))
 
 ## Project Only Needed Fields
 
@@ -5285,7 +5293,131 @@ export PATH=$JAVA_HOME/bin:$PATH
 - [Spring Boot 2.7.x System Requirements](https://docs.spring.io/spring-boot/docs/2.7.x/reference/html/getting-started.html#getting-started-system-requirements)
 - [Azure Cosmos DB Java SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-java-v4)
 
-### 4.14 Configure local development environment to avoid cloud connection conflicts
+### 4.14 Initialize Async Cosmos DB Container Before CosmosDBSaver
+
+**Impact: HIGH** (prevents credential and event-loop errors in async applications)
+
+## Initialize Async Cosmos DB Container Before CosmosDBSaver
+
+**Impact: HIGH (prevents credential and event-loop errors in async applications)**
+
+When using `CosmosDBSaver` with the async Cosmos DB SDK, the container client must be created within an active async context (e.g., inside an `async def` function). Creating it at module level causes event-loop errors because the async credential and client require a running loop. Always initialize the async client inside your application's startup routine and recompile the LangGraph graph afterward.
+
+**Incorrect (module-level initialization — event loop not running):**
+
+```python
+from azure.cosmos.aio import CosmosClient as AsyncCosmosClient
+from azure.identity.aio import DefaultAzureCredential as AsyncDefaultAzureCredential
+from langchain_azure_cosmosdb import CosmosDBSaver
+
+# BAD: No event loop running at module import time
+credential = AsyncDefaultAzureCredential()
+client = AsyncCosmosClient(url, credential=credential)
+container = client.get_database_client("db").get_container_client("Checkpoints")
+checkpointer = CosmosDBSaver(container)  # May raise RuntimeError
+```
+
+**Incorrect (mixing sync credential with async client):**
+
+```python
+from azure.cosmos.aio import CosmosClient as AsyncCosmosClient
+from azure.identity import DefaultAzureCredential  # sync credential
+
+# BAD: Sync credential cannot be used with async CosmosClient
+credential = DefaultAzureCredential()
+client = AsyncCosmosClient(url, credential=credential)
+```
+
+**Correct (initialize in async startup function):**
+
+```python
+from azure.cosmos.aio import CosmosClient as AsyncCosmosClient
+from azure.identity.aio import DefaultAzureCredential as AsyncDefaultAzureCredential
+from langchain_azure_cosmosdb import CosmosDBSaver
+from langgraph.graph import StateGraph, MessagesState
+
+builder = StateGraph(MessagesState)
+# ... add nodes and edges ...
+graph = builder.compile(checkpointer=None)  # initial compile without persistence
+
+async def setup():
+    """Call during application startup (e.g., FastAPI lifespan)."""
+    global graph
+    credential = AsyncDefaultAzureCredential()
+    client = AsyncCosmosClient(cosmos_url, credential=credential)
+    database = client.get_database_client("MyDatabase")
+    container = database.get_container_client("Checkpoints")
+    checkpointer = CosmosDBSaver(container)
+    graph = builder.compile(checkpointer=checkpointer)
+```
+
+**Tip:** Keep a reference to the `AsyncCosmosClient` so you can close it gracefully on shutdown with `await client.close()`.
+
+Reference: [Azure Cosmos DB async Python SDK](https://learn.microsoft.com/python/api/azure-cosmos/azure.cosmos.aio?view=azure-python)
+
+### 4.15 Use CosmosDBSaver for LangGraph Checkpointing
+
+**Impact: HIGH** (enables persistent multi-turn conversation state across restarts)
+
+## Use CosmosDBSaver for LangGraph Checkpointing
+
+**Impact: HIGH (enables persistent multi-turn conversation state across restarts)**
+
+When building LangGraph agents that require multi-turn conversation persistence, use `CosmosDBSaver` from `langchain-azure-cosmosdb` as the checkpointer. This stores graph state in Cosmos DB, enabling conversations to survive process restarts and scale across multiple instances. The checkpointer requires an **async** container client — using a sync client will raise runtime errors.
+
+**Incorrect (using in-memory checkpointer — state lost on restart):**
+
+```python
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import StateGraph, MessagesState
+
+builder = StateGraph(MessagesState)
+# ... add nodes and edges ...
+
+# BAD: State is lost when the process restarts
+checkpointer = MemorySaver()
+graph = builder.compile(checkpointer=checkpointer)
+```
+
+**Incorrect (passing a sync container client — will fail at runtime):**
+
+```python
+from azure.cosmos import CosmosClient
+from langchain_azure_cosmosdb import CosmosDBSaver
+
+# BAD: CosmosDBSaver requires an async container client
+sync_client = CosmosClient(url, credential=credential)
+sync_container = sync_client.get_database_client("db").get_container_client("Checkpoints")
+checkpointer = CosmosDBSaver(sync_container)  # RuntimeError
+```
+
+**Correct (async container client with CosmosDBSaver):**
+
+```python
+from azure.cosmos.aio import CosmosClient as AsyncCosmosClient
+from azure.identity.aio import DefaultAzureCredential as AsyncDefaultAzureCredential
+from langchain_azure_cosmosdb import CosmosDBSaver
+from langgraph.graph import StateGraph, MessagesState
+
+builder = StateGraph(MessagesState)
+# ... add nodes and edges ...
+
+# Compile initially without checkpointer (setup may be async)
+graph = builder.compile(checkpointer=None)
+
+async def initialize_checkpointer():
+    credential = AsyncDefaultAzureCredential()
+    client = AsyncCosmosClient(cosmos_url, credential=credential)
+    database = client.get_database_client("MyDatabase")
+    container = database.get_container_client("Checkpoints")
+    checkpointer = CosmosDBSaver(container)
+    # Recompile graph with persistent checkpointer
+    return builder.compile(checkpointer=checkpointer)
+```
+
+Reference: [langchain-azure-cosmosdb documentation](https://python.langchain.com/docs/integrations/providers/azure_cosmos_db/)
+
+### 4.16 Configure local development environment to avoid cloud connection conflicts
 
 **Impact: MEDIUM** (prevents accidental connections to production instead of emulator)
 
@@ -5456,7 +5588,177 @@ azure:
 
 Reference: [Azure Cosmos DB Emulator](https://learn.microsoft.com/azure/cosmos-db/emulator)
 
-### 4.15 Explicitly reference Newtonsoft.Json package
+### 4.17 Use Persistent MCP Client Sessions for Multi-Agent Applications
+
+**Impact: HIGH** (prevents session initialization overhead and connection churn)
+
+## Use Persistent MCP Client Sessions for Multi-Agent Applications
+
+**Impact: HIGH (prevents session initialization overhead and connection churn)**
+
+When using `MultiServerMCPClient` with LangGraph agents, maintain a single persistent session for the lifetime of your application rather than creating a new session per request. MCP sessions involve transport negotiation, tool discovery, and server handshakes. Creating a session per request adds latency and may exhaust server connection limits.
+
+**Incorrect (new session per request — high overhead):**
+
+```python
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain_mcp_adapters.tools import load_mcp_tools
+
+async def handle_request(user_input):
+    client = MultiServerMCPClient({
+        "my_server": {"transport": "streamable_http", "url": "http://localhost:8080/mcp"}
+    })
+    # BAD: Creates and tears down a session for every single request
+    async with client.session("my_server") as session:
+        tools = await load_mcp_tools(session)
+        # ... invoke agent ...
+    # Session closed, next request pays setup cost again
+```
+
+**Correct (persistent session initialized once at startup):**
+
+```python
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain_mcp_adapters.tools import load_mcp_tools
+
+_mcp_client = None
+_session_context = None
+_persistent_session = None
+
+async def setup_mcp():
+    """Call once during application startup."""
+    global _mcp_client, _session_context, _persistent_session
+
+    _mcp_client = MultiServerMCPClient({
+        "my_server": {"transport": "streamable_http", "url": mcp_server_url}
+    })
+    _session_context = _mcp_client.session("my_server")
+    _persistent_session = await _session_context.__aenter__()
+
+    # Load tools once — they remain valid for the session lifetime
+    tools = await load_mcp_tools(_persistent_session)
+    return tools
+
+async def cleanup_mcp():
+    """Call during application shutdown."""
+    global _session_context, _persistent_session
+    if _session_context and _persistent_session:
+        await _session_context.__aexit__(None, None, None)
+        _session_context = None
+        _persistent_session = None
+```
+
+**Tip:** Wrap the session setup in retry logic with exponential backoff for production deployments where the MCP server may take time to become ready.
+
+Reference: [langchain-mcp-adapters documentation](https://github.com/langchain-ai/langchain-mcp-adapters)
+
+### 4.18 Handle MCP ToolMessage Content Format Variations
+
+**Impact: HIGH** (prevents JSON parse failures from langchain-mcp-adapters >= 0.2.0)
+
+## Handle MCP ToolMessage Content Format Variations
+
+**Impact: HIGH (prevents JSON parse failures from langchain-mcp-adapters >= 0.2.0)**
+
+Starting with `langchain-mcp-adapters` 0.2.0, `ToolMessage.content` changed from a plain JSON string to a list of content blocks (e.g., `[{"type": "text", "text": "..."}]`). Any code that parses `ToolMessage.content` must handle both formats to remain compatible across versions and avoid `json.JSONDecodeError` or `TypeError`.
+
+**Incorrect (assumes content is always a string):**
+
+```python
+import json
+from langchain_core.messages import ToolMessage
+
+def extract_routing_info(message: ToolMessage):
+    # BAD: Fails when content is a list (langchain-mcp-adapters >= 0.2.0)
+    data = json.loads(message.content)
+    return data.get("goto")
+```
+
+Error with newer adapter versions:
+```
+TypeError: the JSON object must be str, bytes or bytearray, not list
+```
+
+**Correct (handles both string and list formats):**
+
+```python
+import json
+from langchain_core.messages import ToolMessage
+
+def extract_routing_info(message: ToolMessage):
+    content = message.content
+
+    # Handle list-of-blocks format (langchain-mcp-adapters >= 0.2.0)
+    if isinstance(content, list):
+        text_parts = [block["text"] for block in content if block.get("type") == "text"]
+        content = text_parts[0] if text_parts else ""
+
+    # Now content is a plain string — safe to parse
+    data = json.loads(content)
+    return data.get("goto")
+```
+
+**When this matters:** Any time you inspect tool call results programmatically — for example, to extract routing decisions, parse structured responses, or implement conditional logic based on tool outputs.
+
+Reference: [langchain-mcp-adapters changelog](https://github.com/langchain-ai/langchain-mcp-adapters)
+
+### 4.19 Filter MCP Tools by Name Prefix for Agent Assignment
+
+**Impact: MEDIUM** (reduces agent confusion and improves routing accuracy)
+
+## Filter MCP Tools by Name Prefix for Agent Assignment
+
+**Impact: MEDIUM (reduces agent confusion and improves routing accuracy)**
+
+When a single MCP server exposes tools for multiple domains, assign each LangGraph agent only the subset of tools it needs. Use a name-prefix convention on the server side (e.g., `get_transaction_history`, `get_offer_information`, `transfer_to_sales_agent`) and filter client-side by prefix. This prevents agents from calling tools outside their domain and reduces prompt confusion from irrelevant tool descriptions.
+
+**Incorrect (all agents receive all tools):**
+
+```python
+from langchain_mcp_adapters.tools import load_mcp_tools
+from langgraph.prebuilt import create_react_agent
+
+all_tools = await load_mcp_tools(session)
+
+# BAD: Every agent sees every tool — leads to wrong tool calls
+support_agent = create_react_agent(model, all_tools, prompt=support_prompt)
+sales_agent = create_react_agent(model, all_tools, prompt=sales_prompt)
+transactions_agent = create_react_agent(model, all_tools, prompt=transactions_prompt)
+```
+
+**Correct (filter tools by prefix per agent):**
+
+```python
+from langchain_mcp_adapters.tools import load_mcp_tools
+from langgraph.prebuilt import create_react_agent
+
+all_tools = await load_mcp_tools(session)
+
+def filter_tools_by_prefix(tools, prefixes):
+    """Return only tools whose name starts with one of the given prefixes."""
+    return [t for t in tools if any(t.name.startswith(p) for p in prefixes)]
+
+# Each agent gets only the tools relevant to its domain
+support_tools = filter_tools_by_prefix(all_tools, [
+    "service_request", "get_branch_location", "transfer_to_"
+])
+sales_tools = filter_tools_by_prefix(all_tools, [
+    "get_offer_information", "create_account", "calculate_monthly_payment", "transfer_to_"
+])
+transactions_tools = filter_tools_by_prefix(all_tools, [
+    "bank_transfer", "get_transaction_history", "bank_balance", "transfer_to_"
+])
+
+support_agent = create_react_agent(model, support_tools, prompt=support_prompt)
+sales_agent = create_react_agent(model, sales_tools, prompt=sales_prompt)
+transactions_agent = create_react_agent(model, transactions_tools, prompt=transactions_prompt)
+```
+
+**Naming convention tip:** Include `transfer_to_` prefixed tools in each agent's set so agents can hand off conversations to other agents via the routing mechanism.
+
+Reference: [LangGraph prebuilt agents](https://langchain-ai.github.io/langgraph/reference/prebuilt/)
+
+### 4.20 Explicitly reference Newtonsoft.Json package
 
 **Impact: MEDIUM** (Prevents build failures and security vulnerabilities from missing or outdated Newtonsoft.Json dependency)
 
@@ -5558,7 +5860,7 @@ Solution:
 
 Reference: [Managing Newtonsoft.Json Dependencies](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-dotnet-sdk-v3?tabs=trace-net-core#managing-newtonsoftjson-dependencies)
 
-### 4.16 Use the Patch API for atomic counter increments
+### 4.21 Use the Patch API for atomic counter increments
 
 **Impact: HIGH** (eliminates read-modify-write for counters; reduces RU cost and eliminates concurrency conflicts)
 
@@ -5629,7 +5931,7 @@ return container.patchItem(videoId, new PartitionKey(videoId), ops, Video.class)
 
 Reference: [Partial document update (Patch API)](https://learn.microsoft.com/azure/cosmos-db/partial-document-update)
 
-### 4.17 Configure Preferred Regions for Availability
+### 4.22 Configure Preferred Regions for Availability
 
 **Impact: HIGH** (enables automatic failover, reduces latency)
 
@@ -5725,7 +6027,7 @@ Best practices:
 
 Reference: [Configure preferred regions](https://learn.microsoft.com/azure/cosmos-db/nosql/tutorial-global-distribution)
 
-### 4.18 Include aiohttp When Using Python Async SDK
+### 4.23 Include aiohttp When Using Python Async SDK
 
 **Impact: HIGH** (prevents application startup failure)
 
@@ -5773,7 +6075,7 @@ from azure.cosmos import CosmosClient
 
 Reference: [Azure Cosmos DB Python SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-python)
 
-### 4.19 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
+### 4.24 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
 
 **Impact: HIGH** (causes wrong partition key to be sent, producing silent data corruption or 400/404 errors)
 
@@ -5832,7 +6134,7 @@ usersContainer.createItem(
 
 Reference: [Java SDK createItem](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-get-started)
 
-### 4.20 Handle 429 Errors with Retry-After
+### 4.25 Handle 429 Errors with Retry-After
 
 **Impact: HIGH** (prevents cascading failures)
 
@@ -5949,7 +6251,7 @@ await Task.WhenAll(tasks);
 
 Reference: [Handle rate limiting](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-request-rate-too-large)
 
-### 4.21 Use consistent enum serialization between Cosmos SDK and application layer
+### 4.26 Use consistent enum serialization between Cosmos SDK and application layer
 
 **Impact: critical** (undefined)
 
@@ -6046,7 +6348,7 @@ public class Order
 - Point reads work but filtered queries don't
 - API returns different enum format than stored in Cosmos DB
 
-### 4.22 Reuse CosmosClient as Singleton
+### 4.27 Reuse CosmosClient as Singleton
 
 **Impact: CRITICAL** (prevents connection exhaustion)
 
@@ -6167,7 +6469,7 @@ public class CosmosDbHostedService : IHostedService
 
 Reference: [CosmosClient best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-dotnet)
 
-### 4.23 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
+### 4.28 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
 
 **Impact: CRITICAL** (prevents startup failures and data access errors in Spring Data Cosmos applications)
 
@@ -6283,7 +6585,7 @@ Add `@JsonIgnoreProperties(ignoreUnknown = true)` to every Cosmos entity class s
 
 Reference: [Spring Data Azure Cosmos DB annotations](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-spring-data)
 
-### 4.24 Use CosmosRepository correctly and handle Iterable return types
+### 4.29 Use CosmosRepository correctly and handle Iterable return types
 
 **Impact: HIGH** (prevents ClassCastException and query failures in Spring Data Cosmos repositories)
 
@@ -9240,7 +9542,169 @@ Reference: [Monitor throttling](https://learn.microsoft.com/azure/cosmos-db/moni
 
 **Impact: HIGH**
 
-### 9.1 Use Change Feed for cross-partition query optimization with materialized views
+### 9.1 Persist Active Agent in Cosmos DB for Deterministic Routing
+
+**Impact: HIGH** (eliminates LLM re-classification overhead and prevents routing drift)
+
+## Persist Active Agent in Cosmos DB for Deterministic Routing
+
+**Impact: HIGH (eliminates LLM re-classification overhead and prevents routing drift)**
+
+In multi-agent systems, once a user has been routed to a specialist agent, persist the active agent name in Cosmos DB alongside the conversation session. On subsequent messages, perform a point read to retrieve the active agent instead of re-invoking the coordinator LLM to classify intent. This is faster (single-digit millisecond point read vs. hundreds of milliseconds for LLM inference), deterministic, and avoids mid-conversation routing flip-flops.
+
+**Incorrect (re-classify every message through the coordinator):**
+
+```python
+async def route_message(state, config):
+    # BAD: Every user message goes through the coordinator LLM for classification
+    # Adds latency and may incorrectly re-route mid-conversation
+    response = await coordinator_agent.ainvoke(state)
+    return determine_agent_from_response(response)
+```
+
+**Correct (point read for active agent, coordinator only for new conversations):**
+
+```python
+from azure.cosmos import CosmosClient
+
+def get_active_agent(state, config) -> str:
+    thread_id = config["configurable"]["thread_id"]
+    user_id = config["configurable"]["userId"]
+    tenant_id = config["configurable"]["tenantId"]
+
+    # O(1) point read — single-digit ms latency, 1 RU cost
+    try:
+        item = container.read_item(
+            item=thread_id,
+            partition_key=[tenant_id, user_id, thread_id]
+        )
+        active_agent = item.get("activeAgent", "unknown")
+    except Exception:
+        active_agent = "unknown"
+
+    # If an agent is already assigned, route directly — skip coordinator
+    if active_agent not in [None, "unknown", "coordinator"]:
+        return active_agent
+
+    # Only invoke coordinator for new/unrouted conversations
+    return "coordinator"
+```
+
+**Updating the active agent:** When a transfer tool is called (e.g., `transfer_to_sales_agent`), patch the Cosmos DB document with the new active agent name:
+
+```python
+from azure.cosmos import PartitionKey
+
+def patch_active_agent(tenant_id, user_id, thread_id, new_agent):
+    """Partial update — only modifies the activeAgent field (minimal RU cost)."""
+    container.patch_item(
+        item=thread_id,
+        partition_key=[tenant_id, user_id, thread_id],
+        patch_operations=[
+            {"op": "set", "path": "/activeAgent", "value": new_agent}
+        ]
+    )
+```
+
+**Key design points:**
+1. Use hierarchical partition key (`/tenantId`, `/userId`, `/sessionId`) for efficient multi-tenant lookups
+2. The point read costs 1 RU regardless of document size
+3. Use patch operations (not full replace) to update the active agent — costs fewer RUs
+4. Fall back to the coordinator only when `activeAgent` is `null` or `"unknown"`
+
+Reference: [Azure Cosmos DB point reads](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-read-item)
+
+### 9.2 Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known
+
+**Impact: HIGH** (1 RU point read vs ~2.5+ RU query per grounding fetch; reduces tool-call latency in LLM loops)
+
+## Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known
+
+In AI-grounded workloads an LLM tool-use loop typically resolves a concrete entity id (e.g., `orderId`, `sessionId`, `documentId`) from the user turn or tool-call arguments, then fetches the full document from Cosmos DB to build the grounding context for the model. Because the id and partition key are both known at call time, a point read should always be used instead of a query. This applies to any retrieval step that feeds data into an LLM context window — RAG retrieval, tool-call handlers, grounding functions, or agent data-fetching steps.
+
+**How to recognize this pattern — static tell-tales:**
+
+- An LLM / AI client import in the same module (e.g., `OpenAI`, `AzureOpenAI`, `ChatCompletionClient`, Semantic Kernel, LangChain)
+- A function that parses tool-call arguments or assembles a `messages` array
+- A Cosmos DB call using a single-id equality filter where the id was extracted from user input or a tool-call response
+
+**Incorrect (query when id and partition key are both available from the tool call):**
+
+```typescript
+// ❌ Generic query — id is already known from the user turn / tool call
+export async function groundOrderContext(orderId: string, userId: string) {
+  const { resources: orders } = await ordersContainer.items
+    .query<Order>({
+      query: "SELECT * FROM c WHERE c.orderId = @o",
+      parameters: [{ name: "@o", value: orderId }],
+    })
+    .fetchAll();
+
+  const { resources: events } = await eventsContainer.items
+    .query<DeliveryEvent>({
+      query: "SELECT * FROM c WHERE c.orderId = @o ORDER BY c.timestamp DESC",
+      parameters: [{ name: "@o", value: orderId }],
+    })
+    .fetchAll();
+
+  return buildGroundingContext(orders[0], events);
+}
+```
+
+```python
+# ❌ Query instead of point read — id and partition key both known
+def ground_order_context(order_id: str, user_id: str):
+    orders = list(orders_container.query_items(
+        query="SELECT * FROM c WHERE c.id = @id",
+        parameters=[{"name": "@id", "value": order_id}],
+        partition_key=user_id,
+    ))
+    return build_grounding_context(orders[0]) if orders else None
+```
+
+**Correct (point read for the primary document, partition-scoped projection for related items):**
+
+```typescript
+// ✅ Point read for the order (id + partition key both known from tool call)
+export async function groundOrderContext(orderId: string, userId: string) {
+  const orderResp = await ordersContainer.item(orderId, userId).read<Order>();
+  const order = orderResp.resource;
+  if (!order) return null;
+
+  // ✅ Partition-key-scoped projection for related event list
+  const { resources: events } = await eventsContainer.items
+    .query<DeliveryEvent>(
+      {
+        query:
+          "SELECT c.id, c.orderId, c.timestamp, c.status, c.note FROM c WHERE c.orderId = @o ORDER BY c.timestamp DESC",
+        parameters: [{ name: "@o", value: orderId }],
+      },
+      { partitionKey: orderId }
+    )
+    .fetchAll();
+
+  return buildGroundingContext(order, events);
+}
+```
+
+```python
+# ✅ Point read — 1 RU, no query engine overhead
+def ground_order_context(order_id: str, user_id: str):
+    order = orders_container.read_item(item=order_id, partition_key=user_id)
+    return build_grounding_context(order)
+```
+
+**Why this matters for AI workloads:**
+
+1. **Latency-sensitive** — each tool call adds to perceived LLM response time; a point read (1 RU, single backend hop) is the fastest possible retrieval
+2. **Throughput-sensitive** — hot conversations drive the same partition key repeatedly; cross-partition fan-out under load hot-spots a single logical partition fastest
+3. **ID is known by construction** — the LLM tool-use loop hands the agent an id parsed from the user turn or a prior tool result; agents should recognise this signal and reach for the point read
+
+See also: `query-point-reads` (general point-read guidance), `query-use-projections` (select only needed fields), `query-avoid-cross-partition` (avoid cross-partition fan-out).
+
+Reference: [Request Units — point reads cost fewer RUs than queries](https://learn.microsoft.com/azure/cosmos-db/request-units#request-unit-considerations)
+
+### 9.3 Use Change Feed for cross-partition query optimization with materialized views
 
 **Impact: HIGH** (eliminates cross-partition query overhead for admin/analytics scenarios)
 
@@ -9533,7 +9997,7 @@ Reference(s):
 [Change feed design patterns in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/change-feed-design-patterns)
 [Global Secondary Indexes (GSI) in Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/global-secondary-indexes)
 
-### 9.2 Use count-based or cached rank approaches instead of full partition scans for ranking
+### 9.4 Use count-based or cached rank approaches instead of full partition scans for ranking
 
 **Impact: HIGH** (reduces rank lookups from O(N) partition scans to O(1) or O(log N) operations)
 
@@ -9692,7 +10156,144 @@ public class ScoreBucket
 
 Reference: [Cosmos DB query optimization](https://learn.microsoft.com/azure/cosmos-db/nosql/query/getting-started)
 
-### 9.3 Use a service layer to hydrate document references before rendering
+### 9.5 Use LangGraph Interrupt for Human-in-the-Loop Confirmation
+
+**Impact: HIGH** (enables safe confirmation flows for sensitive operations)
+
+## Use LangGraph Interrupt for Human-in-the-Loop Confirmation
+
+**Impact: HIGH (enables safe confirmation flows for sensitive operations)**
+
+When agents perform sensitive operations (e.g., money transfers, account creation, data deletion), use LangGraph's `interrupt()` mechanism to pause execution and wait for user confirmation. The graph state is persisted to Cosmos DB via the checkpointer, and execution resumes from the same point when the user responds. This avoids custom polling loops or separate confirmation APIs.
+
+**Incorrect (no confirmation — agent executes sensitive action immediately):**
+
+```python
+from langgraph.graph import StateGraph, MessagesState
+
+async def call_transactions_agent(state: MessagesState, config):
+    # BAD: Agent may call bank_transfer without user confirmation
+    response = await transactions_agent.ainvoke(state)
+    return {"messages": response["messages"]}
+```
+
+**Incorrect (manual polling loop instead of interrupt):**
+
+```python
+async def call_transactions_agent(state: MessagesState, config):
+    response = await transactions_agent.ainvoke(state)
+    # BAD: Custom polling — reinvents what LangGraph interrupt provides
+    while not await check_user_confirmed(config):
+        await asyncio.sleep(1)
+    return {"messages": response["messages"]}
+```
+
+**Correct (interrupt pauses graph, state saved to Cosmos DB):**
+
+```python
+from langgraph.types import Command, interrupt
+from langgraph.graph import StateGraph, MessagesState
+from langchain_azure_cosmosdb import CosmosDBSaver
+
+def human_node(state: MessagesState, config) -> None:
+    """Pauses the graph and waits for the next user message."""
+    interrupt(value="Ready for user input.")
+    return None
+
+async def call_transactions_agent(state: MessagesState, config) -> Command:
+    response = await transactions_agent.ainvoke(state)
+    # Route to human node — graph pauses, state persisted to Cosmos DB
+    return Command(update=response, goto="human")
+
+builder = StateGraph(MessagesState)
+builder.add_node("transactions_agent", call_transactions_agent)
+builder.add_node("human", human_node)
+# ... add edges ...
+
+graph = builder.compile(checkpointer=CosmosDBSaver(async_container))
+```
+
+**How it works:**
+1. Agent node returns `Command(goto="human")` after processing
+2. The `human_node` calls `interrupt()`, which persists state and pauses
+3. The caller receives a response indicating the graph is waiting
+4. When the user sends a new message, the caller resumes the graph with `graph.stream(new_input, config)`
+5. The checkpointer restores state from Cosmos DB and continues from where it paused
+
+Reference: [LangGraph human-in-the-loop](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/)
+
+### 9.6 Use StateGraph with Conditional Edges for Multi-Agent Routing
+
+**Impact: HIGH** (enables deterministic agent hand-off in multi-agent LangGraph applications)
+
+## Use StateGraph with Conditional Edges for Multi-Agent Routing
+
+**Impact: HIGH (enables deterministic agent hand-off in multi-agent LangGraph applications)**
+
+When building multi-agent systems with LangGraph backed by Cosmos DB checkpointing, use `StateGraph` with `add_conditional_edges` to route between agents based on tool call results or persisted state. Each agent node should return a `Command` that updates state and directs the graph to the next node (e.g., a human-input node). A conditional edge function inspects the state (or Cosmos DB) to determine which agent handles the next turn.
+
+**Incorrect (linear chain — no dynamic routing between agents):**
+
+```python
+from langgraph.graph import StateGraph, START, MessagesState
+
+builder = StateGraph(MessagesState)
+builder.add_node("agent_a", call_agent_a)
+builder.add_node("agent_b", call_agent_b)
+
+# BAD: Fixed linear flow — cannot route dynamically
+builder.add_edge(START, "agent_a")
+builder.add_edge("agent_a", "agent_b")
+builder.add_edge("agent_b", END)
+```
+
+**Correct (conditional edges with dynamic routing):**
+
+```python
+from typing import Literal
+from langgraph.graph import StateGraph, START, MessagesState
+from langgraph.types import Command
+from langchain_azure_cosmosdb import CosmosDBSaver
+
+async def call_agent_a(state: MessagesState, config) -> Command[Literal["agent_a", "human"]]:
+    response = await agent_a.ainvoke(state)
+    return Command(update=response, goto="human")
+
+async def call_agent_b(state: MessagesState, config) -> Command[Literal["agent_b", "human"]]:
+    response = await agent_b.ainvoke(state)
+    return Command(update=response, goto="human")
+
+def route_to_agent(state: MessagesState, config) -> str:
+    """Determine which agent handles the next message based on state or DB lookup."""
+    # Inspect tool messages for routing hints, or query Cosmos DB for active agent
+    # Return the node name to route to
+    return "agent_a"  # or "agent_b" based on logic
+
+builder = StateGraph(MessagesState)
+builder.add_node("coordinator", call_coordinator)
+builder.add_node("agent_a", call_agent_a)
+builder.add_node("agent_b", call_agent_b)
+builder.add_node("human", human_node)
+
+builder.add_edge(START, "coordinator")
+builder.add_conditional_edges(
+    "coordinator",
+    route_to_agent,
+    {"agent_a": "agent_a", "agent_b": "agent_b", "coordinator": "coordinator"}
+)
+
+graph = builder.compile(checkpointer=CosmosDBSaver(async_container))
+```
+
+**Key principles:**
+1. Each agent node returns `Command(update=response, goto="human")` to yield control back for user input
+2. After user input, the coordinator's conditional edge function decides which agent continues
+3. Use Cosmos DB point reads in the routing function for O(1) active-agent lookups
+4. Include a fallback route to the coordinator when the active agent is unknown
+
+Reference: [LangGraph multi-agent patterns](https://langchain-ai.github.io/langgraph/concepts/multi_agent/)
+
+### 9.7 Use a service layer to hydrate document references before rendering
 
 **Impact: HIGH** (bridges document storage with frameworks expecting object graphs, prevents empty/null relationship data)
 
@@ -9821,96 +10422,6 @@ private void populateRelationships(Vet vet) {
 For truly high-volume scenarios, consider denormalizing the data instead (see `model-denormalize-reads`) or using Change Feed to maintain materialized views (see `pattern-change-feed-materialized-views`).
 
 Reference: [Data modeling in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/modeling-data)
-
-### 9.4 Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known
-
-**Impact: HIGH** (1 RU point read vs ~2.5+ RU query per grounding fetch; reduces tool-call latency in LLM loops)
-
-## Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known
-
-In AI-grounded workloads an LLM tool-use loop typically resolves a concrete entity id (e.g., `orderId`, `sessionId`, `documentId`) from the user turn or tool-call arguments, then fetches the full document from Cosmos DB to build the grounding context for the model. Because the id and partition key are both known at call time, a point read should always be used instead of a query. This applies to any retrieval step that feeds data into an LLM context window — RAG retrieval, tool-call handlers, grounding functions, or agent data-fetching steps.
-
-**How to recognize this pattern — static tell-tales:**
-
-- An LLM / AI client import in the same module (e.g., `OpenAI`, `AzureOpenAI`, `ChatCompletionClient`, Semantic Kernel, LangChain)
-- A function that parses tool-call arguments or assembles a `messages` array
-- A Cosmos DB call using a single-id equality filter where the id was extracted from user input or a tool-call response
-
-**Incorrect (query when id and partition key are both available from the tool call):**
-
-```typescript
-// ❌ Generic query — id is already known from the user turn / tool call
-export async function groundOrderContext(orderId: string, userId: string) {
-  const { resources: orders } = await ordersContainer.items
-    .query<Order>({
-      query: "SELECT * FROM c WHERE c.orderId = @o",
-      parameters: [{ name: "@o", value: orderId }],
-    })
-    .fetchAll();
-
-  const { resources: events } = await eventsContainer.items
-    .query<DeliveryEvent>({
-      query: "SELECT * FROM c WHERE c.orderId = @o ORDER BY c.timestamp DESC",
-      parameters: [{ name: "@o", value: orderId }],
-    })
-    .fetchAll();
-
-  return buildGroundingContext(orders[0], events);
-}
-```
-
-```python
-# ❌ Query instead of point read — id and partition key both known
-def ground_order_context(order_id: str, user_id: str):
-    orders = list(orders_container.query_items(
-        query="SELECT * FROM c WHERE c.id = @id",
-        parameters=[{"name": "@id", "value": order_id}],
-        partition_key=user_id,
-    ))
-    return build_grounding_context(orders[0]) if orders else None
-```
-
-**Correct (point read for the primary document, partition-scoped projection for related items):**
-
-```typescript
-// ✅ Point read for the order (id + partition key both known from tool call)
-export async function groundOrderContext(orderId: string, userId: string) {
-  const orderResp = await ordersContainer.item(orderId, userId).read<Order>();
-  const order = orderResp.resource;
-  if (!order) return null;
-
-  // ✅ Partition-key-scoped projection for related event list
-  const { resources: events } = await eventsContainer.items
-    .query<DeliveryEvent>(
-      {
-        query:
-          "SELECT c.id, c.orderId, c.timestamp, c.status, c.note FROM c WHERE c.orderId = @o ORDER BY c.timestamp DESC",
-        parameters: [{ name: "@o", value: orderId }],
-      },
-      { partitionKey: orderId }
-    )
-    .fetchAll();
-
-  return buildGroundingContext(order, events);
-}
-```
-
-```python
-# ✅ Point read — 1 RU, no query engine overhead
-def ground_order_context(order_id: str, user_id: str):
-    order = orders_container.read_item(item=order_id, partition_key=user_id)
-    return build_grounding_context(order)
-```
-
-**Why this matters for AI workloads:**
-
-1. **Latency-sensitive** — each tool call adds to perceived LLM response time; a point read (1 RU, single backend hop) is the fastest possible retrieval
-2. **Throughput-sensitive** — hot conversations drive the same partition key repeatedly; cross-partition fan-out under load hot-spots a single logical partition fastest
-3. **ID is known by construction** — the LLM tool-use loop hands the agent an id parsed from the user turn or a prior tool result; agents should recognise this signal and reach for the point read
-
-See also: `query-point-reads` (general point-read guidance), `query-use-projections` (select only needed fields), `query-avoid-cross-partition` (avoid cross-partition fan-out).
-
-Reference: [Request Units — point reads cost fewer RUs than queries](https://learn.microsoft.com/azure/cosmos-db/request-units#request-unit-considerations)
 
 ---
 

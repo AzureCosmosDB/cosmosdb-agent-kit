@@ -14,7 +14,7 @@ metadata:
 
 # Azure Cosmos DB Best Practices
 
-Comprehensive performance optimization guide for Azure Cosmos DB applications, containing 75+ rules across 11 categories, prioritized by impact to guide automated refactoring and code generation.
+Comprehensive performance optimization guide for Azure Cosmos DB applications, containing 100+ rules across 12 categories, prioritized by impact to guide automated refactoring and code generation.
 
 ## When to Apply
 
@@ -113,6 +113,11 @@ Reference these guidelines when:
 - [sdk-python-async-deps](rules/sdk-python-async-deps.md) - Include aiohttp when using Python async SDK
 - [sdk-spring-data-annotations](rules/sdk-spring-data-annotations.md) - Annotate entities for Spring Data Cosmos
 - [sdk-spring-data-repository](rules/sdk-spring-data-repository.md) - Use CosmosRepository correctly and handle Iterable return types
+- [sdk-langchain-cosmosdb-saver](rules/sdk-langchain-cosmosdb-saver.md) - Use CosmosDBSaver for LangGraph checkpointing with async container client
+- [sdk-langchain-async-checkpointer](rules/sdk-langchain-async-checkpointer.md) - Initialize async Cosmos DB container in startup routine, not module level
+- [sdk-mcp-persistent-session](rules/sdk-mcp-persistent-session.md) - Maintain persistent MCP client sessions for application lifetime
+- [sdk-mcp-tool-content-format](rules/sdk-mcp-tool-content-format.md) - Handle both string and list formats in MCP ToolMessage content
+- [sdk-mcp-tool-filtering](rules/sdk-mcp-tool-filtering.md) - Filter MCP tools by name prefix for per-agent assignment
 
 ### 5. Indexing Strategies (MEDIUM-HIGH)
 
@@ -153,6 +158,9 @@ Reference these guidelines when:
 - [pattern-change-feed-materialized-views](rules/pattern-change-feed-materialized-views.md) - Use Change Feed for cross-partition query optimization
 - [pattern-efficient-ranking](rules/pattern-efficient-ranking.md) - Use count-based or cached approaches for efficient ranking
 - [pattern-service-layer-relationships](rules/pattern-service-layer-relationships.md) - Use a service layer to hydrate document references
+- [pattern-langgraph-multi-agent](rules/pattern-langgraph-multi-agent.md) - Use StateGraph with conditional edges for multi-agent routing
+- [pattern-langgraph-interrupt-human](rules/pattern-langgraph-interrupt-human.md) - Use LangGraph interrupt for human-in-the-loop confirmation flows
+- [pattern-agent-routing-cosmosdb](rules/pattern-agent-routing-cosmosdb.md) - Persist active agent in Cosmos DB for deterministic routing via point reads
 
 ### 10. Developer Tooling (MEDIUM)
 
