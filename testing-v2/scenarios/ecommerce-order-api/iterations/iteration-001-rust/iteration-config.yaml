@@ -1,0 +1,7 @@
+language: rust
+database: ecommerce-order-api
+port: 8080
+health: /health
+build: cargo build --release
+run: .\target\release\ecommerce-order-api.exe
+skills_loaded: true

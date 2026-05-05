@@ -145,6 +145,44 @@ except CosmosHttpResponseError as e:
 - **Skip** for append-only operations (new document creation with unique IDs)
 - **Skip** for idempotent overwrites where last-writer-wins is acceptable
 
+**Rust (`azure_data_cosmos`) equivalent:**
+
+```rust
+use azure_data_cosmos::{ItemOptions, PartitionKey};
+use azure_core::http::StatusCode;
+
+// Read document and capture ETag from response headers
+let container = cosmos.database_client("db").container_client("orders").await;
+let pk = PartitionKey::from(customer_id.to_string());
+
+// Read the current document
+let response = container.read_item::<serde_json::Value>(pk.clone(), &order_id, None)
+    .await
+    .map_err(|e| format!("read failed: {}", e))?;
+
+let etag = response.etag().map(|e| e.to_string());
+let mut order: Order = serde_json::from_value(response.into_body())?;
+
+// Modify the document
+order.status = "shipped".to_string();
+
+// Write with ETag condition — fails if document changed since read
+// Note: Pass the ETag as an If-Match header for conditional writes.
+// The azure_data_cosmos SDK (v0.31+) supports this via ItemOptions;
+// check your SDK version for the exact method name.
+let options = ItemOptions::default();
+// options = options.with_if_match_etag(etag.unwrap());
+
+let item = serde_json::to_value(&order)?;
+match container.replace_item(pk, &order.id, item, Some(options)).await {
+    Ok(_) => { /* Success */ }
+    Err(e) if e.http_status() == Some(StatusCode::PreconditionFailed) => {
+        // HTTP 412: Document was modified — retry from read
+    }
+    Err(e) => return Err(e.into()),
+}
+```
+
 ### ⚠️ Critical: ETags for Denormalized Data Updates
 
 Denormalized fields (e.g., task counts on a project, user names on related documents) are especially vulnerable to lost updates. When multiple operations update the same parent document's counters concurrently, **ETag checks are mandatory**:

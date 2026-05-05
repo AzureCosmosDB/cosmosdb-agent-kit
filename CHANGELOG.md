@@ -9,6 +9,11 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## 2026-04-30 — ecommerce-order-api iteration-001-rust evaluation ([#274](https://github.com/TheovanKraay/cosmosdb-agent-kit/pull/274))
+
+- Fixed 5 test failures: added `pending → delivered` transition, composite indexes, type discriminator, schema version fields.
+- No new rules needed — existing rules covered the gaps; code simply didn't apply them initially.
+
 ## 2026-04-18 — README updated to document testing framework
 
 - Expanded `README.md` with a section describing the testing framework and how evaluations flow back into the skill.
