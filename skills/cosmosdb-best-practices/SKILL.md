@@ -115,9 +115,9 @@ Reference these guidelines when:
 - [sdk-spring-data-repository](rules/sdk-spring-data-repository.md) - Use CosmosRepository correctly and handle Iterable return types
 - [sdk-langchain-cosmosdb-saver](rules/sdk-langchain-cosmosdb-saver.md) - Use CosmosDBSaver for LangGraph checkpointing with async container client
 - [sdk-langchain-async-checkpointer](rules/sdk-langchain-async-checkpointer.md) - Initialize async Cosmos DB container in startup routine, not module level
-- [sdk-mcp-persistent-session](rules/sdk-mcp-persistent-session.md) - Maintain persistent MCP client sessions for application lifetime
-- [sdk-mcp-tool-content-format](rules/sdk-mcp-tool-content-format.md) - Handle both string and list formats in MCP ToolMessage content
-- [sdk-mcp-tool-filtering](rules/sdk-mcp-tool-filtering.md) - Filter MCP tools by name prefix for per-agent assignment
+- [sdk-langchain-mcp-persistent-session](rules/sdk-langchain-mcp-persistent-session.md) - Maintain persistent MCP client sessions for application lifetime
+- [sdk-langchain-mcp-tool-content-format](rules/sdk-langchain-mcp-tool-content-format.md) - Handle both string and list formats in MCP ToolMessage content
+- [sdk-langgraph-mcp-tool-filtering](rules/sdk-langgraph-mcp-tool-filtering.md) - Filter MCP tools by name prefix for per-agent assignment
 
 ### 5. Indexing Strategies (MEDIUM-HIGH)
 
@@ -161,9 +161,9 @@ Reference these guidelines when:
 - [pattern-langgraph-multi-agent](rules/pattern-langgraph-multi-agent.md) - Use StateGraph with conditional edges for multi-agent routing
 - [pattern-langgraph-interrupt-human](rules/pattern-langgraph-interrupt-human.md) - Use LangGraph interrupt for human-in-the-loop confirmation flows
 - [pattern-langgraph-resume-checkpoint](rules/pattern-langgraph-resume-checkpoint.md) - Resume LangGraph from checkpoint after interrupt for multi-turn conversations
-- [pattern-agent-routing-cosmosdb](rules/pattern-agent-routing-cosmosdb.md) - Persist active agent in Cosmos DB for deterministic routing via point reads
-- [pattern-fastapi-agent-startup](rules/pattern-fastapi-agent-startup.md) - Initialize LangGraph agents in FastAPI startup with retry logic
-- [pattern-chat-history-separate](rules/pattern-chat-history-separate.md) - Store chat history in a dedicated container, not the checkpointer
+- [pattern-langgraph-agent-routing-cosmosdb](rules/pattern-langgraph-agent-routing-cosmosdb.md) - Persist active agent in Cosmos DB for deterministic routing via point reads
+- [pattern-langgraph-fastapi-startup](rules/pattern-langgraph-fastapi-startup.md) - Initialize LangGraph agents in FastAPI startup with retry logic
+- [pattern-langgraph-chat-history-separate](rules/pattern-langgraph-chat-history-separate.md) - Store chat history in a dedicated container, not the checkpointer
 - [pattern-background-task-writes](rules/pattern-background-task-writes.md) - Use FastAPI background tasks for non-blocking chat history writes
 
 ### 10. Developer Tooling (MEDIUM)

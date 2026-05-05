@@ -67,10 +67,10 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 4.13 [Spring Boot and Java version compatibility for Cosmos DB SDK](#413-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
    - 4.14 [Initialize Async Cosmos DB Container Before CosmosDBSaver](#414-initialize-async-cosmos-db-container-before-cosmosdbsaver)
    - 4.15 [Use CosmosDBSaver for LangGraph Checkpointing](#415-use-cosmosdbsaver-for-langgraph-checkpointing)
-   - 4.16 [Configure local development environment to avoid cloud connection conflicts](#416-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
-   - 4.17 [Use Persistent MCP Client Sessions for Multi-Agent Applications](#417-use-persistent-mcp-client-sessions-for-multi-agent-applications)
-   - 4.18 [Handle MCP ToolMessage Content Format Variations](#418-handle-mcp-toolmessage-content-format-variations)
-   - 4.19 [Filter MCP Tools by Name Prefix for Agent Assignment](#419-filter-mcp-tools-by-name-prefix-for-agent-assignment)
+   - 4.16 [Use Persistent MCP Client Sessions for Multi-Agent Applications](#416-use-persistent-mcp-client-sessions-for-multi-agent-applications)
+   - 4.17 [Handle MCP ToolMessage Content Format Variations](#417-handle-mcp-toolmessage-content-format-variations)
+   - 4.18 [Filter MCP Tools by Name Prefix for Agent Assignment](#418-filter-mcp-tools-by-name-prefix-for-agent-assignment)
+   - 4.19 [Configure local development environment to avoid cloud connection conflicts](#419-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
    - 4.20 [Explicitly reference Newtonsoft.Json package](#420-explicitly-reference-newtonsoft-json-package)
    - 4.21 [Use the Patch API for atomic counter increments](#421-use-the-patch-api-for-atomic-counter-increments)
    - 4.22 [Configure Preferred Regions for Availability](#422-configure-preferred-regions-for-availability)
@@ -108,12 +108,12 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 8.4 [Track RU Consumption](#84-track-ru-consumption)
    - 8.5 [Alert on Throttling (429s)](#85-alert-on-throttling-429s-)
 9. [Design Patterns](#9-design-patterns) — **HIGH**
-   - 9.1 [Persist Active Agent in Cosmos DB for Deterministic Routing](#91-persist-active-agent-in-cosmos-db-for-deterministic-routing)
-   - 9.2 [Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known](#92-use-point-reads-for-ai-grounding-and-rag-retrieval-when-id-is-known)
-   - 9.3 [Use Background Tasks for Non-Blocking Chat History Storage](#93-use-background-tasks-for-non-blocking-chat-history-storage)
-   - 9.4 [Use Change Feed for cross-partition query optimization with materialized views](#94-use-change-feed-for-cross-partition-query-optimization-with-materialized-views)
-   - 9.5 [Store Chat History Separately from LangGraph Checkpoints](#95-store-chat-history-separately-from-langgraph-checkpoints)
-   - 9.6 [Use count-based or cached rank approaches instead of full partition scans for ranking](#96-use-count-based-or-cached-rank-approaches-instead-of-full-partition-scans-for-ranking)
+   - 9.1 [Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known](#91-use-point-reads-for-ai-grounding-and-rag-retrieval-when-id-is-known)
+   - 9.2 [Use Background Tasks for Non-Blocking Chat History Storage](#92-use-background-tasks-for-non-blocking-chat-history-storage)
+   - 9.3 [Use Change Feed for cross-partition query optimization with materialized views](#93-use-change-feed-for-cross-partition-query-optimization-with-materialized-views)
+   - 9.4 [Use count-based or cached rank approaches instead of full partition scans for ranking](#94-use-count-based-or-cached-rank-approaches-instead-of-full-partition-scans-for-ranking)
+   - 9.5 [Persist Active Agent in Cosmos DB for Deterministic Routing](#95-persist-active-agent-in-cosmos-db-for-deterministic-routing)
+   - 9.6 [Store Chat History Separately from LangGraph Checkpoints](#96-store-chat-history-separately-from-langgraph-checkpoints)
    - 9.7 [Initialize LangGraph Agents in FastAPI Startup with Retry](#97-initialize-langgraph-agents-in-fastapi-startup-with-retry)
    - 9.8 [Use LangGraph Interrupt for Human-in-the-Loop Confirmation](#98-use-langgraph-interrupt-for-human-in-the-loop-confirmation)
    - 9.9 [Use StateGraph with Conditional Edges for Multi-Agent Routing](#99-use-stategraph-with-conditional-edges-for-multi-agent-routing)
@@ -5421,7 +5421,177 @@ async def initialize_checkpointer():
 
 Reference: [langchain-azure-cosmosdb documentation](https://python.langchain.com/docs/integrations/providers/azure_cosmos_db/)
 
-### 4.16 Configure local development environment to avoid cloud connection conflicts
+### 4.16 Use Persistent MCP Client Sessions for Multi-Agent Applications
+
+**Impact: HIGH** (prevents session initialization overhead and connection churn)
+
+## Use Persistent MCP Client Sessions for Multi-Agent Applications
+
+**Impact: HIGH (prevents session initialization overhead and connection churn)**
+
+When using `MultiServerMCPClient` with LangGraph agents, maintain a single persistent session for the lifetime of your application rather than creating a new session per request. MCP sessions involve transport negotiation, tool discovery, and server handshakes. Creating a session per request adds latency and may exhaust server connection limits.
+
+**Incorrect (new session per request — high overhead):**
+
+```python
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain_mcp_adapters.tools import load_mcp_tools
+
+async def handle_request(user_input):
+    client = MultiServerMCPClient({
+        "my_server": {"transport": "streamable_http", "url": "http://localhost:8080/mcp"}
+    })
+    # BAD: Creates and tears down a session for every single request
+    async with client.session("my_server") as session:
+        tools = await load_mcp_tools(session)
+        # ... invoke agent ...
+    # Session closed, next request pays setup cost again
+```
+
+**Correct (persistent session initialized once at startup):**
+
+```python
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain_mcp_adapters.tools import load_mcp_tools
+
+_mcp_client = None
+_session_context = None
+_persistent_session = None
+
+async def setup_mcp():
+    """Call once during application startup."""
+    global _mcp_client, _session_context, _persistent_session
+
+    _mcp_client = MultiServerMCPClient({
+        "my_server": {"transport": "streamable_http", "url": mcp_server_url}
+    })
+    _session_context = _mcp_client.session("my_server")
+    _persistent_session = await _session_context.__aenter__()
+
+    # Load tools once — they remain valid for the session lifetime
+    tools = await load_mcp_tools(_persistent_session)
+    return tools
+
+async def cleanup_mcp():
+    """Call during application shutdown."""
+    global _session_context, _persistent_session
+    if _session_context and _persistent_session:
+        await _session_context.__aexit__(None, None, None)
+        _session_context = None
+        _persistent_session = None
+```
+
+**Tip:** Wrap the session setup in retry logic with exponential backoff for production deployments where the MCP server may take time to become ready.
+
+Reference: [langchain-mcp-adapters documentation](https://github.com/langchain-ai/langchain-mcp-adapters)
+
+### 4.17 Handle MCP ToolMessage Content Format Variations
+
+**Impact: HIGH** (prevents JSON parse failures from langchain-mcp-adapters >= 0.2.0)
+
+## Handle MCP ToolMessage Content Format Variations
+
+**Impact: HIGH (prevents JSON parse failures from langchain-mcp-adapters >= 0.2.0)**
+
+Starting with `langchain-mcp-adapters` 0.2.0, `ToolMessage.content` changed from a plain JSON string to a list of content blocks (e.g., `[{"type": "text", "text": "..."}]`). Any code that parses `ToolMessage.content` must handle both formats to remain compatible across versions and avoid `json.JSONDecodeError` or `TypeError`.
+
+**Incorrect (assumes content is always a string):**
+
+```python
+import json
+from langchain_core.messages import ToolMessage
+
+def extract_routing_info(message: ToolMessage):
+    # BAD: Fails when content is a list (langchain-mcp-adapters >= 0.2.0)
+    data = json.loads(message.content)
+    return data.get("goto")
+```
+
+Error with newer adapter versions:
+```
+TypeError: the JSON object must be str, bytes or bytearray, not list
+```
+
+**Correct (handles both string and list formats):**
+
+```python
+import json
+from langchain_core.messages import ToolMessage
+
+def extract_routing_info(message: ToolMessage):
+    content = message.content
+
+    # Handle list-of-blocks format (langchain-mcp-adapters >= 0.2.0)
+    if isinstance(content, list):
+        text_parts = [block["text"] for block in content if block.get("type") == "text"]
+        content = text_parts[0] if text_parts else ""
+
+    # Now content is a plain string — safe to parse
+    data = json.loads(content)
+    return data.get("goto")
+```
+
+**When this matters:** Any time you inspect tool call results programmatically — for example, to extract routing decisions, parse structured responses, or implement conditional logic based on tool outputs.
+
+Reference: [langchain-mcp-adapters changelog](https://github.com/langchain-ai/langchain-mcp-adapters)
+
+### 4.18 Filter MCP Tools by Name Prefix for Agent Assignment
+
+**Impact: MEDIUM** (reduces agent confusion and improves routing accuracy)
+
+## Filter MCP Tools by Name Prefix for Agent Assignment
+
+**Impact: MEDIUM (reduces agent confusion and improves routing accuracy)**
+
+When a single MCP server exposes tools for multiple domains, assign each LangGraph agent only the subset of tools it needs. Use a name-prefix convention on the server side (e.g., `get_transaction_history`, `get_offer_information`, `transfer_to_sales_agent`) and filter client-side by prefix. This prevents agents from calling tools outside their domain and reduces prompt confusion from irrelevant tool descriptions.
+
+**Incorrect (all agents receive all tools):**
+
+```python
+from langchain_mcp_adapters.tools import load_mcp_tools
+from langgraph.prebuilt import create_react_agent
+
+all_tools = await load_mcp_tools(session)
+
+# BAD: Every agent sees every tool — leads to wrong tool calls
+support_agent = create_react_agent(model, all_tools, prompt=support_prompt)
+sales_agent = create_react_agent(model, all_tools, prompt=sales_prompt)
+transactions_agent = create_react_agent(model, all_tools, prompt=transactions_prompt)
+```
+
+**Correct (filter tools by prefix per agent):**
+
+```python
+from langchain_mcp_adapters.tools import load_mcp_tools
+from langgraph.prebuilt import create_react_agent
+
+all_tools = await load_mcp_tools(session)
+
+def filter_tools_by_prefix(tools, prefixes):
+    """Return only tools whose name starts with one of the given prefixes."""
+    return [t for t in tools if any(t.name.startswith(p) for p in prefixes)]
+
+# Each agent gets only the tools relevant to its domain
+support_tools = filter_tools_by_prefix(all_tools, [
+    "service_request", "get_branch_location", "transfer_to_"
+])
+sales_tools = filter_tools_by_prefix(all_tools, [
+    "get_offer_information", "create_account", "calculate_monthly_payment", "transfer_to_"
+])
+transactions_tools = filter_tools_by_prefix(all_tools, [
+    "bank_transfer", "get_transaction_history", "bank_balance", "transfer_to_"
+])
+
+support_agent = create_react_agent(model, support_tools, prompt=support_prompt)
+sales_agent = create_react_agent(model, sales_tools, prompt=sales_prompt)
+transactions_agent = create_react_agent(model, transactions_tools, prompt=transactions_prompt)
+```
+
+**Naming convention tip:** Include `transfer_to_` prefixed tools in each agent's set so agents can hand off conversations to other agents via the routing mechanism.
+
+Reference: [LangGraph prebuilt agents](https://langchain-ai.github.io/langgraph/reference/prebuilt/)
+
+### 4.19 Configure local development environment to avoid cloud connection conflicts
 
 **Impact: MEDIUM** (prevents accidental connections to production instead of emulator)
 
@@ -5591,176 +5761,6 @@ azure:
 - The emulator uses a well-known key - don't use this in production!
 
 Reference: [Azure Cosmos DB Emulator](https://learn.microsoft.com/azure/cosmos-db/emulator)
-
-### 4.17 Use Persistent MCP Client Sessions for Multi-Agent Applications
-
-**Impact: HIGH** (prevents session initialization overhead and connection churn)
-
-## Use Persistent MCP Client Sessions for Multi-Agent Applications
-
-**Impact: HIGH (prevents session initialization overhead and connection churn)**
-
-When using `MultiServerMCPClient` with LangGraph agents, maintain a single persistent session for the lifetime of your application rather than creating a new session per request. MCP sessions involve transport negotiation, tool discovery, and server handshakes. Creating a session per request adds latency and may exhaust server connection limits.
-
-**Incorrect (new session per request — high overhead):**
-
-```python
-from langchain_mcp_adapters.client import MultiServerMCPClient
-from langchain_mcp_adapters.tools import load_mcp_tools
-
-async def handle_request(user_input):
-    client = MultiServerMCPClient({
-        "my_server": {"transport": "streamable_http", "url": "http://localhost:8080/mcp"}
-    })
-    # BAD: Creates and tears down a session for every single request
-    async with client.session("my_server") as session:
-        tools = await load_mcp_tools(session)
-        # ... invoke agent ...
-    # Session closed, next request pays setup cost again
-```
-
-**Correct (persistent session initialized once at startup):**
-
-```python
-from langchain_mcp_adapters.client import MultiServerMCPClient
-from langchain_mcp_adapters.tools import load_mcp_tools
-
-_mcp_client = None
-_session_context = None
-_persistent_session = None
-
-async def setup_mcp():
-    """Call once during application startup."""
-    global _mcp_client, _session_context, _persistent_session
-
-    _mcp_client = MultiServerMCPClient({
-        "my_server": {"transport": "streamable_http", "url": mcp_server_url}
-    })
-    _session_context = _mcp_client.session("my_server")
-    _persistent_session = await _session_context.__aenter__()
-
-    # Load tools once — they remain valid for the session lifetime
-    tools = await load_mcp_tools(_persistent_session)
-    return tools
-
-async def cleanup_mcp():
-    """Call during application shutdown."""
-    global _session_context, _persistent_session
-    if _session_context and _persistent_session:
-        await _session_context.__aexit__(None, None, None)
-        _session_context = None
-        _persistent_session = None
-```
-
-**Tip:** Wrap the session setup in retry logic with exponential backoff for production deployments where the MCP server may take time to become ready.
-
-Reference: [langchain-mcp-adapters documentation](https://github.com/langchain-ai/langchain-mcp-adapters)
-
-### 4.18 Handle MCP ToolMessage Content Format Variations
-
-**Impact: HIGH** (prevents JSON parse failures from langchain-mcp-adapters >= 0.2.0)
-
-## Handle MCP ToolMessage Content Format Variations
-
-**Impact: HIGH (prevents JSON parse failures from langchain-mcp-adapters >= 0.2.0)**
-
-Starting with `langchain-mcp-adapters` 0.2.0, `ToolMessage.content` changed from a plain JSON string to a list of content blocks (e.g., `[{"type": "text", "text": "..."}]`). Any code that parses `ToolMessage.content` must handle both formats to remain compatible across versions and avoid `json.JSONDecodeError` or `TypeError`.
-
-**Incorrect (assumes content is always a string):**
-
-```python
-import json
-from langchain_core.messages import ToolMessage
-
-def extract_routing_info(message: ToolMessage):
-    # BAD: Fails when content is a list (langchain-mcp-adapters >= 0.2.0)
-    data = json.loads(message.content)
-    return data.get("goto")
-```
-
-Error with newer adapter versions:
-```
-TypeError: the JSON object must be str, bytes or bytearray, not list
-```
-
-**Correct (handles both string and list formats):**
-
-```python
-import json
-from langchain_core.messages import ToolMessage
-
-def extract_routing_info(message: ToolMessage):
-    content = message.content
-
-    # Handle list-of-blocks format (langchain-mcp-adapters >= 0.2.0)
-    if isinstance(content, list):
-        text_parts = [block["text"] for block in content if block.get("type") == "text"]
-        content = text_parts[0] if text_parts else ""
-
-    # Now content is a plain string — safe to parse
-    data = json.loads(content)
-    return data.get("goto")
-```
-
-**When this matters:** Any time you inspect tool call results programmatically — for example, to extract routing decisions, parse structured responses, or implement conditional logic based on tool outputs.
-
-Reference: [langchain-mcp-adapters changelog](https://github.com/langchain-ai/langchain-mcp-adapters)
-
-### 4.19 Filter MCP Tools by Name Prefix for Agent Assignment
-
-**Impact: MEDIUM** (reduces agent confusion and improves routing accuracy)
-
-## Filter MCP Tools by Name Prefix for Agent Assignment
-
-**Impact: MEDIUM (reduces agent confusion and improves routing accuracy)**
-
-When a single MCP server exposes tools for multiple domains, assign each LangGraph agent only the subset of tools it needs. Use a name-prefix convention on the server side (e.g., `get_transaction_history`, `get_offer_information`, `transfer_to_sales_agent`) and filter client-side by prefix. This prevents agents from calling tools outside their domain and reduces prompt confusion from irrelevant tool descriptions.
-
-**Incorrect (all agents receive all tools):**
-
-```python
-from langchain_mcp_adapters.tools import load_mcp_tools
-from langgraph.prebuilt import create_react_agent
-
-all_tools = await load_mcp_tools(session)
-
-# BAD: Every agent sees every tool — leads to wrong tool calls
-support_agent = create_react_agent(model, all_tools, prompt=support_prompt)
-sales_agent = create_react_agent(model, all_tools, prompt=sales_prompt)
-transactions_agent = create_react_agent(model, all_tools, prompt=transactions_prompt)
-```
-
-**Correct (filter tools by prefix per agent):**
-
-```python
-from langchain_mcp_adapters.tools import load_mcp_tools
-from langgraph.prebuilt import create_react_agent
-
-all_tools = await load_mcp_tools(session)
-
-def filter_tools_by_prefix(tools, prefixes):
-    """Return only tools whose name starts with one of the given prefixes."""
-    return [t for t in tools if any(t.name.startswith(p) for p in prefixes)]
-
-# Each agent gets only the tools relevant to its domain
-support_tools = filter_tools_by_prefix(all_tools, [
-    "service_request", "get_branch_location", "transfer_to_"
-])
-sales_tools = filter_tools_by_prefix(all_tools, [
-    "get_offer_information", "create_account", "calculate_monthly_payment", "transfer_to_"
-])
-transactions_tools = filter_tools_by_prefix(all_tools, [
-    "bank_transfer", "get_transaction_history", "bank_balance", "transfer_to_"
-])
-
-support_agent = create_react_agent(model, support_tools, prompt=support_prompt)
-sales_agent = create_react_agent(model, sales_tools, prompt=sales_prompt)
-transactions_agent = create_react_agent(model, transactions_tools, prompt=transactions_prompt)
-```
-
-**Naming convention tip:** Include `transfer_to_` prefixed tools in each agent's set so agents can hand off conversations to other agents via the routing mechanism.
-
-Reference: [LangGraph prebuilt agents](https://langchain-ai.github.io/langgraph/reference/prebuilt/)
 
 ### 4.20 Explicitly reference Newtonsoft.Json package
 
@@ -9546,79 +9546,7 @@ Reference: [Monitor throttling](https://learn.microsoft.com/azure/cosmos-db/moni
 
 **Impact: HIGH**
 
-### 9.1 Persist Active Agent in Cosmos DB for Deterministic Routing
-
-**Impact: HIGH** (eliminates LLM re-classification overhead and prevents routing drift)
-
-## Persist Active Agent in Cosmos DB for Deterministic Routing
-
-**Impact: HIGH (eliminates LLM re-classification overhead and prevents routing drift)**
-
-In multi-agent systems, once a user has been routed to a specialist agent, persist the active agent name in Cosmos DB alongside the conversation session. On subsequent messages, perform a point read to retrieve the active agent instead of re-invoking the coordinator LLM to classify intent. This is faster (single-digit millisecond point read vs. hundreds of milliseconds for LLM inference), deterministic, and avoids mid-conversation routing flip-flops.
-
-**Incorrect (re-classify every message through the coordinator):**
-
-```python
-async def route_message(state, config):
-    # BAD: Every user message goes through the coordinator LLM for classification
-    # Adds latency and may incorrectly re-route mid-conversation
-    response = await coordinator_agent.ainvoke(state)
-    return determine_agent_from_response(response)
-```
-
-**Correct (point read for active agent, coordinator only for new conversations):**
-
-```python
-from azure.cosmos import CosmosClient
-
-def get_active_agent(state, config) -> str:
-    thread_id = config["configurable"]["thread_id"]
-    user_id = config["configurable"]["userId"]
-    tenant_id = config["configurable"]["tenantId"]
-
-    # O(1) point read — single-digit ms latency, 1 RU cost
-    try:
-        item = container.read_item(
-            item=thread_id,
-            partition_key=[tenant_id, user_id, thread_id]
-        )
-        active_agent = item.get("activeAgent", "unknown")
-    except Exception:
-        active_agent = "unknown"
-
-    # If an agent is already assigned, route directly — skip coordinator
-    if active_agent not in [None, "unknown", "coordinator"]:
-        return active_agent
-
-    # Only invoke coordinator for new/unrouted conversations
-    return "coordinator"
-```
-
-**Updating the active agent:** When a transfer tool is called (e.g., `transfer_to_sales_agent`), patch the Cosmos DB document with the new active agent name:
-
-```python
-from azure.cosmos import PartitionKey
-
-def patch_active_agent(tenant_id, user_id, thread_id, new_agent):
-    """Partial update — only modifies the activeAgent field (minimal RU cost)."""
-    container.patch_item(
-        item=thread_id,
-        partition_key=[tenant_id, user_id, thread_id],
-        patch_operations=[
-            {"op": "set", "path": "/activeAgent", "value": new_agent}
-        ]
-    )
-```
-
-**Key design points:**
-1. Use hierarchical partition key (`/tenantId`, `/userId`, `/sessionId`) for efficient multi-tenant lookups
-2. The point read costs 1 RU regardless of document size
-3. Use patch operations (not full replace) to update the active agent — costs fewer RUs
-4. Fall back to the coordinator only when `activeAgent` is `null` or `"unknown"`
-
-Reference: [Azure Cosmos DB point reads](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-read-item)
-
-### 9.2 Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known
+### 9.1 Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known
 
 **Impact: HIGH** (1 RU point read vs ~2.5+ RU query per grounding fetch; reduces tool-call latency in LLM loops)
 
@@ -9708,7 +9636,7 @@ See also: `query-point-reads` (general point-read guidance), `query-use-projecti
 
 Reference: [Request Units — point reads cost fewer RUs than queries](https://learn.microsoft.com/azure/cosmos-db/request-units#request-unit-considerations)
 
-### 9.3 Use Background Tasks for Non-Blocking Chat History Storage
+### 9.2 Use Background Tasks for Non-Blocking Chat History Storage
 
 **Impact: MEDIUM** (reduces API response latency by 50-200ms per request)
 
@@ -9774,7 +9702,7 @@ async def chat(
 
 Reference: [FastAPI Background Tasks](https://fastapi.tiangolo.com/tutorial/background-tasks/)
 
-### 9.4 Use Change Feed for cross-partition query optimization with materialized views
+### 9.3 Use Change Feed for cross-partition query optimization with materialized views
 
 **Impact: HIGH** (eliminates cross-partition query overhead for admin/analytics scenarios)
 
@@ -10067,75 +9995,7 @@ Reference(s):
 [Change feed design patterns in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/change-feed-design-patterns)
 [Global Secondary Indexes (GSI) in Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/global-secondary-indexes)
 
-### 9.5 Store Chat History Separately from LangGraph Checkpoints
-
-**Impact: MEDIUM** (enables efficient message retrieval and agent attribution)
-
-## Store Chat History Separately from LangGraph Checkpoints
-
-**Impact: MEDIUM (enables efficient message retrieval and agent attribution)**
-
-LangGraph's checkpointer (CosmosDBSaver) stores full graph state for resumption, but it is not optimized for retrieving displayable chat history. Checkpoint data contains internal graph metadata, tool messages, system messages, and duplicate entries from each node execution. Instead, maintain a separate Cosmos DB container for chat history with only the fields your UI needs (sender, text, timestamp, which agent responded). This enables efficient queries, proper agent attribution, and avoids scanning checkpoint blobs.
-
-**Incorrect (reading chat history from the checkpointer store):**
-
-```python
-@app.get("/sessions/{session_id}/messages")
-async def get_messages(session_id: str):
-    config = {"configurable": {"thread_id": session_id, "checkpoint_ns": ""}}
-    # BAD: Checkpointer stores ALL graph state — tool messages, system messages,
-    # intermediate states, duplicates from each node. Expensive to scan and filter.
-    checkpoints = [cp async for cp in checkpointer.alist(config)]
-    if not checkpoints:
-        return []
-    
-    # Must dig into checkpoint internals to extract displayable messages
-    messages = checkpoints[-1].checkpoint["channel_values"]["messages"]
-    # No record of which agent responded — lost in checkpoint format
-    return filter_displayable(messages)
-```
-
-**Correct (store displayable history in a dedicated container):**
-
-```python
-from azure.cosmos import CosmosClient
-
-# Dedicated container with partition key /sessionId for efficient retrieval
-history_container = database.get_container_client("ChatHistory")
-
-def store_chat_message(session_id: str, tenant_id: str, user_id: str, 
-                       sender: str, text: str, agent_name: str):
-    """Store a single displayable message after graph execution completes."""
-    history_container.create_item({
-        "id": str(uuid.uuid4()),
-        "sessionId": session_id,
-        "tenantId": tenant_id,
-        "userId": user_id,
-        "sender": sender,
-        "agentName": agent_name,  # Which agent responded — not available in checkpoints
-        "text": text,
-        "timestamp": datetime.utcnow().isoformat(),
-    })
-
-@app.get("/sessions/{session_id}/messages")
-def get_messages(session_id: str):
-    # Single-partition query — fast and cheap (few RUs)
-    return list(history_container.query_items(
-        query="SELECT * FROM c WHERE c.sessionId = @sid ORDER BY c.timestamp",
-        parameters=[{"name": "@sid", "value": session_id}],
-        partition_key=session_id
-    ))
-```
-
-**Why separate storage:**
-1. **Agent attribution** — checkpoints don't track which agent produced each response
-2. **Query efficiency** — dedicated container with `/sessionId` partition key enables single-partition queries
-3. **Cleaner data** — no tool messages, system messages, or graph internal state
-4. **Independent scaling** — chat history access patterns differ from checkpointing (read-heavy vs. write-heavy)
-
-Reference: [Azure Cosmos DB container design](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-model-partition-example)
-
-### 9.6 Use count-based or cached rank approaches instead of full partition scans for ranking
+### 9.4 Use count-based or cached rank approaches instead of full partition scans for ranking
 
 **Impact: HIGH** (reduces rank lookups from O(N) partition scans to O(1) or O(log N) operations)
 
@@ -10293,6 +10153,146 @@ public class ScoreBucket
 - For "nearby players ±10", combine a COUNT query with a TOP 21 query centered on the player's score
 
 Reference: [Cosmos DB query optimization](https://learn.microsoft.com/azure/cosmos-db/nosql/query/getting-started)
+
+### 9.5 Persist Active Agent in Cosmos DB for Deterministic Routing
+
+**Impact: HIGH** (eliminates LLM re-classification overhead and prevents routing drift)
+
+## Persist Active Agent in Cosmos DB for Deterministic Routing
+
+**Impact: HIGH (eliminates LLM re-classification overhead and prevents routing drift)**
+
+In multi-agent systems, once a user has been routed to a specialist agent, persist the active agent name in Cosmos DB alongside the conversation session. On subsequent messages, perform a point read to retrieve the active agent instead of re-invoking the coordinator LLM to classify intent. This is faster (single-digit millisecond point read vs. hundreds of milliseconds for LLM inference), deterministic, and avoids mid-conversation routing flip-flops.
+
+**Incorrect (re-classify every message through the coordinator):**
+
+```python
+async def route_message(state, config):
+    # BAD: Every user message goes through the coordinator LLM for classification
+    # Adds latency and may incorrectly re-route mid-conversation
+    response = await coordinator_agent.ainvoke(state)
+    return determine_agent_from_response(response)
+```
+
+**Correct (point read for active agent, coordinator only for new conversations):**
+
+```python
+from azure.cosmos import CosmosClient
+
+def get_active_agent(state, config) -> str:
+    thread_id = config["configurable"]["thread_id"]
+    user_id = config["configurable"]["userId"]
+    tenant_id = config["configurable"]["tenantId"]
+
+    # O(1) point read — single-digit ms latency, 1 RU cost
+    try:
+        item = container.read_item(
+            item=thread_id,
+            partition_key=[tenant_id, user_id, thread_id]
+        )
+        active_agent = item.get("activeAgent", "unknown")
+    except Exception:
+        active_agent = "unknown"
+
+    # If an agent is already assigned, route directly — skip coordinator
+    if active_agent not in [None, "unknown", "coordinator"]:
+        return active_agent
+
+    # Only invoke coordinator for new/unrouted conversations
+    return "coordinator"
+```
+
+**Updating the active agent:** When a transfer tool is called (e.g., `transfer_to_sales_agent`), patch the Cosmos DB document with the new active agent name:
+
+```python
+from azure.cosmos import PartitionKey
+
+def patch_active_agent(tenant_id, user_id, thread_id, new_agent):
+    """Partial update — only modifies the activeAgent field (minimal RU cost)."""
+    container.patch_item(
+        item=thread_id,
+        partition_key=[tenant_id, user_id, thread_id],
+        patch_operations=[
+            {"op": "set", "path": "/activeAgent", "value": new_agent}
+        ]
+    )
+```
+
+**Key design points:**
+1. Use hierarchical partition key (`/tenantId`, `/userId`, `/sessionId`) for efficient multi-tenant lookups
+2. The point read costs 1 RU regardless of document size
+3. Use patch operations (not full replace) to update the active agent — costs fewer RUs
+4. Fall back to the coordinator only when `activeAgent` is `null` or `"unknown"`
+
+Reference: [Azure Cosmos DB point reads](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-read-item)
+
+### 9.6 Store Chat History Separately from LangGraph Checkpoints
+
+**Impact: MEDIUM** (enables efficient message retrieval and agent attribution)
+
+## Store Chat History Separately from LangGraph Checkpoints
+
+**Impact: MEDIUM (enables efficient message retrieval and agent attribution)**
+
+LangGraph's checkpointer (CosmosDBSaver) stores full graph state for resumption, but it is not optimized for retrieving displayable chat history. Checkpoint data contains internal graph metadata, tool messages, system messages, and duplicate entries from each node execution. Instead, maintain a separate Cosmos DB container for chat history with only the fields your UI needs (sender, text, timestamp, which agent responded). This enables efficient queries, proper agent attribution, and avoids scanning checkpoint blobs.
+
+**Incorrect (reading chat history from the checkpointer store):**
+
+```python
+@app.get("/sessions/{session_id}/messages")
+async def get_messages(session_id: str):
+    config = {"configurable": {"thread_id": session_id, "checkpoint_ns": ""}}
+    # BAD: Checkpointer stores ALL graph state — tool messages, system messages,
+    # intermediate states, duplicates from each node. Expensive to scan and filter.
+    checkpoints = [cp async for cp in checkpointer.alist(config)]
+    if not checkpoints:
+        return []
+    
+    # Must dig into checkpoint internals to extract displayable messages
+    messages = checkpoints[-1].checkpoint["channel_values"]["messages"]
+    # No record of which agent responded — lost in checkpoint format
+    return filter_displayable(messages)
+```
+
+**Correct (store displayable history in a dedicated container):**
+
+```python
+from azure.cosmos import CosmosClient
+
+# Dedicated container with partition key /sessionId for efficient retrieval
+history_container = database.get_container_client("ChatHistory")
+
+def store_chat_message(session_id: str, tenant_id: str, user_id: str, 
+                       sender: str, text: str, agent_name: str):
+    """Store a single displayable message after graph execution completes."""
+    history_container.create_item({
+        "id": str(uuid.uuid4()),
+        "sessionId": session_id,
+        "tenantId": tenant_id,
+        "userId": user_id,
+        "sender": sender,
+        "agentName": agent_name,  # Which agent responded — not available in checkpoints
+        "text": text,
+        "timestamp": datetime.utcnow().isoformat(),
+    })
+
+@app.get("/sessions/{session_id}/messages")
+def get_messages(session_id: str):
+    # Single-partition query — fast and cheap (few RUs)
+    return list(history_container.query_items(
+        query="SELECT * FROM c WHERE c.sessionId = @sid ORDER BY c.timestamp",
+        parameters=[{"name": "@sid", "value": session_id}],
+        partition_key=session_id
+    ))
+```
+
+**Why separate storage:**
+1. **Agent attribution** — checkpoints don't track which agent produced each response
+2. **Query efficiency** — dedicated container with `/sessionId` partition key enables single-partition queries
+3. **Cleaner data** — no tool messages, system messages, or graph internal state
+4. **Independent scaling** — chat history access patterns differ from checkpointing (read-heavy vs. write-heavy)
+
+Reference: [Azure Cosmos DB container design](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-model-partition-example)
 
 ### 9.7 Initialize LangGraph Agents in FastAPI Startup with Retry
 
