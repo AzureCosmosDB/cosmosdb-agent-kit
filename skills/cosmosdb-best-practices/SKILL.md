@@ -165,6 +165,9 @@ Reference these guidelines when:
 - [pattern-langgraph-fastapi-startup](rules/pattern-langgraph-fastapi-startup.md) - Initialize LangGraph agents in FastAPI startup with retry logic
 - [pattern-langgraph-chat-history-separate](rules/pattern-langgraph-chat-history-separate.md) - Store chat history in a dedicated container, not the checkpointer
 - [pattern-background-task-writes](rules/pattern-background-task-writes.md) - Use FastAPI background tasks for non-blocking chat history writes
+- [pattern-langgraph-async-cosmos-routing](rules/pattern-langgraph-async-cosmos-routing.md) - Wrap Cosmos DB sync calls in asyncio.to_thread for LangGraph routing functions
+- [pattern-langgraph-async-cosmos-writes](rules/pattern-langgraph-async-cosmos-writes.md) - Use asyncio.to_thread for active agent writes in async node functions
+- [pattern-langgraph-agent-name-attribution](rules/pattern-langgraph-agent-name-attribution.md) - Tag AI messages with agent name for API response attribution
 
 ### 10. Developer Tooling (MEDIUM)
 
