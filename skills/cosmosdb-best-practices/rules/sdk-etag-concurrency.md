@@ -167,10 +167,11 @@ let mut order: Order = serde_json::from_value(response.into_body())?;
 order.status = "shipped".to_string();
 
 // Write with ETag condition — fails if document changed since read
+// Note: Pass the ETag as an If-Match header for conditional writes.
+// The azure_data_cosmos SDK (v0.31+) supports this via ItemOptions;
+// check your SDK version for the exact method name.
 let options = ItemOptions::default();
-// Note: ETag-based conditional writes depend on SDK version support.
-// If ItemOptions supports if_match_etag, use it:
-// let options = options.with_if_match_etag(etag.unwrap());
+// options = options.with_if_match_etag(etag.unwrap());
 
 let item = serde_json::to_value(&order)?;
 match container.replace_item(pk, &order.id, item, Some(options)).await {

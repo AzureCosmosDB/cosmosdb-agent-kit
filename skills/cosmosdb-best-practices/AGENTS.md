@@ -4602,10 +4602,11 @@ let mut order: Order = serde_json::from_value(response.into_body())?;
 order.status = "shipped".to_string();
 
 // Write with ETag condition — fails if document changed since read
+// Note: Pass the ETag as an If-Match header for conditional writes.
+// The azure_data_cosmos SDK (v0.31+) supports this via ItemOptions;
+// check your SDK version for the exact method name.
 let options = ItemOptions::default();
-// Note: ETag-based conditional writes depend on SDK version support.
-// If ItemOptions supports if_match_etag, use it:
-// let options = options.with_if_match_etag(etag.unwrap());
+// options = options.with_if_match_etag(etag.unwrap());
 
 let item = serde_json::to_value(&order)?;
 match container.replace_item(pk, &order.id, item, Some(options)).await {
@@ -6806,7 +6807,8 @@ policy.setCompositeIndexes(Arrays.asList(statusSort, assigneeSort));
 
 ```rust
 // Rust (azure_data_cosmos): Composite indexes via JSON deserialization
-// CompositeIndex types are #[non_exhaustive], so construct via serde_json
+// CompositeIndex types cannot be constructed directly (marked non_exhaustive),
+// so use JSON deserialization instead
 use azure_data_cosmos::models::{ContainerProperties, IndexingPolicy, PartitionKeyDefinition};
 
 let indexing_policy: IndexingPolicy = serde_json::from_value(serde_json::json!({

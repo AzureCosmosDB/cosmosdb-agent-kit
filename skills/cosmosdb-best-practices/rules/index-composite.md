@@ -167,7 +167,8 @@ policy.setCompositeIndexes(Arrays.asList(statusSort, assigneeSort));
 
 ```rust
 // Rust (azure_data_cosmos): Composite indexes via JSON deserialization
-// CompositeIndex types are #[non_exhaustive], so construct via serde_json
+// CompositeIndex types cannot be constructed directly (marked non_exhaustive),
+// so use JSON deserialization instead
 use azure_data_cosmos::models::{ContainerProperties, IndexingPolicy, PartitionKeyDefinition};
 
 let indexing_policy: IndexingPolicy = serde_json::from_value(serde_json::json!({
