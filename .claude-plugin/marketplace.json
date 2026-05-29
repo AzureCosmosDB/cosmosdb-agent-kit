@@ -1,0 +1,14 @@
+{
+  "name": "azure-cosmosdb",
+  "owner": {
+    "name": "Azure Cosmos DB",
+    "url": "https://azure.microsoft.com/products/cosmos-db"
+  },
+  "plugins": [
+    {
+      "name": "cosmosdb",
+      "source": "./",
+      "description": "Official Claude plugin for Azure Cosmos DB (NoSQL) — best practice skills for data modeling, queries, indexing, vector search, security, and more."
+    }
+  ]
+}

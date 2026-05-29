@@ -4,7 +4,7 @@ A collection of skills for AI coding agents working with Azure Cosmos DB. Skills
 
 ![agent-kit-cosmosdb (1)](https://github.com/user-attachments/assets/0a2c2e5f-62ee-4741-adda-9af790980761)
 
-Skills follow the [Agent Skills](https://agentskills.io/) format.
+Skills follow the [Agent Skills](https://agentskills.io/) format and the kit ships with plugin manifests for **Claude Code**, **Codex**, **Cursor**, **Gemini CLI**, and **GitHub Copilot**.
 
 ## Available Skills
 
@@ -26,6 +26,7 @@ Azure Cosmos DB performance optimization guidelines containing 111 rules across 
 - Design Patterns (High)
 - Vector Search (High)
 - Full-Text Search (High)
+- Security (High)
 - Indexing Strategies (Medium-High)
 - Throughput & Scaling (Medium)
 - Global Distribution (Medium)
@@ -34,9 +35,25 @@ Azure Cosmos DB performance optimization guidelines containing 111 rules across 
 
 ## Installation
 
+### Universal one-liner (all agents)
+
 ```bash
 npx skills add AzureCosmosDB/cosmosdb-agent-kit
 ```
+
+This drops the skill catalog into whichever agent you're using.
+
+### Per-agent plugin directories
+
+The repository includes ready-made plugin manifests:
+
+| Agent | Manifest |
+|-------|----------|
+| Claude Code | `.claude-plugin/plugin.json` |
+| OpenAI Codex | `.codex-plugin/plugin.json` |
+| Cursor | `.cursor-plugin/plugin.json` |
+| Gemini CLI | `gemini-extension.json` + `GEMINI.md` |
+| GitHub Copilot | `skills/cosmosdb-best-practices/SKILL.md` (auto-detected) |
 
 ## Website
 
@@ -89,7 +106,7 @@ Each skill contains:
 
 ## Compatibility
 
-Works with Claude Code, GitHub Copilot, Gemini CLI, and other Agent Skills-compatible tools.
+Works with Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other Agent Skills-compatible tools.
 
 ## Contributing
 

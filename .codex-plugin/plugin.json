@@ -1,0 +1,41 @@
+{
+  "name": "cosmosdb",
+  "version": "1.0.0",
+  "description": "Official Codex plugin for Azure Cosmos DB (NoSQL). Best practice skills for data modeling, queries, indexing, vector search, security, and more.",
+  "author": {
+    "name": "Azure Cosmos DB",
+    "email": "cosmosdb-agentfirst@microsoft.com",
+    "url": "https://azure.microsoft.com/products/cosmos-db"
+  },
+  "homepage": "https://github.com/AzureCosmosDB/cosmosdb-agent-kit",
+  "repository": "https://github.com/AzureCosmosDB/cosmosdb-agent-kit",
+  "license": "MIT",
+  "keywords": [
+    "azure",
+    "cosmosdb",
+    "cosmos-db",
+    "nosql",
+    "database",
+    "vector-search",
+    "agent-skills"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Azure Cosmos DB",
+    "shortDescription": "Official Azure Cosmos DB plugin: skills and best practices for NoSQL workflows on Azure.",
+    "longDescription": "The official Azure Cosmos DB plugin bundles a curated set of agent skills covering data modeling, partition key design, query optimization, SDK best practices (singleton client, bulk operations, direct mode), indexing strategies (composite, spatial, exclude unused), vector search (DiskANN, flat, quantized flat), full-text search (BM25, hybrid queries), global distribution (multi-region writes, conflict resolution), security (Entra ID, managed identity, RBAC, network restrictions), throughput and scaling (autoscale, serverless), monitoring and diagnostics, and design patterns (change feed, transactional batch). It gives your agent the knowledge to generate reliable Cosmos DB code and apply best practices end to end.",
+    "developerName": "Azure Cosmos DB",
+    "category": "Databases",
+    "capabilities": ["Read"],
+    "websiteURL": "https://learn.microsoft.com/azure/cosmos-db/",
+    "privacyPolicyURL": "https://privacy.microsoft.com/privacystatement",
+    "defaultPrompt": [
+      "Review my Cosmos DB data model for best practices.",
+      "Help me choose a partition key for my orders collection.",
+      "Optimize this Cosmos DB query for lower RU consumption.",
+      "Set up vector search on my Cosmos DB container.",
+      "What security setup do I need for a new Cosmos DB app?"
+    ],
+    "brandColor": "#0078D4"
+  }
+}
