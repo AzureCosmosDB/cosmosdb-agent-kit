@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Azure Cosmos DB Agent Kit — One-Pager</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  :root {
+    --accent: #5CE6FF;
+    --blue: #2B88D8;
+    --purple: #A78BFA;
+    --green: #34D399;
+    --orange: #FBBF24;
+    --red: #F87171;
+    --text: #F1F5F9;
+    --text-2: #CBD5E1;
+    --text-3: #94A3B8;
+    --card-bg: rgba(255,255,255,0.06);
+    --card-border: rgba(255,255,255,0.1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #060B14;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: 36px 48px 28px;
+    background:
+      radial-gradient(ellipse 50% 40% at 20% 10%, rgba(43,136,216,0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 50% at 85% 80%, rgba(167,139,250,0.08) 0%, transparent 70%),
+      linear-gradient(160deg, #0B1622 0%, #111D2E 40%, #0F1923 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ---- HEADER ---- */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .logo {
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, var(--blue), var(--accent));
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(92,230,255,0.2);
+  }
+  .brand h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.2;
+  }
+  .brand h1 span { color: var(--accent); }
+  .brand .tagline {
+    font-size: 0.82rem;
+    color: var(--text-3);
+    margin-top: 2px;
+    letter-spacing: 0.3px;
+  }
+  .header-right {
+    text-align: right;
+  }
+  .install-cmd {
+    background: #0A0F18;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    color: var(--accent);
+    display: inline-block;
+  }
+  .install-cmd .dim { color: var(--text-3); }
+  .open-source {
+    font-size: 0.72rem;
+    color: var(--text-3);
+    margin-top: 5px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ---- MAIN GRID ---- */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 1.6fr 1fr;
+    gap: 20px;
+    min-height: 0;
+  }
+
+  /* Column sections */
+  .col { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+
+  .section-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+
+  /* ---- STAT ROW ---- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .stat {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 14px 12px;
+    text-align: center;
+  }
+  .stat .val {
+    font-size: 1.65rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+    text-shadow: 0 0 20px rgba(92,230,255,0.25);
+  }
+  .stat .lbl {
+    font-size: 0.65rem;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 5px;
+    font-weight: 500;
+  }
+
+  /* ---- CATEGORY TABLE ---- */
+  .cat-table {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .cat-row {
+    display: flex;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    gap: 10px;
+  }
+  .cat-row:last-child { border-bottom: none; }
+  .cat-num {
+    font-size: 0.72rem;
+    color: var(--text-3);
+    width: 18px;
+    text-align: right;
+    font-weight: 500;
+  }
+  .cat-name {
+    flex: 1;
+    font-size: 0.82rem;
+    color: var(--text-2);
+    font-weight: 500;
+  }
+  .badge {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .badge-c { background: rgba(248,113,113,0.18); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+  .badge-h { background: rgba(251,191,36,0.13); color: var(--orange); border: 1px solid rgba(251,191,36,0.3); }
+  .badge-m { background: rgba(167,139,250,0.13); color: var(--purple); border: 1px solid rgba(167,139,250,0.3); }
+  .badge-l { background: rgba(148,163,184,0.12); color: var(--text-3); border: 1px solid rgba(148,163,184,0.25); }
+
+  /* ---- CENTER: HOW + LOOP ---- */
+  .how-section {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .flow-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .flow-box {
+    background: rgba(43,136,216,0.1);
+    border: 1px solid rgba(92,230,255,0.2);
+    border-radius: 8px;
+    padding: 10px 11px;
+    text-align: center;
+    flex: 1;
+    min-width: 0;
+  }
+  .flow-box .fb-title {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 3px;
+  }
+  .flow-box .fb-text {
+    font-size: 0.75rem;
+    color: var(--text-2);
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .flow-arr {
+    color: var(--accent);
+    font-size: 1rem;
+    opacity: 0.6;
+    flex-shrink: 0;
+  }
+
+  /* Loop */
+  .loop-section {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    flex: 1;
+    min-height: 0;
+  }
+  .loop-steps {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .loop-step {
+    background: rgba(43,136,216,0.08);
+    border: 1px solid rgba(92,230,255,0.15);
+    border-radius: 8px;
+    padding: 10px 8px;
+    text-align: center;
+  }
+  .loop-step .ls-icon {
+    font-size: 1.2rem;
+    margin-bottom: 4px;
+  }
+  .loop-step .ls-title {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 2px;
+  }
+  .loop-step .ls-desc {
+    font-size: 0.6rem;
+    color: var(--text-3);
+    line-height: 1.3;
+  }
+
+  /* Scenarios */
+  .scenarios-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .scenario-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+  }
+  .scenario-card .sc-icon { font-size: 1.3rem; margin-bottom: 4px; }
+  .scenario-card .sc-name { font-size: 0.7rem; color: var(--text-2); font-weight: 600; line-height: 1.3; }
+
+  /* ---- RIGHT: COMPAT + RESULTS ---- */
+  .compat-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 7px;
+  }
+  .compat-chip {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-2);
+    font-weight: 500;
+  }
+  .compat-chip .cc-icon { margin-right: 4px; }
+
+  /* Results */
+  .results-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    flex: 1;
+  }
+  .trend {
+    display: flex;
+    align-items: end;
+    justify-content: center;
+    gap: 14px;
+    margin: 12px 0 8px;
+    height: 90px;
+  }
+  .trend-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .trend-col .t-bar {
+    width: 36px;
+    border-radius: 6px 6px 0 0;
+    box-shadow: 0 0 12px rgba(92,230,255,0.1);
+  }
+  .trend-col .t-score {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #fff;
+  }
+  .trend-col .t-label {
+    font-size: 0.58rem;
+    color: var(--text-3);
+    text-align: center;
+  }
+  .result-bullets {
+    list-style: none;
+    padding: 0;
+  }
+  .result-bullets li {
+    font-size: 0.72rem;
+    color: var(--text-2);
+    padding: 3px 0 3px 14px;
+    position: relative;
+    line-height: 1.4;
+  }
+  .result-bullets li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--green);
+    font-weight: 700;
+    font-size: 0.7rem;
+  }
+
+  /* Get Started */
+  .cta-section {
+    background: linear-gradient(90deg, rgba(92,230,255,0.08) 0%, rgba(92,230,255,0.02) 100%);
+    border: 1px solid rgba(92,230,255,0.15);
+    border-radius: 10px;
+    padding: 12px 18px;
+  }
+  .cta-cols {
+    display: flex;
+    gap: 28px;
+    align-items: center;
+  }
+  .cta-cols .cta-points {
+    display: flex;
+    gap: 22px;
+    flex: 1;
+  }
+  .cta-point {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .cta-point .cp-icon {
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .cta-point .cp-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #fff;
+  }
+  .cta-point .cp-desc {
+    font-size: 0.65rem;
+    color: var(--text-3);
+    line-height: 1.3;
+  }
+
+  /* ---- FOOTER ---- */
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    margin-top: 16px;
+  }
+  .footer-links {
+    display: flex;
+    gap: 24px;
+  }
+  .footer-links a {
+    font-size: 0.72rem;
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .footer-links a:hover { text-decoration: underline; }
+  .footer-right {
+    font-size: 0.68rem;
+    color: var(--text-3);
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">⚡</div>
+      <div class="brand">
+        <h1>Azure Cosmos DB <span>Agent Kit</span></h1>
+        <div class="tagline">Teaching AI coding agents Cosmos DB best practices — every generated line is production-ready</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="install-cmd"><span class="dim">$</span> npx skills add AzureCosmosDB/cosmosdb-agent-kit</div>
+      <div class="open-source">Open Source · MIT License · agentskills.io</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- LEFT COLUMN -->
+    <div class="col">
+      <div>
+        <div class="section-label">At a Glance</div>
+        <div class="stats">
+          <div class="stat"><div class="val">75+</div><div class="lbl">Rules</div></div>
+          <div class="stat"><div class="val">11</div><div class="lbl">Categories</div></div>
+          <div class="stat"><div class="val">5</div><div class="lbl">Scenarios</div></div>
+          <div class="stat"><div class="val">7+</div><div class="lbl">Agents</div></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-label">Rule Categories</div>
+        <div class="cat-table">
+          <div class="cat-row"><span class="cat-num">1</span><span class="cat-name">Data Modeling</span><span class="badge badge-c">Critical</span></div>
+          <div class="cat-row"><span class="cat-num">2</span><span class="cat-name">Partition Key Design</span><span class="badge badge-c">Critical</span></div>
+          <div class="cat-row"><span class="cat-num">3</span><span class="cat-name">Query Optimization</span><span class="badge badge-h">High</span></div>
+          <div class="cat-row"><span class="cat-num">4</span><span class="cat-name">SDK Best Practices</span><span class="badge badge-h">High</span></div>
+          <div class="cat-row"><span class="cat-num">5</span><span class="cat-name">Indexing Strategies</span><span class="badge badge-m">Med-High</span></div>
+          <div class="cat-row"><span class="cat-num">6</span><span class="cat-name">Throughput & Scaling</span><span class="badge badge-m">Medium</span></div>
+          <div class="cat-row"><span class="cat-num">7</span><span class="cat-name">Global Distribution</span><span class="badge badge-m">Medium</span></div>
+          <div class="cat-row"><span class="cat-num">8</span><span class="cat-name">Design Patterns</span><span class="badge badge-h">High</span></div>
+          <div class="cat-row"><span class="cat-num">9</span><span class="cat-name">Vector Search</span><span class="badge badge-h">High</span></div>
+          <div class="cat-row"><span class="cat-num">10</span><span class="cat-name">Full-Text Search</span><span class="badge badge-h">High</span></div>
+          <div class="cat-row"><span class="cat-num">11</span><span class="cat-name">Monitoring</span><span class="badge badge-l">Low-Med</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER COLUMN -->
+    <div class="col">
+      <div class="how-section">
+        <div class="section-label">How It Works</div>
+        <div class="flow-row">
+          <div class="flow-box">
+            <div class="fb-title">Install</div>
+            <div class="fb-text">One command<br>adds the skill</div>
+          </div>
+          <div class="flow-arr">→</div>
+          <div class="flow-box">
+            <div class="fb-title">Detect</div>
+            <div class="fb-text">Agent sees<br>Cosmos DB task</div>
+          </div>
+          <div class="flow-arr">→</div>
+          <div class="flow-box">
+            <div class="fb-title">Load</div>
+            <div class="fb-text">Reads SKILL.md<br>on demand</div>
+          </div>
+          <div class="flow-arr">→</div>
+          <div class="flow-box">
+            <div class="fb-title">Apply</div>
+            <div class="fb-text">Follows rules in<br>code generation</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="loop-section">
+        <div class="section-label">Self-Improving Feedback Loop</div>
+        <div class="loop-steps">
+          <div class="loop-step">
+            <div class="ls-icon">📝</div>
+            <div class="ls-title">Issue</div>
+            <div class="ls-desc">Create iteration, assign to Copilot</div>
+          </div>
+          <div class="loop-step">
+            <div class="ls-icon">🤖</div>
+            <div class="ls-title">Generate</div>
+            <div class="ls-desc">Agent writes full app from contract</div>
+          </div>
+          <div class="loop-step">
+            <div class="ls-icon">🧪</div>
+            <div class="ls-title">Test</div>
+            <div class="ls-desc">CI runs emulator + pytest suite</div>
+          </div>
+          <div class="loop-step">
+            <div class="ls-icon">🔍</div>
+            <div class="ls-title">Evaluate</div>
+            <div class="ls-desc">Classify failures, find root causes</div>
+          </div>
+          <div class="loop-step">
+            <div class="ls-icon">🔧</div>
+            <div class="ls-title">Improve</div>
+            <div class="ls-desc">Create new rules, next run scores higher</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-label">Test Scenarios</div>
+        <div class="scenarios-grid">
+          <div class="scenario-card"><div class="sc-icon">🎮</div><div class="sc-name">Gaming Leaderboard</div></div>
+          <div class="scenario-card"><div class="sc-icon">🛒</div><div class="sc-name">E-Commerce Orders</div></div>
+          <div class="scenario-card"><div class="sc-icon">💬</div><div class="sc-name">AI Chat RAG</div></div>
+          <div class="scenario-card"><div class="sc-icon">📡</div><div class="sc-name">IoT Telemetry</div></div>
+          <div class="scenario-card"><div class="sc-icon">🏢</div><div class="sc-name">Multi-Tenant SaaS</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="col">
+      <div>
+        <div class="section-label">Compatible Agents</div>
+        <div class="compat-list">
+          <div class="compat-chip"><span class="cc-icon">🤖</span> GitHub Copilot</div>
+          <div class="compat-chip"><span class="cc-icon">🧠</span> Claude Code</div>
+          <div class="compat-chip"><span class="cc-icon">💎</span> Gemini CLI</div>
+          <div class="compat-chip"><span class="cc-icon">🔮</span> OpenAI Codex</div>
+          <div class="compat-chip"><span class="cc-icon">📝</span> OpenCode</div>
+          <div class="compat-chip"><span class="cc-icon">🏭</span> Factory</div>
+          <div class="compat-chip"><span class="cc-icon">🌐</span> GitHub.com</div>
+          <div class="compat-chip"><span class="cc-icon">➕</span> Any AgentSkill</div>
+        </div>
+      </div>
+
+      <div class="results-card">
+        <div class="section-label">Proven Results</div>
+        <div class="trend">
+          <div class="trend-col">
+            <div class="t-score">7/10</div>
+            <div class="t-bar" style="height:56px; background:linear-gradient(180deg, var(--accent), var(--blue));"></div>
+            <div class="t-label">Iter 1<br>.NET</div>
+          </div>
+          <div class="trend-col">
+            <div class="t-score">7/10</div>
+            <div class="t-bar" style="height:56px; background:linear-gradient(180deg, var(--accent), var(--blue));"></div>
+            <div class="t-label">Iter 2<br>Java</div>
+          </div>
+          <div class="trend-col">
+            <div class="t-score">9/10</div>
+            <div class="t-bar" style="height:72px; background:linear-gradient(180deg, var(--accent), var(--green));"></div>
+            <div class="t-label">Iter 3<br>Python</div>
+          </div>
+          <div class="trend-col">
+            <div class="t-score">81%</div>
+            <div class="t-bar" style="height:65px; background:linear-gradient(180deg, var(--accent), var(--purple));"></div>
+            <div class="t-label">Batch<br>5 runs</div>
+          </div>
+        </div>
+        <ul class="result-bullets">
+          <li>Rules from iteration 1 applied correctly in iteration 3</li>
+          <li>Found and fixed a bug in the skill's own examples</li>
+          <li>Each iteration surfaces new gaps → new rules</li>
+          <li>Score improves: 7 → 7 → 9/10 across languages</li>
+        </ul>
+      </div>
+
+      <div class="cta-section">
+        <div class="section-label" style="margin-bottom:8px;">Get Started</div>
+        <div class="cta-point" style="margin-bottom:6px;">
+          <div>
+            <div class="cp-title">Developers</div>
+            <div class="cp-desc">Install & ask your agent naturally about Cosmos DB tasks</div>
+          </div>
+        </div>
+        <div class="cta-point" style="margin-bottom:6px;">
+          <div>
+            <div class="cp-title">Teams</div>
+            <div class="cp-desc">Fork, create custom scenarios, measure agent quality</div>
+          </div>
+        </div>
+        <div class="cta-point">
+          <div>
+            <div class="cp-title">Contributors</div>
+            <div class="cp-desc">Add rules using the template, run npm build, submit PR</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="footer-links">
+      <a href="https://github.com/AzureCosmosDB/cosmosdb-agent-kit">📦 GitHub Repository</a>
+      <a href="https://agentskills.io">📖 Agent Skills Standard</a>
+      <a href="https://learn.microsoft.com/azure/cosmos-db/">📚 Cosmos DB Docs</a>
+    </div>
+    <div class="footer-right">Azure Cosmos DB Agent Kit · v1.0.0 · MIT License</div>
+  </div>
+
+</div>
+</body>
+</html>

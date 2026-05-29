@@ -57,3 +57,8 @@
 
 **Impact:** HIGH  
 **Description:** Native full-text search (FTS) provides inverted-index-backed keyword matching, BM25 relevance ranking, and language-aware tokenization. Requires three coordinated changes: an account-level capability flag, a container fullTextPolicy, and a fullTextIndexes entry in the indexing policy.
+
+## 13. Security (security)
+
+**Impact:** HIGH  
+**Description:** Secure authentication, network isolation, least-privilege access, and data protection for Cosmos DB accounts. Use Entra ID with managed identity instead of keys, restrict network access, assign minimum RBAC roles, and enable continuous backup for point-in-time restore.

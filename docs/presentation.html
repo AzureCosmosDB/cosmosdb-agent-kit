@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Azure Cosmos DB Agent Kit — Presentation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600;700&display=swap');
+
+  :root {
+    --cosmos-blue: #2B88D8;
+    --cosmos-dark: #001838;
+    --cosmos-light: #E8F4FD;
+    --cosmos-accent: #5CE6FF;
+    --cosmos-purple: #A78BFA;
+    --cosmos-green: #34D399;
+    --cosmos-orange: #FBBF24;
+    --cosmos-red: #F87171;
+    --slide-max-width: 1140px;
+    --text-primary: #F1F5F9;
+    --text-secondary: #CBD5E1;
+    --text-muted: #94A3B8;
+    --bg-card: rgba(255,255,255,0.07);
+    --border-subtle: rgba(255,255,255,0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #060B14;
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Slide Container */
+  .deck {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 60px 90px;
+    opacity: 0;
+    transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .slide.active {
+    display: flex;
+    opacity: 1;
+  }
+
+  .slide-inner {
+    max-width: var(--slide-max-width);
+    width: 100%;
+  }
+
+  /* Title slide */
+  .slide-title {
+    background: linear-gradient(135deg, #001228 0%, #0A1F3D 30%, #121B4D 60%, #001228 100%);
+    text-align: center;
+    position: relative;
+  }
+  .slide-title::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 60% 50% at 50% 40%, rgba(43,136,216,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .slide-title .logo-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 10px;
+  }
+  .slide-title .logo-row svg { width: 56px; height: 56px; }
+  .slide-title .kicker {
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 5px;
+    color: var(--cosmos-accent);
+    margin-bottom: 20px;
+    font-weight: 600;
+  }
+  .slide-title h1 {
+    font-size: 3.8rem;
+    font-weight: 700;
+    line-height: 1.15;
+    margin-bottom: 24px;
+    background: linear-gradient(90deg, #FFFFFF 20%, var(--cosmos-accent) 80%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 80px rgba(92,230,255,0.15);
+  }
+  .slide-title .subtitle {
+    font-size: 1.4rem;
+    color: var(--text-secondary);
+    max-width: 720px;
+    margin: 0 auto 36px;
+    line-height: 1.6;
+  }
+  .slide-title .meta {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+  }
+
+  /* Content slides */
+  .slide-content {
+    background: linear-gradient(160deg, #0B1622 0%, #111D2E 50%, #0F1923 100%);
+    position: relative;
+  }
+  .slide-content::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(43,136,216,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .slide-content h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 36px;
+    color: #FFFFFF;
+    letter-spacing: -0.3px;
+  }
+  .slide-content h2 .accent { color: var(--cosmos-accent); }
+  .slide-content h3 {
+    font-size: 1.35rem;
+    color: var(--cosmos-accent);
+    margin-bottom: 14px;
+    margin-top: 28px;
+    font-weight: 600;
+  }
+  .slide-content p, .slide-content li {
+    font-size: 1.2rem;
+    line-height: 1.75;
+    color: var(--text-secondary);
+  }
+  .slide-content ul {
+    list-style: none;
+    padding: 0;
+  }
+  .slide-content ul li {
+    padding: 9px 0 9px 30px;
+    position: relative;
+  }
+  .slide-content ul li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--cosmos-accent);
+    font-weight: bold;
+    font-size: 1.2rem;
+  }
+  .slide-content strong, .slide-content code {
+    color: #FFFFFF;
+  }
+  .slide-content code {
+    background: rgba(255,255,255,0.1);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.95em;
+  }
+
+  /* Two-column */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: start;
+  }
+
+  /* Cards */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 8px;
+  }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    padding: 26px;
+    transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    border-color: var(--cosmos-accent);
+    box-shadow: 0 8px 30px rgba(92,230,255,0.08);
+  }
+  .card .card-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #FFFFFF;
+    margin-bottom: 10px;
+  }
+  .card .card-body {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  /* Impact badges */
+  .badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 6px;
+  }
+  .badge-critical { background: rgba(248,113,113,0.2); color: var(--cosmos-red); border: 1px solid rgba(248,113,113,0.4); }
+  .badge-high { background: rgba(251,191,36,0.15); color: var(--cosmos-orange); border: 1px solid rgba(251,191,36,0.35); }
+  .badge-medium { background: rgba(167,139,250,0.15); color: var(--cosmos-purple); border: 1px solid rgba(167,139,250,0.35); }
+  .badge-low { background: rgba(148,163,184,0.15); color: var(--text-muted); border: 1px solid rgba(148,163,184,0.3); }
+
+  /* Stat boxes */
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 22px;
+    margin: 32px 0;
+  }
+  .stat-box {
+    background: linear-gradient(135deg, rgba(43,136,216,0.12) 0%, rgba(92,230,255,0.06) 100%);
+    border: 1px solid rgba(92,230,255,0.2);
+    border-radius: 16px;
+    padding: 28px 20px;
+    text-align: center;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+  .stat-box:hover {
+    border-color: rgba(92,230,255,0.4);
+    transform: translateY(-2px);
+  }
+  .stat-box .stat-value {
+    font-size: 3rem;
+    font-weight: 700;
+    color: #FFFFFF;
+    line-height: 1;
+    text-shadow: 0 0 30px rgba(92,230,255,0.3);
+  }
+  .stat-box .stat-label {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    margin-top: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 500;
+  }
+
+  /* Code block */
+  .code-block {
+    background: #0A0F18;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 22px 26px;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 1rem;
+    line-height: 1.7;
+    color: #E2E8F0;
+    overflow-x: auto;
+    margin: 14px 0;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  .code-block .kw { color: #FCA5A5; }
+  .code-block .fn { color: #C4B5FD; }
+  .code-block .str { color: #93C5FD; }
+  .code-block .cmt { color: #64748B; }
+
+  /* Flow diagram */
+  .flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin: 32px 0;
+    flex-wrap: wrap;
+  }
+  .flow-step {
+    background: linear-gradient(135deg, rgba(43,136,216,0.15) 0%, rgba(92,230,255,0.08) 100%);
+    border: 1px solid rgba(92,230,255,0.3);
+    border-radius: 14px;
+    padding: 20px 24px;
+    text-align: center;
+    min-width: 155px;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+  .flow-step:hover {
+    border-color: rgba(92,230,255,0.6);
+    transform: translateY(-2px);
+  }
+  .flow-step .step-num {
+    font-size: 0.78rem;
+    color: var(--cosmos-accent);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  .flow-step .step-text {
+    font-size: 1rem;
+    color: #FFFFFF;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  .flow-arrow {
+    font-size: 1.8rem;
+    color: var(--cosmos-accent);
+    padding: 0 12px;
+    opacity: 0.7;
+  }
+
+  /* Table */
+  .slide-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+  }
+  .slide-table th {
+    text-align: left;
+    padding: 14px 18px;
+    font-size: 0.88rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--cosmos-accent);
+    border-bottom: 2px solid rgba(92,230,255,0.25);
+    font-weight: 700;
+  }
+  .slide-table td {
+    padding: 13px 18px;
+    font-size: 1.05rem;
+    color: var(--text-secondary);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .slide-table tr:hover td { background: rgba(92,230,255,0.04); }
+
+  /* Score trend */
+  .trend-row {
+    display: flex;
+    align-items: end;
+    justify-content: center;
+    gap: 28px;
+    margin: 28px 0;
+  }
+  .trend-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .trend-bar .bar {
+    width: 72px;
+    border-radius: 10px 10px 0 0;
+    background: linear-gradient(180deg, var(--cosmos-accent), var(--cosmos-blue));
+    transition: height 0.5s ease;
+    box-shadow: 0 0 20px rgba(92,230,255,0.15);
+  }
+  .trend-bar .label {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+  }
+  .trend-bar .score-label {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #FFFFFF;
+    text-shadow: 0 0 20px rgba(92,230,255,0.4);
+  }
+
+  /* Navigation */
+  .nav {
+    position: fixed;
+    bottom: 24px;
+    right: 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 100;
+  }
+  .nav button {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(10,15,24,0.8);
+    color: #FFFFFF;
+    font-size: 1.3rem;
+    cursor: pointer;
+    transition: all 0.25s;
+    backdrop-filter: blur(12px);
+  }
+  .nav button:hover { background: var(--cosmos-blue); border-color: var(--cosmos-blue); box-shadow: 0 4px 20px rgba(43,136,216,0.35); }
+  .nav .page-num {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    min-width: 64px;
+    text-align: center;
+    font-weight: 500;
+  }
+
+  /* Progress bar */
+  .progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--cosmos-blue), var(--cosmos-accent));
+    transition: width 0.4s ease;
+    z-index: 100;
+    box-shadow: 0 0 12px rgba(92,230,255,0.4);
+  }
+
+  /* Section divider */
+  .slide-section {
+    background: linear-gradient(135deg, #001228 0%, #0A1F3D 40%, #151B4A 100%);
+    text-align: center;
+    position: relative;
+  }
+  .slide-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 50% 60% at 50% 50%, rgba(92,230,255,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .slide-section .section-num {
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 6px;
+    color: var(--cosmos-accent);
+    margin-bottom: 20px;
+    font-weight: 600;
+  }
+  .slide-section h2 {
+    font-size: 3rem;
+    font-weight: 700;
+    color: #FFFFFF;
+  }
+  .slide-section p {
+    font-size: 1.3rem;
+    color: var(--text-secondary);
+    margin-top: 16px;
+  }
+
+  /* Highlight box */
+  .highlight-box {
+    background: linear-gradient(90deg, rgba(92,230,255,0.1) 0%, rgba(92,230,255,0.03) 100%);
+    border-left: 4px solid var(--cosmos-accent);
+    border-radius: 0 12px 12px 0;
+    padding: 22px 28px;
+    margin: 18px 0;
+  }
+  .highlight-box p {
+    color: #F1F5F9 !important;
+    font-size: 1.15rem !important;
+    line-height: 1.7 !important;
+  }
+
+  /* Compat icons */
+  .compat-grid {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 24px 0;
+  }
+  .compat-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    padding: 22px 30px;
+    text-align: center;
+    min-width: 140px;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+  .compat-item:hover {
+    border-color: var(--cosmos-accent);
+    transform: translateY(-2px);
+  }
+  .compat-item .compat-icon {
+    font-size: 2.2rem;
+    margin-bottom: 10px;
+  }
+  .compat-item .compat-name {
+    font-size: 1rem;
+    color: #FFFFFF;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+
+<div class="deck" id="deck">
+
+  <!-- ===== SLIDE 1: Title ===== -->
+  <div class="slide slide-title active">
+    <div class="slide-inner">
+      <div class="kicker">Open Source &bull; Agent Skills Format</div>
+      <h1>Azure Cosmos DB<br>Agent Kit</h1>
+      <p class="subtitle">
+        Teaching AI coding agents Cosmos DB best practices —<br>
+        so every line of generated code is production-ready.
+      </p>
+      <p class="meta">github.com/AzureCosmosDB/cosmosdb-agent-kit &nbsp;|&nbsp; MIT License</p>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 2: The Problem ===== -->
+  <div class="slide slide-content">
+    <div class="slide-inner">
+      <h2>The <span class="accent">Problem</span></h2>
+      <div class="two-col">
+        <div>
+          <h3>AI Agents Are Writing Database Code</h3>
+          <ul>
+            <li>Copilot, Claude, Gemini generate Cosmos DB apps daily</li>
+            <li>They lack deep knowledge of partitioning, RU costs, SDK quirks</li>
+            <li>Result: hot partitions, cross-partition scans, missing retries</li>
+            <li>Bugs surface at scale, not during development</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Real Failures We've Seen</h3>
+          <ul>
+            <li><code>SELECT TOP @top</code> — doesn't work (must be literal)</li>
+            <li>Composite index directions don't match ORDER BY</li>
+            <li>Missing <code>aiohttp</code> for Python async SDK</li>
+            <li>Wrong ETag API usage per language SDK</li>
+            <li>No cascade delete of denormalized documents</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 3: What Is Agent Kit ===== -->
+  <div class="slide slide-content">
+    <div class="slide-inner">
+      <h2>What Is the <span class="accent">Agent Kit</span>?</h2>
+      <p style="font-size:1.2rem;color:#c8d6e5;margin-bottom:28px;">
+        A collection of <strong>skills</strong> that plug into AI coding agents — giving them expert-level
+        Cosmos DB knowledge at code-generation time.
+      </p>
+      <div class="stat-row">
+        <div class="stat-box">
+          <div class="stat-value">75+</div>
+          <div class="stat-label">Best Practice Rules</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value">11</div>
+          <div class="stat-label">Categories</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value">5</div>
+          <div class="stat-label">Test Scenarios</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value">7+</div>
+          <div class="stat-label">Compatible Agents</div>
+        </div>
+      </div>
+      <div class="highlight-box">
+        <p>Follows the open <strong>Agent Skills</strong> standard (<a href="https://agentskills.io" style="color:var(--cosmos-accent)">agentskills.io</a>)
+        — install once, works across Copilot, Claude Code, Gemini CLI, and more.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 4: How It Works ===== -->
+  <div class="slide slide-content">
+    <div class="slide-inner">
+      <h2>How It <span class="accent">Works</span></h2>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="step-num">Step 1</div>
+          <div class="step-text">Install Skill</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="step-num">Step 2</div>
+          <div class="step-text">Agent Detects<br>Cosmos DB Task</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="step-num">Step 3</div>
+          <div class="step-text">Loads SKILL.md<br>as Index</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="step-num">Step 4</div>
+          <div class="step-text">Reads Relevant<br>Rule Files</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="step-num">Step 5</div>
+          <div class="step-text">Generates<br>Optimized Code</div>
+        </div>
+      </div>
+      <div class="code-block">
+        <span class="cmt"># One command to install</span><br>
+        <span class="fn">npx</span> skills add AzureCosmosDB/cosmosdb-agent-kit<br><br>
+        <span class="cmt"># Then just ask your agent naturally:</span><br>
+        <span class="str">"Help me choose a partition key for my orders collection"</span><br>
+        <span class="str">"Optimize this Cosmos DB query"</span><br>
+        <span class="str">"Review my Cosmos DB data model"</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 5: Rule Categories ===== -->
+  <div class="slide slide-content">
+    <div class="slide-inner">
+      <h2>Rule Categories by <span class="accent">Impact</span></h2>
+      <table class="slide-table">
+        <thead>
+          <tr><th>#</th><th>Category</th><th>Impact</th><th>Example Rule</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>Data Modeling</td><td><span class="badge badge-critical">Critical</span></td><td>Embed related data retrieved together</td></tr>
+          <tr><td>2</td><td>Partition Key Design</td><td><span class="badge badge-critical">Critical</span></td><td>Choose high-cardinality, immutable keys</td></tr>
+          <tr><td>3</td><td>Query Optimization</td><td><span class="badge badge-high">High</span></td><td>Use point reads when id + PK are known</td></tr>
+          <tr><td>4</td><td>SDK Best Practices</td><td><span class="badge badge-high">High</span></td><td>Singleton CosmosClient, async APIs</td></tr>
+          <tr><td>5</td><td>Indexing Strategies</td><td><span class="badge badge-medium">Medium-High</span></td><td>Composite indexes matching ORDER BY</td></tr>
+          <tr><td>6</td><td>Throughput &amp; Scaling</td><td><span class="badge badge-medium">Medium</span></td><td>Autoscale for variable workloads</td></tr>
+          <tr><td>7</td><td>Global Distribution</td><td><span class="badge badge-medium">Medium</span></td><td>Multi-region writes, failover config</td></tr>
+          <tr><td>8</td><td>Monitoring</td><td><span class="badge badge-low">Low-Med</span></td><td>Track RU consumption, P99 latency</td></tr>
+          <tr><td>9</td><td>Design Patterns</td><td><span class="badge badge-high">High</span></td><td>Change Feed materialized views</td></tr>
+          <tr><td>10</td><td>Vector Search</td><td><span class="badge badge-high">High</span></td><td>Embedding policy + distance queries</td></tr>
+          <tr><td>11</td><td>Full-Text Search</td><td><span class="badge badge-high">High</span></td><td>FullTextContains, BM25 ranking</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 6: Anatomy of a Rule ===== -->
+  <div class="slide slide-content">
+    <div class="slide-inner">
+      <h2>Anatomy of a <span class="accent">Rule</span></h2>
+      <div class="two-col">
+        <div>
+          <h3>Rule Structure</h3>
+          <ul>
+            <li><strong>Frontmatter</strong> — title, impact level, tags</li>
+            <li><strong>Why it matters</strong> — brief explanation</li>
+            <li><strong>Incorrect</strong> — anti-pattern with explanation</li>
+            <li><strong>Correct</strong> — best practice with explanation</li>
+            <li><strong>Language-specific</strong> — .NET, Java, Python examples</li>
+          </ul>
+          <h3>Impact Levels</h3>
+          <ul>
+            <li><span class="badge badge-critical">Critical</span> Prevents data loss or outages</li>
+            <li><span class="badge badge-high">High</span> Significant performance / cost impact</li>
+            <li><span class="badge badge-medium">Medium</span> Recommended best practice</li>
+            <li><span class="badge badge-low">Low</span> Minor optimization</li>
+          </ul>
+        </div>
+        <div>
+          <div class="code-block" style="font-size:0.85rem;">
+<span class="cmt">---</span><br>
+<span class="kw">title:</span> <span class="str">Use Literal Integers for TOP</span><br>
+<span class="kw">impact:</span> <span class="str">HIGH</span><br>
+<span class="kw">tags:</span> [query, parameterization]<br>
+<span class="cmt">---</span><br><br>
+<span class="cmt">❌ Incorrect — parameterized TOP</span><br>
+SELECT TOP <span class="kw">@limit</span> * FROM c<br>
+<span class="cmt">// 400 Bad Request at runtime</span><br><br>
+<span class="cmt">✅ Correct — literal integer</span><br>
+SELECT TOP <span class="fn">10</span> * FROM c<br>
+<span class="cmt">// Works. Validate as int in code</span><br>
+<span class="cmt">// before string interpolation.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 7: Testing Framework ===== -->
+  <div class="slide slide-section">
+    <div class="slide-inner">
+      <div class="section-num">The Feedback Loop</div>
+      <h2>Automated Testing Framework</h2>
+      <p>Contract-first testing that measures and improves agent quality over time</p>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 8: Testing Loop ===== -->
+  <div class="slide slide-content">
+    <div class="slide-inner">
+      <h2>The Self-Improving <span class="accent">Loop</span></h2>
+      <div class="flow" style="flex-wrap: wrap; gap: 12px;">
+        <div class="flow-step" style="border-color: rgba(80,230,255,0.5);">
+          <div class="step-num">1 &bull; Issue</div>
+          <div class="step-text">Create iteration<br>issue → assign<br>to Copilot</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" style="border-color: rgba(80,230,255,0.5);">
+          <div class="step-num">2 &bull; Generate</div>
+          <div class="step-text">Agent reads skills<br>+ API contract<br>→ writes app</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" style="border-color: rgba(80,230,255,0.5);">
+          <div class="step-num">3 &bull; Test</div>
+          <div class="step-text">CI starts emulator<br>runs pytest suite<br>posts results</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" style="border-color: rgba(80,230,255,0.5);">
+          <div class="step-num">4 &bull; Evaluate</div>
+          <div class="step-text">Agent classifies<br>failures → creates<br>new rules</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" style="border-color: rgba(80,230,255,0.5);">
+          <div class="step-num">5 &bull; Improve</div>
+          <div class="step-text">Merge rules →<br>next iteration<br>scores higher</div>
+        </div>
+      </div>
+      <div class="highlight-box" style="margin-top:24px;">
+        <p><strong>Key insight:</strong> Tests are written against a <em>fixed API contract</em>, not against the generated code.
+        The agent is told exactly which endpoints, field names, and status codes to implement — making testing
+        deterministic regardless of what the agent produces.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 9: Test Scenarios ===== -->
+  <div class="slide slide-content">
+    <div class="slide-inner">
+      <h2>Test <span class="accent">Scenarios</span></h2>
+      <p style="color:#8899aa; margin-bottom:20px;">Real-world application patterns that exercise different Cosmos DB features</p>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-title">🎮 Gaming Leaderboard</div>
+          <div class="card-body">Materialized views, ranking queries, synthetic partition keys, ETag concurrency, cascade deletes</div>
+        </div>
+        <div class="card">
+          <div class="card-title">🛒 E-Commerce Order API</div>
+          <div class="card-body">Multi-entity containers, order lifecycle, transactional batch, change feed patterns</div>
+        </div>
+        <div class="card">
+          <div class="card-title">💬 AI Chat RAG</div>
+          <div class="card-body">Vector search, embedding policies, hybrid queries, full-text search integration</div>
+        </div>
+        <div class="card">
+          <div class="card-title">📡 IoT Device Telemetry</div>
+          <div class="card-body">Time-series ingestion, hierarchical partition keys, TTL, hot partition avoidance</div>
+        </div>
+        <div class="card">
+          <div class="card-title">🏢 Multi-Tenant SaaS</div>
+          <div class="card-body">Tenant isolation, throughput allocation, cross-tenant queries, data partitioning</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 10: Results ===== -->
+  <div class="slide slide-content">
+    <div class="slide-inner">
+      <h2>Proven <span class="accent">Results</span></h2>
+      <div class="two-col">
+        <div>
+          <h3>Score Improvement Over Iterations</h3>
+          <div class="trend-row">
+            <div class="trend-bar">
+              <div class="score-label">7/10</div>
+              <div class="bar" style="height:140px;"></div>
+              <div class="label">Iter 1<br><small>.NET</small></div>
+            </div>
+            <div class="trend-bar">
+              <div class="score-label">7/10</div>
+              <div class="bar" style="height:140px;"></div>
+              <div class="label">Iter 2<br><small>Java</small></div>
+            </div>
+            <div class="trend-bar">
+              <div class="score-label">9/10</div>
+              <div class="bar" style="height:180px; background: linear-gradient(180deg, #50E6FF, var(--cosmos-green));"></div>
+              <div class="label">Iter 3<br><small>Python</small></div>
+            </div>
+            <div class="trend-bar">
+              <div class="score-label">81%</div>
+              <div class="bar" style="height:162px;background: linear-gradient(180deg, var(--cosmos-accent), var(--cosmos-purple));"></div>
+              <div class="label">Batch<br><small>5 runs</small></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h3>What Improved</h3>
+          <ul>
+            <li>COUNT-based ranking applied from start after rule added</li>
+            <li>ETag concurrency with correct SDK-specific APIs</li>
+            <li>Composite index directions now match queries</li>
+            <li>Python async deps automatically included</li>
+            <li>Cascade deletes documented and followed</li>
+          </ul>
+          <h3>Feedback Loop Validated</h3>
+          <ul>
+            <li>Rules from iteration 1 applied correctly in iteration 3</li>
+            <li>Found and fixed a bug in the skill's own examples</li>
+            <li>Each iteration surfaces new gaps → new rules</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 11: Architecture ===== -->
+  <div class="slide slide-content">
+    <div class="slide-inner">
+      <h2>Skill <span class="accent">Architecture</span></h2>
+      <div class="two-col">
+        <div>
+          <h3>File Structure</h3>
+          <div class="code-block" style="font-size:0.85rem;">
+skills/cosmosdb-best-practices/<br>
+├── <span class="fn">SKILL.md</span> &nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt"># Entry point (triggers activation)</span><br>
+├── <span class="fn">AGENTS.md</span> &nbsp;&nbsp;&nbsp;<span class="cmt"># Compiled rules (monolithic)</span><br>
+├── <span class="fn">metadata.json</span> <span class="cmt"># Version &amp; metadata</span><br>
+├── <span class="fn">README.md</span> &nbsp;&nbsp;&nbsp;<span class="cmt"># Documentation</span><br>
+└── rules/<br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="str">_sections.md</span> &nbsp;<span class="cmt"># Category definitions</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="str">_template.md</span> &nbsp;<span class="cmt"># New rule template</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="str">model-*.md</span> &nbsp;&nbsp;&nbsp;<span class="cmt"># Data modeling</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="str">partition-*.md</span> <span class="cmt"># Partition keys</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="str">query-*.md</span> &nbsp;&nbsp;&nbsp;<span class="cmt"># Query optimization</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="str">sdk-*.md</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt"># SDK best practices</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="str">vector-*.md</span> &nbsp;&nbsp;<span class="cmt"># Vector search</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;└── <span class="str">fts-*.md</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt"># Full-text search</span>
+          </div>
+        </div>
+        <div>
+          <h3>Progressive Disclosure</h3>
+          <ul>
+            <li>Only <strong>skill name + description</strong> loaded at startup</li>
+            <li><strong>SKILL.md</strong> loads when agent detects relevance</li>
+            <li>Individual <strong>rules/</strong> read on demand</li>
+            <li>Minimizes token/context usage</li>
+          </ul>
+          <h3>Build Pipeline</h3>
+          <div class="code-block" style="font-size:0.85rem;">
+<span class="cmt"># Compile individual rules → AGENTS.md</span><br>
+<span class="fn">npm run</span> build<br><br>
+<span class="cmt"># Validate rule files</span><br>
+<span class="fn">npm run</span> validate
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 12: Compatibility ===== -->
+  <div class="slide slide-content">
+    <div class="slide-inner" style="text-align:center;">
+      <h2>Works With Your <span class="accent">Agent</span></h2>
+      <p style="color:#8899aa; margin-bottom:8px;">One install, every major AI coding agent</p>
+      <div class="compat-grid">
+        <div class="compat-item">
+          <div class="compat-icon">🤖</div>
+          <div class="compat-name">GitHub Copilot</div>
+        </div>
+        <div class="compat-item">
+          <div class="compat-icon">🧠</div>
+          <div class="compat-name">Claude Code</div>
+        </div>
+        <div class="compat-item">
+          <div class="compat-icon">💎</div>
+          <div class="compat-name">Gemini CLI</div>
+        </div>
+        <div class="compat-item">
+          <div class="compat-icon">📝</div>
+          <div class="compat-name">OpenCode</div>
+        </div>
+        <div class="compat-item">
+          <div class="compat-icon">🏭</div>
+          <div class="compat-name">Factory</div>
+        </div>
+        <div class="compat-item">
+          <div class="compat-icon">🔮</div>
+          <div class="compat-name">OpenAI Codex</div>
+        </div>
+        <div class="compat-item">
+          <div class="compat-icon">🌐</div>
+          <div class="compat-name">GitHub.com</div>
+        </div>
+      </div>
+      <div class="code-block" style="text-align:left; max-width:600px; margin: 24px auto;">
+        <span class="cmt"># Install with one command</span><br>
+        <span class="fn">npx</span> skills add AzureCosmosDB/cosmosdb-agent-kit
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 13: Getting Started ===== -->
+  <div class="slide slide-content">
+    <div class="slide-inner">
+      <h2>Get <span class="accent">Started</span></h2>
+      <div class="two-col">
+        <div>
+          <h3>For Developers</h3>
+          <ul>
+            <li><strong>Install:</strong> <code>npx skills add AzureCosmosDB/cosmosdb-agent-kit</code></li>
+            <li><strong>Use naturally:</strong> Ask your agent about Cosmos DB tasks</li>
+            <li><strong>Rules activate automatically</strong> when relevant context is detected</li>
+            <li>Works with .NET, Java, Python, Node.js</li>
+          </ul>
+          <h3>For Contributors</h3>
+          <ul>
+            <li>Add new rules using the template in <code>rules/_template.md</code></li>
+            <li>Run <code>npm run build</code> to recompile</li>
+            <li>Run test scenarios to validate improvements</li>
+            <li>Submit PRs to strengthen the knowledge base</li>
+          </ul>
+        </div>
+        <div>
+          <h3>For Teams</h3>
+          <ul>
+            <li>Fork the repo to run the batch testing pipeline</li>
+            <li>Create custom scenarios matching your workloads</li>
+            <li>Measure agent quality with contract-first tests</li>
+            <li>Generate improvement recommendations automatically</li>
+          </ul>
+          <h3>Links</h3>
+          <ul>
+            <li>📦 <a href="https://github.com/AzureCosmosDB/cosmosdb-agent-kit" style="color:var(--cosmos-accent);">GitHub Repository</a></li>
+            <li>📖 <a href="https://agentskills.io" style="color:var(--cosmos-accent);">Agent Skills Standard</a></li>
+            <li>📚 <a href="https://learn.microsoft.com/azure/cosmos-db/" style="color:var(--cosmos-accent);">Cosmos DB Documentation</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SLIDE 14: Closing ===== -->
+  <div class="slide slide-title">
+    <div class="slide-inner">
+      <div class="kicker">Open Source &bull; MIT License</div>
+      <h1>Ship Better<br>Cosmos DB Code</h1>
+      <p class="subtitle">
+        75+ rules. 11 categories. One install.<br>
+        Every AI agent becomes a Cosmos DB expert.
+      </p>
+      <div style="margin-top:36px;">
+        <div class="code-block" style="display: inline-block; text-align: left; font-size: 1.1rem;">
+          <span class="fn">npx</span> skills add AzureCosmosDB/cosmosdb-agent-kit
+        </div>
+      </div>
+      <p class="meta" style="margin-top: 28px;">
+        github.com/AzureCosmosDB/cosmosdb-agent-kit
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<!-- Navigation -->
+<div class="nav">
+  <button id="prevBtn" onclick="navigate(-1)">‹</button>
+  <span class="page-num" id="pageNum">1 / 14</span>
+  <button id="nextBtn" onclick="navigate(1)">›</button>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const progressBar = document.getElementById('progressBar');
+  const pageNum = document.getElementById('pageNum');
+  let current = 0;
+
+  function showSlide(index) {
+    slides.forEach(s => s.classList.remove('active'));
+    slides[index].classList.add('active');
+    progressBar.style.width = ((index + 1) / slides.length * 100) + '%';
+    pageNum.textContent = (index + 1) + ' / ' + slides.length;
+  }
+
+  function navigate(dir) {
+    const next = current + dir;
+    if (next >= 0 && next < slides.length) {
+      current = next;
+      showSlide(current);
+    }
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); navigate(1); }
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); navigate(-1); }
+    if (e.key === 'Home') { e.preventDefault(); current = 0; showSlide(0); }
+    if (e.key === 'End') { e.preventDefault(); current = slides.length - 1; showSlide(current); }
+  });
+
+  // Touch support
+  let touchStartX = 0;
+  document.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; });
+  document.addEventListener('touchend', e => {
+    const diff = touchStartX - e.changedTouches[0].screenX;
+    if (Math.abs(diff) > 50) navigate(diff > 0 ? 1 : -1);
+  });
+
+  showSlide(0);
+</script>
+</body>
+</html>
