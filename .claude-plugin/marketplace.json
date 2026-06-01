@@ -6,7 +6,7 @@
   },
   "plugins": [
     {
-      "name": "cosmosdb",
+      "name": "azure-cosmosdb",
       "source": "./",
       "description": "Official Claude plugin for Azure Cosmos DB (NoSQL) — best practice skills for data modeling, queries, indexing, vector search, security, and more."
     }

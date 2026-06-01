@@ -1,5 +1,5 @@
 {
-  "name": "cosmosdb",
+  "name": "azure-cosmosdb",
   "version": "1.0.0",
   "description": "Official Cursor plugin for Azure Cosmos DB (NoSQL). Best practice skills for data modeling, queries, indexing, vector search, security, and more.",
   "author": {
