@@ -124,6 +124,7 @@ Reference these guidelines when:
 ### 5. Indexing Strategies (MEDIUM-HIGH)
 
 - [index-exclude-unused](rules/index-exclude-unused.md) - Exclude paths never queried
+- [index-path-syntax](rules/index-path-syntax.md) - Use correct path notation (`/?`, `/[]`, `/*`)
 - [index-composite](rules/index-composite.md) - Use composite indexes for ORDER BY
 - [index-composite-direction](rules/index-composite-direction.md) - Match composite index directions to ORDER BY
 - [index-spatial](rules/index-spatial.md) - Add spatial indexes for geo queries
