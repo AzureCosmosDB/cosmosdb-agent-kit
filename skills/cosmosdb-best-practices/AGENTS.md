@@ -88,8 +88,9 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 5.2 [Use Composite Indexes for ORDER BY](#52-use-composite-indexes-for-order-by)
    - 5.3 [Exclude Unused Index Paths](#53-exclude-unused-index-paths)
    - 5.4 [Understand Indexing Modes](#54-understand-indexing-modes)
-   - 5.5 [Choose Appropriate Index Types](#55-choose-appropriate-index-types)
-   - 5.6 [Add Spatial Indexes for Geo Queries](#56-add-spatial-indexes-for-geo-queries)
+   - 5.5 [Use Correct Indexing Path Syntax](#55-use-correct-indexing-path-syntax)
+   - 5.6 [Choose Appropriate Index Types](#56-choose-appropriate-index-types)
+   - 5.7 [Add Spatial Indexes for Geo Queries](#57-add-spatial-indexes-for-geo-queries)
 6. [Throughput & Scaling](#6-throughput-scaling) — **MEDIUM**
    - 6.1 [Use Autoscale for Variable Workloads](#61-use-autoscale-for-variable-workloads)
    - 6.2 [Understand Burst Capacity](#62-understand-burst-capacity)
@@ -7695,7 +7696,90 @@ Note: Lazy mode was deprecated - use Consistent instead.
 
 Reference: [Indexing modes](https://learn.microsoft.com/azure/cosmos-db/index-policy#indexing-mode)
 
-### 5.5 Choose Appropriate Index Types
+### 5.5 Use Correct Indexing Path Syntax
+
+**Impact: HIGH** (prevents container creation failures from invalid paths)
+
+## Use Correct Indexing Path Syntax
+
+Cosmos DB indexing paths use specific notation for scalars, arrays, and wildcards. Using the wrong notation causes container creation to fail with a BadRequest error.
+
+**Three valid path notations:**
+
+| Notation | Meaning | Example |
+|----------|---------|---------|
+| `/?` | Scalar value (string or number) | `/price/?` |
+| `/[]` | Array element traversal | `/items/[]/name/?` |
+| `/*` | **Terminal** wildcard — everything below this node | `/metadata/*` |
+
+**Incorrect (using `*` for array traversal):**
+
+```json
+// ❌ WRONG — * cannot be used mid-path for array traversal
+// This causes: "The indexing path could not be accepted, failed near position ..."
+{
+    "excludedPaths": [
+        { "path": "/lineItems/*/productSnapshot/?" },
+        { "path": "/orders/*/items/?" }
+    ]
+}
+```
+
+**Correct (using `[]` for array traversal):**
+
+```json
+// ✅ CORRECT — use [] to traverse array elements
+{
+    "excludedPaths": [
+        { "path": "/lineItems/[]/productSnapshot/?" },
+        { "path": "/orders/[]/items/?" }
+    ]
+}
+```
+
+**Correct (terminal `*` wildcard for subtree):**
+
+```json
+// ✅ CORRECT — * at the END of a path matches everything below
+{
+    "includedPaths": [
+        { "path": "/*" }
+    ],
+    "excludedPaths": [
+        { "path": "/metadata/*" },
+        { "path": "/auditLog/*" },
+        { "path": "/\"_etag\"/?" }
+    ]
+}
+```
+
+**Common patterns:**
+
+```json
+{
+    "includedPaths": [
+        { "path": "/*" }
+    ],
+    "excludedPaths": [
+        { "path": "/\"_etag\"/?" },
+        { "path": "/largeBlob/*" },
+        { "path": "/items/[]/internalNotes/?" },
+        { "path": "/events/[]/payload/*" }
+    ]
+}
+```
+
+**Key rules:**
+
+- `/?` terminates a path to a scalar value — use for leaf properties
+- `/[]` traverses into array elements — use when the parent is an array and you need to reach nested properties
+- `/*` is a terminal wildcard — it means "all descendants" and must be the LAST segment in the path
+- **NEVER** use `*` in the middle of a path (e.g., `/items/*/name/?` is INVALID)
+- For composite indexes, paths do NOT use `/?` or `/*` — they have an implicit `/?` at the end. Use `/[]` for array traversal in composite paths (e.g., `/children/[]/age`)
+
+Reference: [Indexing policy path syntax](https://learn.microsoft.com/azure/cosmos-db/index-policy#include-exclude-paths)
+
+### 5.6 Choose Appropriate Index Types
 
 **Impact: MEDIUM** (optimizes query performance)
 
@@ -7824,7 +7908,7 @@ Index type summary:
 
 Reference: [Index types](https://learn.microsoft.com/azure/cosmos-db/index-overview)
 
-### 5.6 Add Spatial Indexes for Geo Queries
+### 5.7 Add Spatial Indexes for Geo Queries
 
 **Impact: MEDIUM-HIGH** (enables efficient location queries)
 
