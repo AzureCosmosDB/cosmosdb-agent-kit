@@ -1,0 +1,20 @@
+id: pattern-sproc-scope-007
+name: Design Patterns - Stored Procedure Scope
+description: |
+  Test that the skill steers away from stored procedures for single-item
+  CRUD and recommends transactional batch for multi-item atomic writes
+  within a single partition.
+tags:
+  - pattern
+  - happy-path
+  - stored-procedures
+inputs:
+  prompt: |
+    I'm building an order system on Cosmos DB. When an order is placed I need to
+    create the order document, update the customer's order count, and write an
+    audit entry. All three share the customer id as partition key. I was planning
+    to write a stored procedure for this, and another stored procedure for plain
+    order lookups by id. Is that the right approach?
+expected:
+  outcomes:
+    - type: task_completed
