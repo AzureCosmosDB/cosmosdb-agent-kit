@@ -1,0 +1,18 @@
+id: model-ttl-expiration
+name: Data Modeling - TTL for Automatic Data Expiration
+description: |
+  Test that the skill recommends container TTL with per-item overrides
+  instead of a scheduled cleanup job for expiring old data.
+tags:
+  - modeling
+  - happy-path
+  - ttl
+inputs:
+  prompt: |
+    My app stores user session documents in a Cosmos DB container. Sessions
+    should be deleted 24 hours after the last activity. I was going to write
+    an Azure Function on a timer that queries for old sessions and deletes
+    them in a loop. Is there a better way to handle this?
+expected:
+  outcomes:
+    - type: task_completed
