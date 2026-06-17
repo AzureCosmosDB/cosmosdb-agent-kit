@@ -35,6 +35,56 @@ This is a cross-SDK issue affecting any SDK using Gateway mode. The Python SDK u
 
 **Safe synthetic-id separators:** `_`, `-`, `:`
 
+### The `id` property is always a string
+
+Azure Cosmos DB stores and indexes the `id` system property as a JSON string. There is no numeric `id` type.
+
+When migrating from a relational database, keep the primary-key value but store it as a string `id` value:
+
+| Relational key | Cosmos DB `id` |
+|---------------|---------------|
+| `42` | `"42"` |
+| `90001` | `"90001"` |
+
+Bind `id` to a string type in DTOs, domain models, and API contracts.
+
+**Incorrect:**
+
+```csharp
+public record Product(int Id, string Name);
+```
+
+**Correct:**
+
+```csharp
+public record Product(string Id, string Name);
+```
+
+### SQL to NoSQL migration guidance
+
+Do not introduce a parallel numeric copy of `id` solely for sorting or pagination.
+
+**Incorrect:**
+
+```sql
+SELECT * FROM c
+ORDER BY c.idNum
+```
+
+**Correct:**
+
+```sql
+SELECT * FROM c
+ORDER BY c.id
+```
+
+If numeric ordering is required, use a dedicated business field such as `sku`, `sequenceNumber`, or another domain-specific numeric property instead of a shadow copy of `id`.
+
+| Symptom | Cause |
+|----------|--------|
+| Could not convert `$.id` to `Int32` | DTO binds `id` to a numeric type |
+| Unexpected pagination ordering | Sorting by a numeric shadow id instead of `c.id` |
+
 **Incorrect (oversized or problematic IDs):**
 
 ```csharp
