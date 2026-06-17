@@ -1,0 +1,9 @@
+{
+  "references": [
+    "https://learn.microsoft.com/azure/cosmos-db/"
+  ],
+  "organization": "CosmosDB Agent Kit",
+  "date": "June 2026",
+  "version": "1.0.0",
+  "abstract": "Developer tooling guidance for Azure Cosmos DB: VS Code extension for inspection and management, and emulator setup for local development and testing."
+}

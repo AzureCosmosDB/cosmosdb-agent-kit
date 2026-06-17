@@ -1,0 +1,9 @@
+{
+  "references": [
+    "https://learn.microsoft.com/azure/cosmos-db/"
+  ],
+  "organization": "CosmosDB Agent Kit",
+  "date": "June 2026",
+  "version": "1.0.0",
+  "abstract": "Design patterns for Azure Cosmos DB applications: change feed materialized views, efficient ranking, service layer relationships, LangGraph multi-agent orchestration, and human-in-the-loop flows."
+}
