@@ -104,25 +104,27 @@ match response {
 
 ```go
 // ✅ Point read in Go SDK
-pk := azcosmos.NewPartitionKeyString(customerID)
+func GetOrder(container *azcosmos.ContainerClient, customerID string, orderID string) (Order, error) {
+    pk := azcosmos.NewPartitionKeyString(customerID)
 
-response, err := container.ReadItem(
-    context.Background(),
-    pk,
-    orderID,
-    nil,
-)
-if err != nil {
-    return err
+    response, err := container.ReadItem(
+        context.Background(),
+        pk,
+        orderID,
+        nil,
+    )
+    if err != nil {
+        return Order{}, err
+    }
+
+    var order Order
+    err = json.Unmarshal(response.Value, &order)
+    if err != nil {
+        return Order{}, err
+    }
+
+    return order, nil
 }
-
-var order Order
-err = json.Unmarshal(response.Value, &order)
-if err != nil {
-    return err
-}
-
-return order
 ```
 
 ### Multiple Known Documents — ReadMany vs. Parallel Point Reads
