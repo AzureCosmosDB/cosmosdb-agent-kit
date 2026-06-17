@@ -5,5 +5,6 @@
   "organization": "CosmosDB Agent Kit",
   "date": "June 2026",
   "version": "1.0.0",
-  "abstract": "Security best practices for Azure Cosmos DB: disabling local authentication, managed identity with DefaultAzureCredential, network access restrictions, RBAC least privilege, and continuous backup."
+  "abstract": "Security best practices for Azure Cosmos DB: disabling local authentication, managed identity with DefaultAzureCredential, network access restrictions, RBAC least privilege, and continuous backup.",
+  "rulesSource": "../cosmosdb-best-practices/rules"
 }

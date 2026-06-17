@@ -29,17 +29,27 @@ function discoverSkills(specificSkill) {
 
     return fs.readdirSync(SKILLS_ROOT).filter(name => {
         const skillDir = path.join(SKILLS_ROOT, name);
-        return fs.statSync(skillDir).isDirectory() 
-            && fs.existsSync(path.join(skillDir, 'metadata.json'))
-            && fs.existsSync(path.join(skillDir, 'rules'));
+        if (!fs.statSync(skillDir).isDirectory()) return false;
+        if (!fs.existsSync(path.join(skillDir, 'metadata.json'))) return false;
+        // Skills with rulesSource don't need a local rules/ directory
+        const metadata = JSON.parse(fs.readFileSync(path.join(skillDir, 'metadata.json'), 'utf8'));
+        return metadata.rulesSource || fs.existsSync(path.join(skillDir, 'rules'));
     });
 }
 
 /**
  * Load section definitions from _sections.md or fall back to defaults
+ * Checks localDir first (for split skills that keep their own _sections.md),
+ * then falls back to rulesDir.
  */
-function loadSections(rulesDir) {
-    const sectionsFile = path.join(rulesDir, '_sections.md');
+function loadSections(rulesDir, localDir) {
+    // Check local skill directory first (split skills define their own sections)
+    const localSectionsFile = localDir ? path.join(localDir, '_sections.md') : null;
+    const rulesSectionsFile = path.join(rulesDir, '_sections.md');
+    const sectionsFile = (localSectionsFile && fs.existsSync(localSectionsFile))
+        ? localSectionsFile
+        : rulesSectionsFile;
+
     if (fs.existsSync(sectionsFile)) {
         const content = fs.readFileSync(sectionsFile, 'utf8');
         const { data } = matter(content);
@@ -65,16 +75,26 @@ function loadSections(rulesDir) {
 
 async function compileSkill(skillName) {
     const SKILL_DIR = path.join(SKILLS_ROOT, skillName);
-    const RULES_DIR = path.join(SKILL_DIR, 'rules');
     const OUTPUT_FILE = path.join(SKILL_DIR, 'AGENTS.md');
+
+    const metadata = JSON.parse(fs.readFileSync(path.join(SKILL_DIR, 'metadata.json'), 'utf8'));
+
+    // Allow skills to reference rules from another skill via rulesSource
+    let RULES_DIR;
+    if (metadata.rulesSource) {
+        RULES_DIR = path.resolve(SKILL_DIR, metadata.rulesSource);
+    } else {
+        RULES_DIR = path.join(SKILL_DIR, 'rules');
+    }
 
     if (!fs.existsSync(RULES_DIR)) {
         console.log(`⊘ Skipping ${skillName} (no rules/ directory)`);
         return 0;
     }
 
-    const metadata = JSON.parse(fs.readFileSync(path.join(SKILL_DIR, 'metadata.json'), 'utf8'));
-    const SECTIONS = loadSections(RULES_DIR);
+    // For rulesSource skills, _sections.md lives locally (not in shared rules dir)
+    const LOCAL_SECTIONS_DIR = metadata.rulesSource ? path.join(SKILL_DIR, 'rules') : null;
+    const SECTIONS = loadSections(RULES_DIR, LOCAL_SECTIONS_DIR);
     
     let output = `# Azure Cosmos DB Best Practices
 

@@ -5,5 +5,6 @@
   "organization": "CosmosDB Agent Kit",
   "date": "June 2026",
   "version": "1.0.0",
-  "abstract": "Best practices for Azure Cosmos DB vector search: enabling the feature, embedding policies, vector index types, embedding normalization, distance queries, and repository patterns for RAG."
+  "abstract": "Best practices for Azure Cosmos DB vector search: enabling the feature, embedding policies, vector index types, embedding normalization, distance queries, and repository patterns for RAG.",
+  "rulesSource": "../cosmosdb-best-practices/rules"
 }

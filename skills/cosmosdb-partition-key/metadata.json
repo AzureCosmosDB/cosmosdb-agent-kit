@@ -5,5 +5,6 @@
   "organization": "CosmosDB Agent Kit",
   "date": "June 2026",
   "version": "1.0.0",
-  "abstract": "Best practices for Azure Cosmos DB partition key design: high cardinality, hotspot avoidance, hierarchical keys, synthetic keys, query alignment, and partition size limits."
+  "abstract": "Best practices for Azure Cosmos DB partition key design: high cardinality, hotspot avoidance, hierarchical keys, synthetic keys, query alignment, and partition size limits.",
+  "rulesSource": "../cosmosdb-best-practices/rules"
 }

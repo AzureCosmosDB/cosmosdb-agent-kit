@@ -5,5 +5,6 @@
   "organization": "CosmosDB Agent Kit",
   "date": "June 2026",
   "version": "1.0.0",
-  "abstract": "Best practices for Azure Cosmos DB global distribution: multi-region writes, consistency levels, conflict resolution, automatic failover, read regions, and zone redundancy."
+  "abstract": "Best practices for Azure Cosmos DB global distribution: multi-region writes, consistency levels, conflict resolution, automatic failover, read regions, and zone redundancy.",
+  "rulesSource": "../cosmosdb-best-practices/rules"
 }

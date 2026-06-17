@@ -5,5 +5,6 @@
   "organization": "CosmosDB Agent Kit",
   "date": "June 2026",
   "version": "1.0.0",
-  "abstract": "Best practices for Azure Cosmos DB query optimization: point reads, projections, pagination, parameterization, filter ordering, cross-partition query avoidance, and analytical query detection."
+  "abstract": "Best practices for Azure Cosmos DB query optimization: point reads, projections, pagination, parameterization, filter ordering, cross-partition query avoidance, and analytical query detection.",
+  "rulesSource": "../cosmosdb-best-practices/rules"
 }
