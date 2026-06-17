@@ -71,14 +71,21 @@ SELECT * FROM c
 ORDER BY c.idNum
 ```
 
-**Correct:**
+**Correct (for string ordering by id):**
 
 ```sql
 SELECT * FROM c
 ORDER BY c.id
 ```
 
-If numeric ordering is required, use a dedicated business field such as `sku`, `sequenceNumber`, or another domain-specific numeric property instead of a shadow copy of `id`.
+If numeric ordering is required, use a dedicated business field such as `sku`, `sequenceNumber`, or another domain-specific numeric property:
+
+```sql
+SELECT * FROM c
+ORDER BY c.sequenceNumber
+```
+
+Do not introduce a numeric shadow copy of `id` solely for sorting or pagination.
 
 | Symptom | Cause |
 |----------|--------|
