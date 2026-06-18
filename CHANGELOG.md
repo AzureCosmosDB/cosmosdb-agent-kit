@@ -9,6 +9,11 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## 2026-06-18 — `sdk-diagnostics`: enforce `.Diagnostics` capture in `CosmosException` catch blocks ([#156](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/issues/156))
+
+- **Amended:** `sdk-diagnostics.md` — Rewrote the acceptance criterion as a strict syntactic minimum: every `catch` declaring `CosmosException` (or a subclass) must reference `.Diagnostics` on the caught variable inside the block. Added three violation patterns (log-message-only, diagnostics-dropping re-wrap, bare swallow), a minimal acceptable catch block (`StatusCode`/`ActivityId`/`RequestCharge`/`Diagnostics`), a diagnostics-preserving re-wrap variant, a mechanical detector description (Roslyn/regex), "Why it matters" cross-links to the throughput/RU and 429/retry rules, and a deep-linked reference (`#capture-diagnostics`). Addresses the 0/38 adoption baseline reported in the issue.
+- **Dual-skill update:** Applied identically to the monolith `cosmosdb-best-practices` skill and the split `cosmosdb-sdk` skill; regenerated both compiled `AGENTS.md` files.
+
 ## 2026-06-15 — `sdk-go-partition-key-metadata`: Go cross-SDK partition metadata guidance ([#161](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/issues/161))
 
 - **New rule:** `sdk-go-partition-key-metadata.md` — Instructs agents to avoid stale `azcosmos` pins, prefer current Go SDK releases, and create single-path partition keys with explicit metadata that interoperates with other Cosmos DB SDKs used by verifiers.
