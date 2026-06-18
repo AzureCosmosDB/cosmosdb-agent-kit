@@ -3271,6 +3271,31 @@ match response {
 }
 ```
 
+```go
+// ✅ Point read in Go SDK
+func GetOrder(container *azcosmos.ContainerClient, customerID string, orderID string) (Order, error) {
+    pk := azcosmos.NewPartitionKeyString(customerID)
+
+    response, err := container.ReadItem(
+        context.Background(),
+        pk,
+        orderID,
+        nil,
+    )
+    if err != nil {
+        return Order{}, err
+    }
+
+    var order Order
+    err = json.Unmarshal(response.Value, &order)
+    if err != nil {
+        return Order{}, err
+    }
+
+    return order, nil
+}
+```
+
 ### Multiple Known Documents — ReadMany vs. Parallel Point Reads
 
 When fetching multiple documents by known `(id, partitionKey)` pairs, you have two options:
