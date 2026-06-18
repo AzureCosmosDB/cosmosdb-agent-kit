@@ -9,6 +9,11 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## 2026-06-15 — `sdk-go-partition-key-metadata`: Go cross-SDK partition metadata guidance ([#161](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/issues/161))
+
+- **New rule:** `sdk-go-partition-key-metadata.md` — Instructs agents to avoid stale `azcosmos` pins, prefer current Go SDK releases, and create single-path partition keys with explicit metadata that interoperates with other Cosmos DB SDKs used by verifiers.
+- **New eval task:** `sdk-go-partition-key-metadata.yaml` — Covers the stale-`azcosmos` / missing-`kind` cross-SDK partition-key metadata failure mode.
+
 ## 2026-06-11 — `sdk-emulator-ssl`: Java + Linux (vNext) emulator HTTPS guidance ([#192](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/issues/192))
 
 - **Amended:** `sdk-emulator-ssl.md` — Added a "Java SDK + Linux (vNext) Emulator over HTTPS" section. Documents that a programmatic trust-all `SSLContext` is ignored (the SDK builds its own `SslContext` from the configured truststore), so the emulator cert must be trusted explicitly, and that the Java SDK enforces strict TLS SAN hostname verification. Primary fix: import the cert → connect via a SAN-matching host (`localhost`/`127.0.0.1`) → `gatewayMode()` + `endpointDiscoveryEnabled(false)`, with `-Dio.netty.handler.ssl.noOpenSsl=true` as a fallback for Netty/tcnative builds that don't honor the imported cert. Includes the three error signatures and the `sdk-java-v4` doc link. Added `java`, `netty`, `truststore` tags. Guidance verified live against the vNext emulator with `azure-cosmos` 4.65.0 on Windows and Linux.
