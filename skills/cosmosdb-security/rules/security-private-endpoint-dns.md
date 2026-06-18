@@ -51,7 +51,13 @@ az network private-endpoint create \
   --subnet default \
   --private-connection-resource-id <cosmos-resource-id> \
   --group-id Sql \
-  --connection-name myaccount-connection \
+  --connection-name myaccount-connection
+
+# Associate the private endpoint with the Private DNS zone (DNS zone group)
+az network private-endpoint dns-zone-group create \
+  --resource-group myrg \
+  --endpoint-name myaccount-pe \
+  --name myaccount-zonegroup \
   --private-dns-zone /subscriptions/<sub>/resourceGroups/myrg/providers/Microsoft.Network/privateDnsZones/privatelink.documents.azure.com
 
 # Verify DNS resolution from a VM in the VNet:
