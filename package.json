@@ -1,6 +1,6 @@
 {
   "name": "cosmosdb-agent-kit",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Azure Cosmos DB best practices for AI coding agents",
   "keywords": [
     "cosmosdb",
@@ -24,7 +24,10 @@
   ],
   "scripts": {
     "build": "node scripts/compile.js",
-    "validate": "node scripts/validate.js"
+    "build:skill": "node scripts/compile.js",
+    "validate": "node scripts/validate.js",
+    "validate:skill": "node scripts/validate.js",
+    "version": "node scripts/version.js"
   },
   "devDependencies": {
     "glob": "^10.3.0",

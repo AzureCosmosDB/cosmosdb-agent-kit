@@ -1,7 +1,10 @@
 /**
- * Compiles individual rule files into AGENTS.md
+ * Compiles individual rule files into AGENTS.md for each skill
  * 
- * Usage: node scripts/compile.js
+ * Usage: node scripts/compile.js [skill-name]
+ * 
+ * If skill-name is provided, only that skill is compiled.
+ * If omitted, all skills in skills/ are compiled.
  */
 
 const fs = require('fs');
@@ -9,27 +12,69 @@ const path = require('path');
 const matter = require('gray-matter');
 const { glob } = require('glob');
 
-const SKILL_DIR = path.join(__dirname, '..', 'skills', 'cosmosdb-best-practices');
-const RULES_DIR = path.join(SKILL_DIR, 'rules');
-const OUTPUT_FILE = path.join(SKILL_DIR, 'AGENTS.md');
+const SKILLS_ROOT = path.join(__dirname, '..', 'skills');
 
-// Section order and metadata
-const SECTIONS = [
-    { prefix: 'model-', name: 'Data Modeling', number: 1, impact: 'CRITICAL' },
-    { prefix: 'partition-', name: 'Partition Key Design', number: 2, impact: 'CRITICAL' },
-    { prefix: 'query-', name: 'Query Optimization', number: 3, impact: 'HIGH' },
-    { prefix: 'sdk-', name: 'SDK Best Practices', number: 4, impact: 'HIGH' },
-    { prefix: 'index-', name: 'Indexing Strategies', number: 5, impact: 'MEDIUM-HIGH' },
-    { prefix: 'throughput-', name: 'Throughput & Scaling', number: 6, impact: 'MEDIUM' },
-    { prefix: 'global-', name: 'Global Distribution', number: 7, impact: 'MEDIUM' },
-    { prefix: 'monitoring-', name: 'Monitoring & Diagnostics', number: 8, impact: 'LOW-MEDIUM' },
-    { prefix: 'pattern-', name: 'Design Patterns', number: 9, impact: 'HIGH' },
-    { prefix: 'tooling-', name: 'Developer Tooling', number: 10, impact: 'MEDIUM' },
-    { prefix: 'vector-', name: 'Vector Search', number: 11, impact: 'HIGH' }
-];
+/**
+ * Discover all skills or a specific one
+ */
+function discoverSkills(specificSkill) {
+    if (specificSkill) {
+        const skillDir = path.join(SKILLS_ROOT, specificSkill);
+        if (!fs.existsSync(skillDir)) {
+            console.error(`✗ Skill not found: ${specificSkill}`);
+            process.exit(1);
+        }
+        return [specificSkill];
+    }
 
-async function compileRules() {
+    return fs.readdirSync(SKILLS_ROOT).filter(name => {
+        const skillDir = path.join(SKILLS_ROOT, name);
+        return fs.statSync(skillDir).isDirectory() 
+            && fs.existsSync(path.join(skillDir, 'metadata.json'))
+            && fs.existsSync(path.join(skillDir, 'rules'));
+    });
+}
+
+/**
+ * Load section definitions from _sections.md or fall back to defaults
+ */
+function loadSections(rulesDir) {
+    const sectionsFile = path.join(rulesDir, '_sections.md');
+    if (fs.existsSync(sectionsFile)) {
+        const content = fs.readFileSync(sectionsFile, 'utf8');
+        const { data } = matter(content);
+        if (data.sections && Array.isArray(data.sections)) {
+            return data.sections;
+        }
+    }
+    // Default sections for cosmosdb-best-practices (backward compat)
+    return [
+        { prefix: 'model-', name: 'Data Modeling', number: 1, impact: 'CRITICAL' },
+        { prefix: 'partition-', name: 'Partition Key Design', number: 2, impact: 'CRITICAL' },
+        { prefix: 'query-', name: 'Query Optimization', number: 3, impact: 'HIGH' },
+        { prefix: 'sdk-', name: 'SDK Best Practices', number: 4, impact: 'HIGH' },
+        { prefix: 'index-', name: 'Indexing Strategies', number: 5, impact: 'MEDIUM-HIGH' },
+        { prefix: 'throughput-', name: 'Throughput & Scaling', number: 6, impact: 'MEDIUM' },
+        { prefix: 'global-', name: 'Global Distribution', number: 7, impact: 'MEDIUM' },
+        { prefix: 'monitoring-', name: 'Monitoring & Diagnostics', number: 8, impact: 'LOW-MEDIUM' },
+        { prefix: 'pattern-', name: 'Design Patterns', number: 9, impact: 'HIGH' },
+        { prefix: 'tooling-', name: 'Developer Tooling', number: 10, impact: 'MEDIUM' },
+        { prefix: 'vector-', name: 'Vector Search', number: 11, impact: 'HIGH' }
+    ];
+}
+
+async function compileSkill(skillName) {
+    const SKILL_DIR = path.join(SKILLS_ROOT, skillName);
+    const RULES_DIR = path.join(SKILL_DIR, 'rules');
+    const OUTPUT_FILE = path.join(SKILL_DIR, 'AGENTS.md');
+
+    if (!fs.existsSync(RULES_DIR)) {
+        console.log(`⊘ Skipping ${skillName} (no rules/ directory)`);
+        return 0;
+    }
+
     const metadata = JSON.parse(fs.readFileSync(path.join(SKILL_DIR, 'metadata.json'), 'utf8'));
+    const SECTIONS = loadSections(RULES_DIR);
     
     let output = `# Azure Cosmos DB Best Practices
 
@@ -105,7 +150,28 @@ ${metadata.abstract}
 `;
 
     fs.writeFileSync(OUTPUT_FILE, output);
-    console.log(`✓ Compiled ${allRules.reduce((sum, s) => sum + s.rules.length, 0)} rules to AGENTS.md`);
+    const ruleCount = allRules.reduce((sum, s) => sum + s.rules.length, 0);
+    console.log(`✓ [${skillName}] Compiled ${ruleCount} rules to AGENTS.md`);
+    return ruleCount;
 }
 
-compileRules().catch(console.error);
+async function main() {
+    const specificSkill = process.argv[2];
+    const skills = discoverSkills(specificSkill);
+
+    if (skills.length === 0) {
+        console.log('No skills found in skills/ directory');
+        process.exit(0);
+    }
+
+    let totalRules = 0;
+    for (const skill of skills) {
+        totalRules += await compileSkill(skill);
+    }
+
+    if (skills.length > 1) {
+        console.log(`\n✓ Total: ${totalRules} rules across ${skills.length} skills`);
+    }
+}
+
+main().catch(console.error);

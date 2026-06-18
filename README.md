@@ -13,6 +13,11 @@ Skills follow the [Agent Skills](https://agentskills.io/) format and the kit shi
 
 ## Available Skills
 
+| Skill | Description | Status |
+|-------|-------------|--------|
+| [cosmosdb-best-practices](skills/cosmosdb-best-practices/) | Performance optimization (111 rules, 12 categories) | ✅ Stable |
+| migration-capacity-planning | RU calculation, data sizing, pre-split partitions | 🚧 Planned |
+
 ### cosmosdb-best-practices
 
 Azure Cosmos DB performance optimization guidelines containing 111 rules across 12 categories, prioritized by impact.
@@ -142,11 +147,11 @@ Works with Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other Age
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines, including how to write and run evaluation tests.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
-## Evaluation
+## Evaluation (Local Only)
 
-This project uses [Waza](https://github.com/microsoft/waza) for skill evaluation. Run tests locally:
+This project includes a [Waza](https://github.com/microsoft/waza) eval framework for local skill testing. Evals are not enforced in CI today (the mock executor cannot validate response content), but you can run them locally to sanity-check your changes:
 
 ```bash
 # Install waza (one-time)

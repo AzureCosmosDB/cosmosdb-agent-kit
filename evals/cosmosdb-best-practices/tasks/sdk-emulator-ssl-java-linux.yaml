@@ -1,0 +1,27 @@
+id: sdk-emulator-ssl-java-linux
+name: SDK Best Practice - Java SSL with Linux (vNext) Emulator
+description: |
+  Test that the skill explains the full Java + Linux (vNext) emulator HTTPS setup:
+  a programmatic trust-all SSLContext is ignored (the SDK builds its own SslContext
+  from the configured truststore), so the emulator certificate must be trusted explicitly;
+  the client must connect via a SAN-matching host (localhost/127.0.0.1); and it should use
+  gatewayMode() with endpointDiscoveryEnabled(false). The "General OpenSslEngine problem"
+  error is the OpenSSL provider's wrapper around the same trust failure that importing the
+  cert resolves; forcing the JDK provider (-Dio.netty.handler.ssl.noOpenSsl=true) is a
+  documented fallback for builds that do not honor the imported cert.
+tags:
+  - sdk
+  - emulator
+  - ssl
+  - java
+  - netty
+  - truststore
+inputs:
+  prompt: |
+    I'm running the Azure Cosmos DB Linux (vNext) emulator in HTTPS mode and connecting
+    with the Java SDK (com.azure:azure-cosmos). I built a trust-all SSLContext in code, but
+    the client still fails with "General OpenSslEngine problem". How do I get the Java SDK to
+    connect to the emulator over HTTPS?
+expected:
+  outcomes:
+    - type: task_completed

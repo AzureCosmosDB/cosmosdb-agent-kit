@@ -1,0 +1,26 @@
+id: sdk-go-partition-key-metadata
+name: SDK Best Practice - Go partition-key metadata cross-SDK compatibility
+description: |
+  Test that the skill identifies the cross-SDK partition-key metadata incompatibility
+  caused by stale azcosmos pins. azcosmos v1.0.0 omits "kind" when serializing a
+  Paths-only PartitionKeyDefinition, causing a KeyError: 'kind' when Python
+  azure-cosmos reads the container's partition-key metadata. The fix is upgrading
+  to a current azcosmos release (v1.3.0+); setting Kind explicitly is good
+  defensive practice but the SDK upgrade alone is the load-bearing change.
+tags:
+  - sdk
+  - go
+  - azcosmos
+  - partition-key
+  - interoperability
+  - versioning
+inputs:
+  prompt: |
+    I'm writing a Go service that seeds an Azure Cosmos DB container using
+    github.com/Azure/azure-sdk-for-go/sdk/data/azcosmos v1.0.0. The container
+    is created and all Go reads/writes succeed. But a Python azure-cosmos client
+    that reads the same container later fails with KeyError: 'kind' when
+    processing partition-key metadata. What is the root cause and how do I fix it?
+expected:
+  outcomes:
+    - type: task_completed

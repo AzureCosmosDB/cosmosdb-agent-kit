@@ -23,19 +23,6 @@
 - [ ] My rule file follows the naming convention: `{prefix}-{description}.md`
 - [ ] My rule includes valid frontmatter (`title`, `impact`, `tags`)
 
-## Tests (Required)
-
-<!-- Every new rule or behavior change MUST include an evaluation task -->
-
-- [ ] I added/updated an eval task in `evals/cosmosdb-best-practices/tasks/`
-- [ ] I ran `waza run evals/cosmosdb-best-practices/eval.yaml` and all tasks pass
-- [ ] My task file includes `id`, `name`, `description`, `inputs.prompt`, and `expected.outcomes`
-
-**Eval task file:** `evals/cosmosdb-best-practices/tasks/_____.yaml`
-
-<!-- If this is documentation-only, check the box below instead -->
-- [ ] N/A — this PR does not change rules or skill behavior
-
 ## For New Rules
 
 <!-- Fill this out if adding a new rule, otherwise delete this section -->

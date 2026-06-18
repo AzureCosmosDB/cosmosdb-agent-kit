@@ -1,6 +1,6 @@
 # Azure Cosmos DB Best Practices
 
-**Version 1.0.0**  
+**Version 1.1.0**  
 CosmosDB Agent Kit  
 January 2026
 
@@ -65,25 +65,34 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 4.10 [Configure SSL and connection mode for Cosmos DB Emulator](#410-configure-ssl-and-connection-mode-for-cosmos-db-emulator)
    - 4.11 [Use ETags for optimistic concurrency on read-modify-write operations](#411-use-etags-for-optimistic-concurrency-on-read-modify-write-operations)
    - 4.12 [Configure Excluded Regions for Dynamic Failover](#412-configure-excluded-regions-for-dynamic-failover)
-   - 4.13 [Unwrap CosmosItemResponse and enable content response in Java SDK](#413-unwrap-cosmositemresponse-and-enable-content-response-in-java-sdk)
-   - 4.14 [Use dependent @Bean methods for Cosmos DB initialization in Spring Boot](#414-use-dependent-bean-methods-for-cosmos-db-initialization-in-spring-boot)
-   - 4.15 [Spring Boot and Java version compatibility for Cosmos DB SDK](#415-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
-   - 4.16 [Initialize Async Cosmos DB Container Before CosmosDBSaver](#416-initialize-async-cosmos-db-container-before-cosmosdbsaver)
-   - 4.17 [Use CosmosDBSaver for LangGraph Checkpointing](#417-use-cosmosdbsaver-for-langgraph-checkpointing)
-   - 4.18 [Use Persistent MCP Client Sessions for Multi-Agent Applications](#418-use-persistent-mcp-client-sessions-for-multi-agent-applications)
-   - 4.19 [Handle MCP ToolMessage Content Format Variations](#419-handle-mcp-toolmessage-content-format-variations)
-   - 4.20 [Filter MCP Tools by Name Prefix for Agent Assignment](#420-filter-mcp-tools-by-name-prefix-for-agent-assignment)
-   - 4.21 [Configure local development environment to avoid cloud connection conflicts](#421-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
-   - 4.22 [Explicitly reference Newtonsoft.Json package](#422-explicitly-reference-newtonsoft-json-package)
-   - 4.23 [Use the Patch API for atomic counter increments](#423-use-the-patch-api-for-atomic-counter-increments)
-   - 4.24 [Configure Preferred Regions for Availability](#424-configure-preferred-regions-for-availability)
-   - 4.25 [Include aiohttp When Using Python Async SDK](#425-include-aiohttp-when-using-python-async-sdk)
-   - 4.26 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#426-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
-   - 4.27 [Handle 429 Errors with Retry-After](#427-handle-429-errors-with-retry-after)
-   - 4.28 [Use consistent enum serialization between Cosmos SDK and application layer](#428-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
-   - 4.29 [Reuse CosmosClient as Singleton](#429-reuse-cosmosclient-as-singleton)
-   - 4.30 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#430-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
-   - 4.31 [Use CosmosRepository correctly and handle Iterable return types](#431-use-cosmosrepository-correctly-and-handle-iterable-return-types)
+   - 4.13 [Use current Go Cosmos DB SDK versions and explicit partition-key metadata](#413-use-current-go-cosmos-db-sdk-versions-and-explicit-partition-key-metadata)
+   - 4.14 [Unwrap CosmosItemResponse and enable content response in Java SDK](#414-unwrap-cosmositemresponse-and-enable-content-response-in-java-sdk)
+   - 4.15 [Use dependent @Bean methods for Cosmos DB initialization in Spring Boot](#415-use-dependent-bean-methods-for-cosmos-db-initialization-in-spring-boot)
+   - 4.16 [Spring Boot and Java version compatibility for Cosmos DB SDK](#416-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
+   - 4.17 [Initialize Async Cosmos DB Container Before CosmosDBSaver](#417-initialize-async-cosmos-db-container-before-cosmosdbsaver)
+   - 4.18 [Use CosmosDBSaver for LangGraph Checkpointing](#418-use-cosmosdbsaver-for-langgraph-checkpointing)
+   - 4.19 [Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS](#419-use-azurecosmosdbnosqlchatmessagehistory-for-persistent-conversations-in-js-ts)
+   - 4.20 [Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain](#420-configure-azure-openai-embedding-deployment-name-for-js-ts-langchain)
+   - 4.21 [Prevent Filter Injection in JS/TS LangChain Vector Store Queries](#421-prevent-filter-injection-in-js-ts-langchain-vector-store-queries)
+   - 4.22 [Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search](#422-configure-full-text-prerequisites-before-js-ts-langchain-hybrid-search)
+   - 4.23 [Use Managed Identity for JS/TS LangChain Cosmos DB Integration](#423-use-managed-identity-for-js-ts-langchain-cosmos-db-integration)
+   - 4.24 [Choose the Correct Search Type for JS/TS LangChain Vector Store](#424-choose-the-correct-search-type-for-js-ts-langchain-vector-store)
+   - 4.25 [Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS](#425-use-azurecosmosdbnosqlsemanticcache-for-llm-cost-reduction-in-js-ts)
+   - 4.26 [Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript](#426-correctly-initialize-azurecosmosdbnosqlvectorstore-in-javascript-typescript)
+   - 4.27 [Use Persistent MCP Client Sessions for Multi-Agent Applications](#427-use-persistent-mcp-client-sessions-for-multi-agent-applications)
+   - 4.28 [Handle MCP ToolMessage Content Format Variations](#428-handle-mcp-toolmessage-content-format-variations)
+   - 4.29 [Filter MCP Tools by Name Prefix for Agent Assignment](#429-filter-mcp-tools-by-name-prefix-for-agent-assignment)
+   - 4.30 [Configure local development environment to avoid cloud connection conflicts](#430-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
+   - 4.31 [Explicitly reference Newtonsoft.Json package](#431-explicitly-reference-newtonsoft-json-package)
+   - 4.32 [Use the Patch API for atomic counter increments](#432-use-the-patch-api-for-atomic-counter-increments)
+   - 4.33 [Configure Preferred Regions for Availability](#433-configure-preferred-regions-for-availability)
+   - 4.34 [Include aiohttp When Using Python Async SDK](#434-include-aiohttp-when-using-python-async-sdk)
+   - 4.35 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#435-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
+   - 4.36 [Handle 429 Errors with Retry-After](#436-handle-429-errors-with-retry-after)
+   - 4.37 [Use consistent enum serialization between Cosmos SDK and application layer](#437-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
+   - 4.38 [Reuse CosmosClient as Singleton](#438-reuse-cosmosclient-as-singleton)
+   - 4.39 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#439-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
+   - 4.40 [Use CosmosRepository correctly and handle Iterable return types](#440-use-cosmosrepository-correctly-and-handle-iterable-return-types)
 5. [Indexing Strategies](#5-indexing-strategies) — **MEDIUM-HIGH**
    - 5.1 [Composite Index Directions Must Match ORDER BY](#51-composite-index-directions-must-match-order-by)
    - 5.2 [Use Composite Indexes for ORDER BY](#52-use-composite-indexes-for-order-by)
@@ -4508,6 +4517,13 @@ const client = new CosmosClient({
 
 ### Java SDK (Detailed)
 
+> **Which emulator are you on?**
+> - **Windows desktop emulator** → follow this section.
+> - **Linux (vNext) emulator** (`...azure-cosmos-emulator:vnext-latest`, `--protocol https`) → see
+>   [Java SDK + Linux (vNext) Emulator over HTTPS](#java-sdk--linux-vnext-emulator-over-https) below.
+>   In addition to trusting the cert, the Linux emulator requires connecting via a **SAN-matching
+>   host** (`localhost`/`127.0.0.1`) and setting **`endpointDiscoveryEnabled(false)`** — details there.
+
 When using the Azure Cosmos DB Emulator with the Java SDK, you must import the emulator's self-signed SSL certificate into the JDK truststore and use Gateway connection mode. Direct mode has persistent SSL issues with the emulator.
 
 **Problem (SSL handshake failures):**
@@ -4631,6 +4647,116 @@ System.setProperty("COSMOS.EMULATOR_SSL_TRUST_ALL", "true");  // INEFFECTIVE!
 - The custom truststore approach avoids needing administrator access
 - The emulator's well-known key is: `C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==`
 - For production, switch back to Direct mode and use your actual Cosmos DB endpoint
+
+---
+
+### Java SDK + Linux (vNext) Emulator over HTTPS
+
+The steps above target the **Windows desktop emulator**. The **Linux (vNext) emulator**
+(`mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-latest`) run with
+`--protocol https` needs two things for the Java SDK that are easy to miss: the emulator's
+certificate must be **trusted** (a trust-all `SSLContext` in code is ignored), and you must
+connect via a host in the certificate **SAN** (`localhost`/`127.0.0.1`).
+
+**Symptoms (three distinct failures):**
+
+```text
+# (a) Cert not trusted, surfaced through Netty's native OpenSSL provider
+#     (netty-tcnative). This is the same trust failure as (b), just wrapped
+#     by the OpenSSL engine rather than the JDK SSL engine:
+com.azure.cosmos.CosmosException: ... General OpenSslEngine problem
+
+# (b) Cert not trusted, surfaced through the JDK SSL provider:
+javax.net.ssl.SSLHandshakeException: PKIX path building failed:
+  sun.security.provider.certpath.SunCertPathBuilderException:
+  unable to find valid certification path to requested target
+
+# (c) Cert trusted, but connecting via a host outside the cert SAN —
+#     the Java SDK enforces strict TLS hostname verification:
+javax.net.ssl.SSLPeerUnverifiedException:
+  No subject alternative DNS name matching <host> found. SANs in the cert: localhost, 127.0.0.1
+```
+
+> Note: `(a)` and `(b)` are the **same** underlying trust failure reported by whichever SSL
+> provider is active (`netty-tcnative` OpenSSL vs. the JDK). Importing the emulator certificate
+> resolves both; the provider does not change the fix.
+
+**⚠️ A programmatic trust-all `SSLContext` does NOT work** — the Java SDK builds its own
+Netty `SslContext` from the configured truststore and does **not** honor the JVM-default
+`SSLContext`, so an all-trusting `TrustManager` installed via `SSLContext.setDefault(...)` is
+silently ignored and the handshake still fails (`PKIX path building failed`). Unlike the
+Go/Node/.NET/Python SDKs, the Java SDK has no direct "disable certificate validation" switch —
+trust the emulator certificate explicitly via the truststore instead.
+
+**Recommended pattern:**
+
+**Step 1 (primary fix) — Export and import the emulator certificate into the JDK truststore:**
+This is sufficient on its own with current SDK builds (verified with `azure-cosmos` 4.65.0 on
+Windows and Linux): the native OpenSSL provider (`netty-tcnative`) honors the certificates in
+the configured truststore.
+
+```bash
+# Export the cert presented by the Linux emulator:
+openssl s_client -connect localhost:8081 -servername localhost </dev/null 2>/dev/null \
+  | openssl x509 -outform PEM > emulator.crt
+
+# Import it into the JDK truststore (cacerts):
+keytool -importcert -trustcacerts -alias cosmos-emulator \
+  -file emulator.crt -keystore "$JAVA_HOME/lib/security/cacerts" \
+  -storepass changeit -noprompt
+```
+
+**Step 2 — Connect via a host that is in the certificate SAN** (`localhost` or `127.0.0.1`).
+Any other host name (a container/service alias, for example) fails strict SAN verification
+with `No subject alternative DNS name matching <host> found`:
+
+```bash
+COSMOS_ENDPOINT=https://localhost:8081
+```
+
+**Step 3 — Use Gateway mode, pin the endpoint, and disable endpoint discovery.**
+`endpointDiscoveryEnabled(false)` stops the SDK from following the advertised `127.0.0.1`
+loopback; do **not** rely on a trust-all `SSLContext`:
+
+```java
+CosmosClient client = new CosmosClientBuilder()
+    .endpoint(System.getenv("COSMOS_ENDPOINT"))   // https://localhost:8081 (SAN-matching host)
+    .key(System.getenv("COSMOS_KEY"))             // well-known emulator key
+    .gatewayMode()                                 // required for the emulator
+    .endpointDiscoveryEnabled(false)               // don't follow the advertised 127.0.0.1 loopback
+    .buildClient();
+```
+
+**Step 4 (fallback) — If the imported cert is not honored on your Netty/tcnative build,**
+force the JDK SSL provider so the JDK truststore (`cacerts`) is consulted directly. Some
+older `netty-tcnative` builds keep separate trust material; this switch sidesteps that:
+
+```bash
+# As a JVM system property:
+-Dio.netty.handler.ssl.noOpenSsl=true
+
+# Equivalently, exclude netty-tcnative-boringssl-static from the dependency tree.
+```
+
+**Verify:**
+
+```bash
+# With the emulator cert imported into the truststore -> connects over HTTPS:
+mvn -q compile exec:java -Dexec.mainClass=com.example.Main
+
+# If your build still fails with "General OpenSslEngine problem", add the JDK-SSL-provider switch:
+MAVEN_OPTS="-Dio.netty.handler.ssl.noOpenSsl=true" \
+  mvn -q compile exec:java -Dexec.mainClass=com.example.Main
+```
+
+**Key Points (Linux vNext + Java):**
+- Importing the emulator certificate into the truststore (`cacerts` or a custom truststore via `-Djavax.net.ssl.trustStore`) is the primary fix — with current builds the `netty-tcnative` OpenSSL provider honors it (verified with `azure-cosmos` 4.65.0).
+- A programmatic trust-all `SSLContext` is ignored — the SDK builds its own `SslContext` from the configured truststore, not the JVM-default `SSLContext`. Trust the cert explicitly instead.
+- The emulator's self-signed cert has SAN = `localhost, 127.0.0.1` only — connect via one of those hosts or strict TLS hostname verification fails.
+- Use `gatewayMode()` and `endpointDiscoveryEnabled(false)`; pin the endpoint to the SAN-matching host.
+- Fallback: if a particular `netty-tcnative` build does not honor the imported cert, set `-Dio.netty.handler.ssl.noOpenSsl=true` (or exclude `netty-tcnative-boringssl-static`) to force the JDK SSL provider.
+
+Reference: [Azure Cosmos DB Java SDK v4](https://learn.microsoft.com/azure/cosmos-db/sdk-java-v4)
 
 ---
 
@@ -5061,7 +5187,78 @@ var outageOptions = new ItemRequestOptions
 Reference: [Performance tips - .NET SDK Excluded Regions](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-dotnet-sdk-v3#excluded-regions)
 Reference: [Performance tips - Java SDK Excluded Regions](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-java-sdk-v4#excluded-regions)
 
-### 4.13 Unwrap CosmosItemResponse and enable content response in Java SDK
+### 4.13 Use current Go Cosmos DB SDK versions and explicit partition-key metadata
+
+**Impact: HIGH** (prevents cross-SDK partition-key metadata incompatibilities)
+
+## Use current Go Cosmos DB SDK versions and explicit partition-key metadata
+
+When creating Azure Cosmos DB containers from Go with `github.com/Azure/azure-sdk-for-go/sdk/data/azcosmos`, avoid stale SDK pins such as `v1.0.0`. The primary fix is **upgrading the SDK**: `azcosmos v1.0.0` serializes a `Paths`-only `PartitionKeyDefinition` as `{"paths":["/h3Cell"]}` — omitting `kind` entirely — whereas `v1.3.0` serializes `{"kind":"Hash","paths":["/h3Cell"]}`. A container created without `kind` will cause a `KeyError: 'kind'` when another SDK (e.g. Python `azure-cosmos`) later reads its partition-key metadata.
+
+Setting `Kind` explicitly in the struct is good defensive practice; the SDK upgrade alone is the load-bearing change. Note: `Version: 2` enables large partition keys (up to 2 KB) and is unrelated to this cross-SDK `kind` incompatibility — omit it unless your application specifically needs large keys.
+
+**Note:** This failure reproduces reliably on the Cosmos DB vNext emulator. Real Azure Cosmos DB may inject a default `kind` server-side; however, writing complete partition-key metadata is correct regardless and avoids relying on server-side normalization.
+
+**Incorrect (stale SDK pin — serializes without `kind`):**
+
+```go.mod
+require (
+    github.com/Azure/azure-sdk-for-go/sdk/azcore v1.10.0
+    github.com/Azure/azure-sdk-for-go/sdk/data/azcosmos v1.0.0
+)
+```
+
+```go
+props := azcosmos.ContainerProperties{
+    ID: "driver_state",
+    PartitionKeyDefinition: azcosmos.PartitionKeyDefinition{
+        Paths: []string{"/h3Cell"},
+    },
+}
+
+_, err := db.CreateContainer(ctx, props, nil)
+if err != nil {
+    return err
+}
+```
+
+**Correct (current SDK — serializes `kind:"Hash"`; explicit `Kind` is defensive best practice):**
+
+```go.mod
+require (
+    github.com/Azure/azure-sdk-for-go/sdk/azcore v1.16.0
+    github.com/Azure/azure-sdk-for-go/sdk/data/azcosmos v1.3.0
+)
+```
+
+```go
+props := azcosmos.ContainerProperties{
+    ID: "driver_state",
+    PartitionKeyDefinition: azcosmos.PartitionKeyDefinition{
+        Paths: []string{"/h3Cell"},
+        Kind:  azcosmos.PartitionKeyKindHash,
+    },
+}
+
+_, err := db.CreateContainer(ctx, props, nil)
+if err != nil {
+    return fmt.Errorf("create container: %w", err)
+}
+
+pk := azcosmos.NewPartitionKeyString(doc.H3Cell)
+_, err = container.UpsertItem(ctx, pk, body, nil)
+if err != nil {
+    return fmt.Errorf("upsert %s: %w", doc.ID, err)
+}
+```
+
+Use the same explicit partition key value for writes and partition-scoped queries. Only use `MultiHash` for true hierarchical partition keys.
+
+References:
+- [Azure Cosmos DB for NoSQL partitioning overview](https://learn.microsoft.com/azure/cosmos-db/partitioning-overview)
+- [Azure Cosmos DB Go SDK (`azcosmos`) package docs](https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/data/azcosmos)
+
+### 4.14 Unwrap CosmosItemResponse and enable content response in Java SDK
 
 **Impact: MEDIUM** (prevents type errors from missing getItem() on reads and null content on writes)
 
@@ -5267,7 +5464,7 @@ Enabling content response does NOT increase RU cost - the document is already fe
 
 Reference: [Azure Cosmos DB Java SDK best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-java)
 
-### 4.14 Use dependent @Bean methods for Cosmos DB initialization in Spring Boot
+### 4.15 Use dependent @Bean methods for Cosmos DB initialization in Spring Boot
 
 **Impact: HIGH** (prevents circular dependency, startup failures, class name collisions, and compile errors)
 
@@ -5528,7 +5725,7 @@ References:
 - [`CosmosAsyncClient.createDatabaseIfNotExists()` Javadoc](https://learn.microsoft.com/java/api/com.azure.cosmos.cosmosasyncclient?view=azure-java-stable)
 - [`AbstractCosmosConfiguration` Javadoc](https://learn.microsoft.com/java/api/com.azure.spring.data.cosmos.config.abstractcosmosconfiguration?view=azure-java-stable)
 
-### 4.15 Spring Boot and Java version compatibility for Cosmos DB SDK
+### 4.16 Spring Boot and Java version compatibility for Cosmos DB SDK
 
 **Impact: CRITICAL** (Prevents build failures due to version incompatibility between Spring Boot and Java)
 
@@ -5659,7 +5856,7 @@ export PATH=$JAVA_HOME/bin:$PATH
 - [Spring Boot 2.7.x System Requirements](https://docs.spring.io/spring-boot/docs/2.7.x/reference/html/getting-started.html#getting-started-system-requirements)
 - [Azure Cosmos DB Java SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-java-v4)
 
-### 4.16 Initialize Async Cosmos DB Container Before CosmosDBSaver
+### 4.17 Initialize Async Cosmos DB Container Before CosmosDBSaver
 
 **Impact: HIGH** (prevents credential and event-loop errors in async applications)
 
@@ -5721,7 +5918,7 @@ async def setup():
 
 Reference: [Azure Cosmos DB async Python SDK](https://learn.microsoft.com/python/api/azure-cosmos/azure.cosmos.aio?view=azure-python)
 
-### 4.17 Use CosmosDBSaver for LangGraph Checkpointing
+### 4.18 Use CosmosDBSaver for LangGraph Checkpointing
 
 **Impact: HIGH** (enables persistent multi-turn conversation state across restarts)
 
@@ -5783,7 +5980,610 @@ async def initialize_checkpointer():
 
 Reference: [langchain-azure-cosmosdb documentation](https://python.langchain.com/docs/integrations/providers/azure_cosmos_db/)
 
-### 4.18 Use Persistent MCP Client Sessions for Multi-Agent Applications
+### 4.19 Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS
+
+**Impact: HIGH** (enables persistent multi-turn conversations that survive restarts and scale horizontally)
+
+## Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS
+
+**Impact: HIGH (enables persistent multi-turn conversations that survive restarts and scale horizontally)**
+
+When building conversational AI applications with LangChain.js, use `AzureCosmosDBNoSQLChatMessageHistory` to persist chat messages in Cosmos DB. This ensures conversations survive process restarts, enables horizontal scaling across multiple instances, and provides a queryable audit trail. Each conversation session is stored as a document identified by a `sessionId`, with the partition key enabling efficient retrieval.
+
+**Incorrect (in-memory history — lost on restart, no horizontal scaling):**
+
+```typescript
+import { ChatMessageHistory } from "langchain/memory";
+
+// BAD: Messages lost when process restarts or user hits different instance
+const history = new ChatMessageHistory();
+await history.addUserMessage("Hello");
+await history.addAIMessage("Hi there!");
+// Process restarts... conversation is gone
+```
+
+**Incorrect (wrong partition key — cross-partition queries for session lookup):**
+
+```typescript
+import { AzureCosmosDBNoSQLChatMessageHistory } from "@langchain/azure-cosmosdb";
+
+// BAD: If container partition key is /userId but you query by sessionId,
+// lookups become cross-partition scans
+const history = new AzureCosmosDBNoSQLChatMessageHistory({
+  endpoint: process.env.COSMOS_ENDPOINT,
+  credential,
+  databaseName: "mydb",
+  containerName: "chat-history", // partitioned by /userId
+  sessionId: "session-123",     // queries will fan out across partitions
+});
+```
+
+**Correct (persistent chat history with proper session isolation):**
+
+```typescript
+import { AzureCosmosDBNoSQLChatMessageHistory } from "@langchain/azure-cosmosdb";
+import { DefaultAzureCredential } from "@azure/identity";
+import { RunnableWithMessageHistory } from "@langchain/core/runnables";
+import { ChatOpenAI } from "@langchain/openai";
+
+const credential = new DefaultAzureCredential();
+
+const model = new ChatOpenAI({
+  azureOpenAIApiDeploymentName: "gpt-4o",
+});
+
+// Factory function creates history per session
+function getMessageHistory(sessionId: string) {
+  return new AzureCosmosDBNoSQLChatMessageHistory({
+    endpoint: process.env.COSMOS_ENDPOINT,
+    credential,
+    databaseName: "mydb",
+    containerName: "chat-history", // partition key should be /sessionId
+    sessionId,
+  });
+}
+
+// Wrap model with persistent history
+const withHistory = new RunnableWithMessageHistory({
+  runnable: model,
+  getMessageHistory,
+  inputMessagesKey: "input",
+  historyMessagesKey: "history",
+});
+
+// Invoke with session tracking — messages persist across restarts
+const response = await withHistory.invoke(
+  { input: "What did we discuss earlier?" },
+  { configurable: { sessionId: "user-123-session-456" } }
+);
+```
+
+**Container design tips:**
+- Use `/sessionId` as partition key for efficient single-session retrieval
+- Enable TTL to auto-expire old conversations (e.g., 30 days)
+- Use a composite index on `sessionId` + `_ts` if you query history by time range
+
+Reference: [LangChain.js Azure Cosmos DB Chat History](https://js.langchain.com/docs/integrations/chat_memory/azure_cosmosdb_nosql/)
+
+### 4.20 Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain
+
+**Impact: MEDIUM** (incorrect deployment name causes 404 errors or uses wrong model)
+
+## Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain
+
+**Impact: MEDIUM (incorrect deployment name causes 404 errors or uses wrong model)**
+
+When using `AzureOpenAIEmbeddings` with `@langchain/openai` in JavaScript/TypeScript, you must specify the Azure OpenAI **deployment name** (the name you chose when deploying the model in Azure AI Studio or via CLI) — not the bare model name. Azure OpenAI uses deployment names to route requests, and these can differ from the underlying model name. Passing a bare model name like `"text-embedding-3-small"` only works if your deployment happens to use that exact name.
+
+**Incorrect (using bare model name or wrong property):**
+
+```typescript
+import { AzureOpenAIEmbeddings } from "@langchain/openai";
+
+// BAD: "model" property is for OpenAI API, not Azure OpenAI
+const embeddings = new AzureOpenAIEmbeddings({
+  model: "text-embedding-3-small",  // Wrong property for Azure
+});
+
+// BAD: Using model name instead of deployment name
+const embeddings2 = new AzureOpenAIEmbeddings({
+  azureOpenAIApiDeploymentName: "text-embedding-3-small", // Only works if deployment has this exact name
+  azureOpenAIApiVersion: "2024-06-01",
+});
+
+// BAD: Missing API version — will use an outdated default
+const embeddings3 = new AzureOpenAIEmbeddings({
+  azureOpenAIApiDeploymentName: "my-embeddings",
+});
+```
+
+**Correct (explicit deployment name and API version):**
+
+```typescript
+import { AzureOpenAIEmbeddings } from "@langchain/openai";
+
+const embeddings = new AzureOpenAIEmbeddings({
+  azureOpenAIApiDeploymentName: "my-embedding-deployment", // Your actual deployment name
+  azureOpenAIApiVersion: "2024-06-01",
+  // Endpoint and key from environment variables:
+  // AZURE_OPENAI_API_INSTANCE_NAME or azureOpenAIApiInstanceName
+  // AZURE_OPENAI_API_KEY or azureOpenAIApiKey (if not using managed identity)
+});
+```
+
+**Correct (with managed identity — no API key needed):**
+
+```typescript
+import { AzureOpenAIEmbeddings } from "@langchain/openai";
+import { DefaultAzureCredential } from "@azure/identity";
+
+const credential = new DefaultAzureCredential();
+
+const embeddings = new AzureOpenAIEmbeddings({
+  azureOpenAIApiDeploymentName: "my-embedding-deployment",
+  azureOpenAIApiVersion: "2024-06-01",
+  azureOpenAIApiInstanceName: "my-openai-resource", // just the resource name, not full URL
+  credentials: credential,
+});
+```
+
+**Tip:** Verify your deployment name with `az cognitiveservices account deployment list --name <resource> --resource-group <rg> --query "[].name"`.
+
+Reference: [LangChain.js Azure OpenAI Embeddings](https://js.langchain.com/docs/integrations/text_embedding/azure_openai/)
+
+### 4.21 Prevent Filter Injection in JS/TS LangChain Vector Store Queries
+
+**Impact: CRITICAL** (prevents NoSQL injection attacks that can exfiltrate or corrupt data)
+
+## Prevent Filter Injection in JS/TS LangChain Vector Store Queries
+
+**Impact: CRITICAL (prevents NoSQL injection attacks that can exfiltrate or corrupt data)**
+
+When passing filter clauses to `AzureCosmosDBNoSQLVectorStore` similarity searches, **never** concatenate user input directly into the filter string. Cosmos DB NoSQL queries support parameterized queries with `@param` placeholders — always use these to safely inject user-provided values. Concatenated filters allow attackers to manipulate query logic, bypass tenant isolation, or extract unauthorized data.
+
+**Incorrect (string concatenation — SQL injection vulnerability):**
+
+```typescript
+import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
+
+async function searchByCategory(store: AzureCosmosDBNoSQLVectorStore, userInput: string) {
+  // CRITICAL VULNERABILITY: User can inject arbitrary SQL predicates
+  // e.g., userInput = "electronics' OR c.secret != '"
+  const results = await store.similaritySearch("find products", 10, {
+    filter: `c.category = '${userInput}'`,
+  });
+  return results;
+}
+
+// Also BAD: Template literals are just string concatenation
+async function searchByTenant(store: AzureCosmosDBNoSQLVectorStore, tenantId: string) {
+  const results = await store.similaritySearch("query", 10, {
+    filter: `c.tenantId = "${tenantId}"`,  // STILL INJECTABLE
+  });
+  return results;
+}
+```
+
+**Correct (parameterized queries with @param placeholders):**
+
+```typescript
+import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
+
+async function searchByCategory(store: AzureCosmosDBNoSQLVectorStore, userInput: string) {
+  // SAFE: Parameters are escaped by the SDK — no injection possible
+  const results = await store.similaritySearch("find products", 10, {
+    filter: "c.category = @category",
+    filterParams: [{ name: "@category", value: userInput }],
+  });
+  return results;
+}
+
+async function searchByTenant(store: AzureCosmosDBNoSQLVectorStore, tenantId: string) {
+  // SAFE: Multi-tenant isolation with parameterized filter
+  const results = await store.similaritySearch("query", 10, {
+    filter: "c.tenantId = @tenantId AND c.isActive = true",
+    filterParams: [{ name: "@tenantId", value: tenantId }],
+  });
+  return results;
+}
+
+// Multiple parameters
+async function searchFiltered(
+  store: AzureCosmosDBNoSQLVectorStore,
+  category: string,
+  minPrice: number
+) {
+  const results = await store.similaritySearch("query", 10, {
+    filter: "c.category = @category AND c.price >= @minPrice",
+    filterParams: [
+      { name: "@category", value: category },
+      { name: "@minPrice", value: minPrice },
+    ],
+  });
+  return results;
+}
+```
+
+**Why this matters:** In multi-tenant RAG applications, filter injection can bypass tenant isolation. An attacker providing `tenantA' OR '1'='1` as a tenant ID would access all tenants' data if the filter is concatenated.
+
+Reference: [Azure Cosmos DB Parameterized Queries](https://learn.microsoft.com/azure/cosmos-db/nosql/query/parameterized-queries)
+
+### 4.22 Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search
+
+**Impact: HIGH** (full-text and hybrid queries fail at runtime without container-level configuration)
+
+## Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search
+
+**Impact: HIGH (full-text and hybrid queries fail at runtime without container-level configuration)**
+
+Before using `FullTextSearch`, `Hybrid`, or `HybridScoreThreshold` search types with `AzureCosmosDBNoSQLVectorStore` in JavaScript/TypeScript, you must configure three things on your Cosmos DB container: (1) enable the full-text search capability on the account, (2) define a `fullTextPolicy` specifying which properties to index and their language, and (3) add `fullTextIndexes` entries to the indexing policy. Without all three, queries will fail with opaque errors.
+
+**Incorrect (attempting hybrid search on unconfigured container):**
+
+```typescript
+import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
+
+// Container created with only vector embedding policy — no full-text config
+const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
+  endpoint: process.env.COSMOS_ENDPOINT,
+  credential,
+  databaseName: "mydb",
+  containerName: "docs",
+});
+
+// FAILS: "Full-text search is not enabled" or similar runtime error
+const results = await store.similaritySearch("query", 10, {
+  searchType: "Hybrid",
+});
+```
+
+**Correct (container configured with full-text policy and indexes):**
+
+First, configure the container (via ARM/Bicep/Terraform or CLI):
+
+```json
+{
+  "containerProperties": {
+    "id": "docs",
+    "partitionKey": { "paths": ["/tenantId"], "kind": "Hash" },
+    "fullTextPolicy": {
+      "defaultLanguage": "en-US",
+      "fullTextPaths": [
+        { "path": "/content", "language": "en-US" },
+        { "path": "/title", "language": "en-US" }
+      ]
+    },
+    "indexingPolicy": {
+      "includedPaths": [{ "path": "/*" }],
+      "excludedPaths": [{ "path": "/embedding/*" }],
+      "fullTextIndexes": [
+        { "path": "/content" },
+        { "path": "/title" }
+      ],
+      "vectorIndexes": [
+        { "path": "/embedding", "type": "diskANN" }
+      ]
+    },
+    "vectorEmbeddingPolicy": {
+      "vectorEmbeddings": [
+        {
+          "path": "/embedding",
+          "dataType": "float32",
+          "distanceFunction": "cosine",
+          "dimensions": 1536
+        }
+      ]
+    }
+  }
+}
+```
+
+Then use hybrid search in your application:
+
+```typescript
+import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
+import { AzureOpenAIEmbeddings } from "@langchain/openai";
+import { DefaultAzureCredential } from "@azure/identity";
+
+const embeddings = new AzureOpenAIEmbeddings({
+  azureOpenAIApiDeploymentName: "text-embedding-3-small",
+});
+
+const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
+  endpoint: process.env.COSMOS_ENDPOINT,
+  credential: new DefaultAzureCredential(),
+  databaseName: "mydb",
+  containerName: "docs",  // container has fullTextPolicy + fullTextIndexes
+});
+
+// Now hybrid search works — combines vector similarity with BM25 keyword matching
+const results = await store.similaritySearch("specific keyword plus semantic meaning", 10, {
+  searchType: "Hybrid",
+});
+```
+
+**Checklist before enabling full-text/hybrid search:**
+1. Account has full-text search capability enabled (`az cosmosdb update --capabilities EnableNoSQLFullTextSearch`)
+2. Container has `fullTextPolicy` with paths and languages defined
+3. Container indexing policy has `fullTextIndexes` for the same paths
+4. Container has `vectorEmbeddingPolicy` and `vectorIndexes` (for hybrid)
+
+Reference: [Azure Cosmos DB Full-Text Search](https://learn.microsoft.com/azure/cosmos-db/nosql/query/full-text-search)
+
+### 4.23 Use Managed Identity for JS/TS LangChain Cosmos DB Integration
+
+**Impact: CRITICAL** (zero-secret authentication eliminates credential leakage risk)
+
+## Use Managed Identity for JS/TS LangChain Cosmos DB Integration
+
+**Impact: CRITICAL (zero-secret authentication eliminates credential leakage risk)**
+
+In production JavaScript/TypeScript applications using `@langchain/azure-cosmosdb`, always authenticate with `DefaultAzureCredential` from `@azure/identity` instead of connection strings. Connection strings contain master keys that grant full access — if leaked, they compromise the entire account. Managed identity provides automatic credential rotation and least-privilege access via RBAC roles.
+
+**Incorrect (connection string in production):**
+
+```typescript
+import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
+import { AzureOpenAIEmbeddings } from "@langchain/openai";
+
+const embeddings = new AzureOpenAIEmbeddings({
+  azureOpenAIApiDeploymentName: "text-embedding-3-small",
+});
+
+// BAD: Connection string contains master key — full account access if leaked
+const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
+  connectionString: process.env.COSMOS_CONNECTION_STRING,
+  databaseName: "mydb",
+  containerName: "vectors",
+});
+```
+
+**Correct (endpoint + DefaultAzureCredential):**
+
+```typescript
+import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
+import { AzureOpenAIEmbeddings } from "@langchain/openai";
+import { DefaultAzureCredential } from "@azure/identity";
+
+const embeddings = new AzureOpenAIEmbeddings({
+  azureOpenAIApiDeploymentName: "text-embedding-3-small",
+});
+
+// GOOD: No secrets in code or config; works with system/user-assigned managed identity
+const credential = new DefaultAzureCredential();
+const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
+  endpoint: process.env.COSMOS_ENDPOINT, // e.g., "https://myaccount.documents.azure.com:443/"
+  credential,
+  databaseName: "mydb",
+  containerName: "vectors",
+});
+```
+
+**Required RBAC setup:** Assign the `Cosmos DB Built-in Data Contributor` role to your app's managed identity:
+
+```bash
+az cosmosdb sql role assignment create \
+  --account-name myaccount \
+  --resource-group myrg \
+  --role-definition-id 00000000-0000-0000-0000-000000000002 \
+  --principal-id <managed-identity-object-id> \
+  --scope "/"
+```
+
+**Note:** When using RBAC, the database and container must be pre-created (via Bicep, Terraform, or CLI) — the SDK cannot create resources with data-plane-only permissions.
+
+Reference: [Azure Cosmos DB RBAC with Azure Identity](https://learn.microsoft.com/azure/cosmos-db/nosql/security/how-to-grant-data-plane-role-based-access)
+
+### 4.24 Choose the Correct Search Type for JS/TS LangChain Vector Store
+
+**Impact: HIGH** (selecting wrong search type returns irrelevant results or causes errors)
+
+## Choose the Correct Search Type for JS/TS LangChain Vector Store
+
+**Impact: HIGH (selecting wrong search type returns irrelevant results or causes errors)**
+
+The `@langchain/azure-cosmosdb` package supports multiple search types via `AzureCosmosDBNoSQLVectorStore`. Choose the appropriate type based on your retrieval needs. Using full-text or hybrid search requires pre-configured `fullTextPolicy` and `fullTextIndexes` on the container — otherwise queries will fail at runtime.
+
+| Search Type | Use Case | Requires Full-Text Config |
+|---|---|---|
+| `Vector` | Pure semantic similarity (default) | No |
+| `VectorScoreThreshold` | Semantic with minimum relevance cutoff | No |
+| `FullTextSearch` | Keyword/BM25 matching only | Yes |
+| `Hybrid` | Vector + full-text combined (RRF fusion) | Yes |
+| `HybridScoreThreshold` | Hybrid with minimum score cutoff | Yes |
+
+**Incorrect (using hybrid search without full-text configuration):**
+
+```typescript
+import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
+
+const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
+  endpoint: process.env.COSMOS_ENDPOINT,
+  credential,
+  databaseName: "mydb",
+  containerName: "vectors", // container has NO fullTextPolicy configured
+});
+
+// BAD: Will fail — container doesn't have full-text indexes
+const results = await store.similaritySearch("query", 10, {
+  searchType: "Hybrid",
+});
+```
+
+**Correct (vector search — no special container config needed):**
+
+```typescript
+import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
+
+const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
+  endpoint: process.env.COSMOS_ENDPOINT,
+  credential,
+  databaseName: "mydb",
+  containerName: "vectors",
+});
+
+// Pure vector similarity search
+const results = await store.similaritySearch("semantic query", 5);
+
+// With score threshold — only return results above 0.7 similarity
+const filtered = await store.similaritySearchWithScore("semantic query", 10, {
+  searchType: "VectorScoreThreshold",
+  scoreThreshold: 0.7,
+});
+```
+
+**Correct (hybrid search — container has fullTextPolicy and fullTextIndexes):**
+
+```typescript
+// Container must have fullTextPolicy and fullTextIndexes configured FIRST
+const results = await store.similaritySearch("keyword and semantic query", 10, {
+  searchType: "Hybrid",
+});
+```
+
+Reference: [LangChain.js Azure Cosmos DB NoSQL Vector Store](https://js.langchain.com/docs/integrations/vectorstores/azure_cosmosdb_nosql/)
+
+### 4.25 Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS
+
+**Impact: MEDIUM** (reduces LLM API costs and latency by caching semantically similar queries)
+
+## Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS
+
+**Impact: MEDIUM (reduces LLM API costs and latency by caching semantically similar queries)**
+
+When building LLM-powered applications with LangChain.js, use `AzureCosmosDBNoSQLSemanticCache` to cache LLM responses in Cosmos DB. Unlike exact-match caches, semantic cache uses vector similarity to return cached responses for queries that are semantically similar (not just identical). This reduces LLM API costs for repeated or paraphrased queries and cuts response latency from seconds to milliseconds.
+
+**Incorrect (no caching — every request hits the LLM):**
+
+```typescript
+import { ChatOpenAI } from "@langchain/openai";
+
+const model = new ChatOpenAI({
+  azureOpenAIApiDeploymentName: "gpt-4o",
+});
+
+// BAD: Every call pays full LLM cost, even for repeated/similar questions
+const response1 = await model.invoke("What is Azure Cosmos DB?");
+const response2 = await model.invoke("Tell me about Azure Cosmos DB"); // Pays again
+```
+
+**Incorrect (exact-match cache misses paraphrased queries):**
+
+```typescript
+import { InMemoryCache } from "langchain/cache";
+
+const model = new ChatOpenAI({
+  azureOpenAIApiDeploymentName: "gpt-4o",
+  cache: new InMemoryCache(), // Only matches exact string — misses paraphrases
+});
+```
+
+**Correct (semantic cache with Cosmos DB):**
+
+```typescript
+import { AzureCosmosDBNoSQLSemanticCache } from "@langchain/azure-cosmosdb";
+import { AzureOpenAIEmbeddings, ChatOpenAI } from "@langchain/openai";
+import { DefaultAzureCredential } from "@azure/identity";
+
+const credential = new DefaultAzureCredential();
+
+const embeddings = new AzureOpenAIEmbeddings({
+  azureOpenAIApiDeploymentName: "text-embedding-3-small",
+  azureOpenAIApiVersion: "2024-06-01",
+});
+
+const cache = new AzureCosmosDBNoSQLSemanticCache(embeddings, {
+  endpoint: process.env.COSMOS_ENDPOINT,
+  credential,
+  databaseName: "mydb",
+  containerName: "semantic-cache",
+  similarityScoreThreshold: 0.8, // Only return cache hits above 80% similarity
+});
+
+const model = new ChatOpenAI({
+  azureOpenAIApiDeploymentName: "gpt-4o",
+  cache, // Semantically similar queries return cached responses
+});
+
+// Second call with paraphrased question hits cache — no LLM API call
+const response1 = await model.invoke("What is Azure Cosmos DB?");
+const response2 = await model.invoke("Tell me about Azure Cosmos DB"); // Cache hit!
+```
+
+**Container requirements:** The cache container needs a vector embedding policy configured for the embedding dimension (e.g., 1536 for text-embedding-3-small). Use TTL on the container to auto-expire stale cache entries.
+
+Reference: [LangChain.js Azure Cosmos DB Semantic Cache](https://js.langchain.com/docs/integrations/llm_caching/azure_cosmosdb_nosql/)
+
+### 4.26 Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript
+
+**Impact: HIGH** (prevents runtime connection failures and misconfigured vector stores)
+
+## Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript
+
+**Impact: HIGH (prevents runtime connection failures and misconfigured vector stores)**
+
+When using `@langchain/azure-cosmosdb` in JavaScript/TypeScript, initialize `AzureCosmosDBNoSQLVectorStore` with either a connection string (development) or endpoint + `DefaultAzureCredential` (production). The target database and container must already exist when using RBAC/managed identity — the SDK will not auto-create them. Always pass the embedding model instance at construction time.
+
+**Incorrect (missing embedding model, relying on auto-create with RBAC):**
+
+```typescript
+import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
+
+// BAD: No embedding model provided — store cannot generate vectors
+const store = new AzureCosmosDBNoSQLVectorStore({
+  connectionString: process.env.COSMOS_CONNECTION_STRING,
+  databaseName: "mydb",
+  containerName: "vectors",
+});
+
+// BAD: With RBAC, database/container must pre-exist — SDK cannot create them
+const store2 = new AzureCosmosDBNoSQLVectorStore(embeddings, {
+  endpoint: process.env.COSMOS_ENDPOINT,
+  databaseName: "nonexistent-db",
+  containerName: "nonexistent-container",
+});
+```
+
+**Correct (connection string for development):**
+
+```typescript
+import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
+import { AzureOpenAIEmbeddings } from "@langchain/openai";
+
+const embeddings = new AzureOpenAIEmbeddings({
+  azureOpenAIApiDeploymentName: "text-embedding-3-small",
+});
+
+const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
+  connectionString: process.env.COSMOS_CONNECTION_STRING,
+  databaseName: "mydb",
+  containerName: "vectors",
+});
+```
+
+**Correct (managed identity for production — database/container pre-created):**
+
+```typescript
+import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
+import { AzureOpenAIEmbeddings } from "@langchain/openai";
+import { DefaultAzureCredential } from "@azure/identity";
+
+const embeddings = new AzureOpenAIEmbeddings({
+  azureOpenAIApiDeploymentName: "text-embedding-3-small",
+});
+
+const credential = new DefaultAzureCredential();
+const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
+  endpoint: process.env.COSMOS_ENDPOINT,
+  credential,
+  databaseName: "mydb",       // must already exist
+  containerName: "vectors",   // must already exist with vector policy
+});
+```
+
+Reference: [LangChain.js Azure Cosmos DB Integration](https://js.langchain.com/docs/integrations/vectorstores/azure_cosmosdb_nosql/)
+
+### 4.27 Use Persistent MCP Client Sessions for Multi-Agent Applications
 
 **Impact: HIGH** (prevents session initialization overhead and connection churn)
 
@@ -5870,7 +6670,7 @@ async def cleanup_mcp():
 
 Reference: [langchain-mcp-adapters documentation](https://github.com/langchain-ai/langchain-mcp-adapters)
 
-### 4.19 Handle MCP ToolMessage Content Format Variations
+### 4.28 Handle MCP ToolMessage Content Format Variations
 
 **Impact: HIGH** (prevents JSON parse failures from langchain-mcp-adapters >= 0.2.0)
 
@@ -5920,7 +6720,7 @@ def extract_routing_info(message: ToolMessage):
 
 Reference: [langchain-mcp-adapters changelog](https://github.com/langchain-ai/langchain-mcp-adapters)
 
-### 4.20 Filter MCP Tools by Name Prefix for Agent Assignment
+### 4.29 Filter MCP Tools by Name Prefix for Agent Assignment
 
 **Impact: MEDIUM** (reduces agent confusion and improves routing accuracy)
 
@@ -5976,7 +6776,7 @@ transactions_agent = create_react_agent(model, transactions_tools, prompt=transa
 
 Reference: [LangGraph prebuilt agents](https://langchain-ai.github.io/langgraph/reference/prebuilt/)
 
-### 4.21 Configure local development environment to avoid cloud connection conflicts
+### 4.30 Configure local development environment to avoid cloud connection conflicts
 
 **Impact: MEDIUM** (prevents accidental connections to production instead of emulator)
 
@@ -6147,7 +6947,7 @@ azure:
 
 Reference: [Azure Cosmos DB Emulator](https://learn.microsoft.com/azure/cosmos-db/emulator)
 
-### 4.22 Explicitly reference Newtonsoft.Json package
+### 4.31 Explicitly reference Newtonsoft.Json package
 
 **Impact: HIGH** (Prevents build failures and security vulnerabilities from missing or outdated Newtonsoft.Json dependency)
 
@@ -6251,7 +7051,7 @@ Solution:
 
 Reference: [Managing Newtonsoft.Json Dependencies](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-dotnet-sdk-v3?tabs=trace-net-core#managing-newtonsoftjson-dependencies)
 
-### 4.23 Use the Patch API for atomic counter increments
+### 4.32 Use the Patch API for atomic counter increments
 
 **Impact: HIGH** (eliminates read-modify-write for counters; reduces RU cost and eliminates concurrency conflicts)
 
@@ -6322,7 +7122,7 @@ return container.patchItem(videoId, new PartitionKey(videoId), ops, Video.class)
 
 Reference: [Partial document update (Patch API)](https://learn.microsoft.com/azure/cosmos-db/partial-document-update)
 
-### 4.24 Configure Preferred Regions for Availability
+### 4.33 Configure Preferred Regions for Availability
 
 **Impact: HIGH** (enables automatic failover, reduces latency)
 
@@ -6418,7 +7218,7 @@ Best practices:
 
 Reference: [Configure preferred regions](https://learn.microsoft.com/azure/cosmos-db/nosql/tutorial-global-distribution)
 
-### 4.25 Include aiohttp When Using Python Async SDK
+### 4.34 Include aiohttp When Using Python Async SDK
 
 **Impact: HIGH** (prevents application startup failure)
 
@@ -6466,7 +7266,7 @@ from azure.cosmos import CosmosClient
 
 Reference: [Azure Cosmos DB Python SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-python)
 
-### 4.26 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
+### 4.35 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
 
 **Impact: HIGH** (causes wrong partition key to be sent, producing silent data corruption or 400/404 errors)
 
@@ -6525,7 +7325,7 @@ usersContainer.createItem(
 
 Reference: [Java SDK createItem](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-get-started)
 
-### 4.27 Handle 429 Errors with Retry-After
+### 4.36 Handle 429 Errors with Retry-After
 
 **Impact: HIGH** (prevents cascading failures)
 
@@ -6642,7 +7442,7 @@ await Task.WhenAll(tasks);
 
 Reference: [Handle rate limiting](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-request-rate-too-large)
 
-### 4.28 Use consistent enum serialization between Cosmos SDK and application layer
+### 4.37 Use consistent enum serialization between Cosmos SDK and application layer
 
 **Impact: critical** (undefined)
 
@@ -6763,7 +7563,7 @@ await container.create_item(body=doc.model_dump(by_alias=True, mode="json"))
 - Point reads work but filtered queries don't
 - API returns different enum format than stored in Cosmos DB
 
-### 4.29 Reuse CosmosClient as Singleton
+### 4.38 Reuse CosmosClient as Singleton
 
 **Impact: CRITICAL** (prevents connection exhaustion)
 
@@ -6955,7 +7755,7 @@ async fn list_orders(
 
 Reference: [CosmosClient best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-dotnet)
 
-### 4.30 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
+### 4.39 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
 
 **Impact: CRITICAL** (prevents startup failures and data access errors in Spring Data Cosmos applications)
 
@@ -7071,7 +7871,7 @@ Add `@JsonIgnoreProperties(ignoreUnknown = true)` to every Cosmos entity class s
 
 Reference: [Spring Data Azure Cosmos DB annotations](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-spring-data)
 
-### 4.31 Use CosmosRepository correctly and handle Iterable return types
+### 4.40 Use CosmosRepository correctly and handle Iterable return types
 
 **Impact: HIGH** (prevents ClassCastException and query failures in Spring Data Cosmos repositories)
 

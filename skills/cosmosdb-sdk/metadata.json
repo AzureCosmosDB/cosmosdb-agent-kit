@@ -1,0 +1,9 @@
+{
+  "references": [
+    "https://learn.microsoft.com/azure/cosmos-db/"
+  ],
+  "organization": "CosmosDB Agent Kit",
+  "date": "June 2026",
+  "version": "1.0.0",
+  "abstract": "Best practices for Azure Cosmos DB SDK usage: singleton client, async APIs, connection modes, retry handling, diagnostics, serialization, emulator configuration, and framework-specific patterns for .NET, Java, Python, Spring Boot, and LangChain."
+}

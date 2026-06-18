@@ -270,6 +270,8 @@ main {
   border: 1px solid var(--line);
   background: #0a142fd4;
   padding: 1rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .integration-card h3 {
@@ -281,6 +283,13 @@ main {
 .integration-card p {
   margin: 0.5rem 0;
   font-size: 0.92rem;
+}
+
+.integration-card .integration-link {
+  margin-top: auto;
+  margin-bottom: 0;
+  padding-top: 0.6rem;
+  min-height: 3.2em;
 }
 
 .integration-card a {
