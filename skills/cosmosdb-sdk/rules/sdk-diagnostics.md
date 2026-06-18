@@ -9,9 +9,9 @@ tags: sdk, diagnostics, logging, monitoring
 
 Capture and log diagnostics from Cosmos DB responses, especially for slow or failed operations. Diagnostics contain crucial information for troubleshooting.
 
-`CosmosException.Diagnostics` (type `CosmosDiagnostics`) is the only first-class structured signal the SDK provides for debugging RU spend, latency tails, 429s, region selection, and channel reuse. Demonstrating the pattern is not enough — it must be applied at the point of failure.
+`CosmosException.Diagnostics` (type `CosmosDiagnostics`) is a first-class structured signal the SDK provides for debugging failures (RU spend, latency tails, 429s, region selection, and channel reuse). Demonstrating the pattern is not enough — it must be applied at the point of failure.
 
-**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass such as `CosmosOperationCanceledException`) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A catch block that swallows the exception (e.g., `catch (CosmosException) { }`, or returning `null` / `default` / `new T()`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
+**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A catch block that swallows the exception (e.g., `catch (CosmosException) { }`, or returning `null` / `default` / `new T()`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
 
 **Incorrect (ignoring diagnostics):**
 
@@ -40,7 +40,7 @@ catch (CosmosException ex)
     throw;
 }
 
-// Pattern B — re-wrap, lose Diagnostics entirely (VIOLATION)
+// Pattern B — re-wrap without surfacing Diagnostics (VIOLATION)
 catch (CosmosException ex)
 {
     throw new InvalidOperationException($"Cosmos error: {ex.StatusCode}", ex);
