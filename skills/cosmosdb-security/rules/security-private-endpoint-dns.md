@@ -5,7 +5,11 @@ impactDescription: prevents connection failures and portal access issues
 tags: connectivity, private-endpoint, dns, vnet, security, portal
 ---
 
-Private endpoints route Cosmos DB traffic through your VNet instead of the public internet, but they require correct DNS configuration to work. The most common connectivity failures after enabling private endpoints are DNS misconfigurations, VNet peering without private DNS integration, and portal access blocked by browser Private Network Access (PNA) policies.
+## Configure Private Endpoints with Correct DNS Resolution
+
+**Impact: HIGH (prevents connection failures and portal access issues)**
+
+Private endpoints route Cosmos DB traffic through your VNet instead of the public internet, but they require correct DNS configuration to work.
 
 ### Common Issue: DNS Not Resolving to Private IP
 
