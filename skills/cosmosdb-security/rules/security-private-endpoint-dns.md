@@ -1,7 +1,7 @@
 ---
 title: Configure Private Endpoints with Correct DNS Resolution
 impact: HIGH
-impactDescription: 100% client connection failure when DNS misconfigured
+impactDescription: client connectivity failure when public network access is disabled and DNS resolves to the public endpoint
 tags: connectivity, private-endpoint, dns, vnet, security, portal
 ---
 
