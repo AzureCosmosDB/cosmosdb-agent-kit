@@ -89,7 +89,7 @@ When query-pattern guidance conflicts with pure cardinality guidance, favor the 
 
 For example, if most queries use an equality filter on `/category` (and `category` has sufficient cardinality to avoid hot partitions), partitioning by `/category` may be preferable to partitioning by `/id`, even though `/id` provides higher cardinality. This keeps the dominant queries single-partition (when you supply the `PartitionKey` value) and avoids unnecessary cross-partition fan-out.
 
-If the query field has insufficient cardinality and may create hot partitions, consider a synthetic or hierarchical partition key that preserves query alignment while improving distribution.
+If `/category` has insufficient cardinality and may create hot partitions, consider a synthetic or hierarchical partition key that preserves query alignment while improving distribution.
 
 See also: `partition-high-cardinality`.
 
