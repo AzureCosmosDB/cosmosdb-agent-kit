@@ -354,7 +354,13 @@ az network private-endpoint create \
   --subnet default \
   --private-connection-resource-id <cosmos-resource-id> \
   --group-id Sql \
-  --connection-name myaccount-connection \
+  --connection-name myaccount-connection
+
+# Associate the private endpoint with the Private DNS zone (DNS zone group)
+az network private-endpoint dns-zone-group create \
+  --resource-group myrg \
+  --endpoint-name myaccount-pe \
+  --name myaccount-zonegroup \
   --private-dns-zone /subscriptions/<sub>/resourceGroups/myrg/providers/Microsoft.Network/privateDnsZones/privatelink.documents.azure.com
 
 # Verify DNS resolution from a VM in the VNet:
@@ -434,13 +440,18 @@ When you **disable public network access** and use only private endpoints, the A
 **Solutions:**
 
 ```bash
-# Option 1: Allow Azure portal access exception
-# Keeps private endpoint but allows portal IP ranges
+# Option 1: Enable the "Accept connections from within public Azure datacenters" exception
+# This keeps the private endpoint but also allows traffic originating from any Azure
+# datacenter IP — including the Azure Portal backend, Data Explorer, and Azure-hosted
+# services. SECURITY NOTE: this is NOT a portal-only allowlist; it permits any Azure
+# tenant's outbound traffic to reach your account's public endpoint. Access is still
+# gated by Entra ID / RBAC and account keys, but combine with disable-local-auth and
+# managed identity for defense in depth before using this exception in production.
 az cosmosdb update \
   --name myaccount \
   --resource-group myrg \
   --public-network-access ENABLED \
-  --ip-range-filter "0.0.0.0"  # Special value: allows Azure Portal only
+  --ip-range-filter "0.0.0.0"  # Special value: "Accept connections from within public Azure datacenters"
 
 # Option 2: Use Azure CLI or SDK from within VNet
 # From a VM, Azure Cloud Shell, or developer workstation connected to VNet via VPN/Bastion
@@ -454,7 +465,7 @@ az cosmosdb sql database list --account-name myaccount --resource-group myrg
 **Chromium Private Network Access (PNA) blocking:**
 - Affects Chrome, Edge, Brave when portal tries to access private endpoint from public internet
 - Browser blocks "public-to-private" requests as a security policy
-- Solution: use portal exception (Option 1) or CLI/SDK from within VNet (Option 2/3)
+- Solution: use the Azure datacenters exception (Option 1) or CLI/SDK from within VNet (Option 2/3)
 
 ### Disable Public Access (Production Best Practice)
 
@@ -478,8 +489,8 @@ az cosmosdb update \
 | Connection timeout from application | DNS not configured | Link private DNS zone to VNet |
 | Resolves to public IP (104.x.x.x) | Missing DNS integration | Re-create private endpoint with DNS zone |
 | Works from one VNet, not another | DNS zone not linked to spoke | Link DNS zone to all peered VNets |
-| Portal shows "Unable to load" | Public access disabled | Enable portal exception or use CLI from VNet |
-| Chromium PNA CORS error | Browser blocks public→private | Use portal exception or access from VNet |
+| Portal shows "Unable to load" | Public access disabled | Enable Azure datacenters exception or use CLI from VNet |
+| Chromium PNA CORS error | Browser blocks public→private | Use Azure datacenters exception or access from VNet |
 | Custom DNS servers: no resolution | DNS not forwarding to Azure | Configure conditional forwarder to 168.63.129.16 |
 
 ### Connection String Unchanged
