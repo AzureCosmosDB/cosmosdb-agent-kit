@@ -333,7 +333,8 @@ az network private-endpoint create \
 **Correct (private endpoint with automatic DNS integration):**
 
 ```bash
-# Create private DNS zone for Cosmos DB
+# Create private DNS zone for Azure Cosmos DB for NoSQL (documents.azure.com)
+# (Other Cosmos DB APIs use different privatelink zones and Private Link group IDs.)
 az network private-dns zone create \
   --resource-group myrg \
   --name privatelink.documents.azure.com
@@ -357,10 +358,12 @@ az network private-endpoint create \
   --connection-name myaccount-connection
 
 # Associate the private endpoint with the Private DNS zone (DNS zone group)
+# Note: --zone-name is required and names the zone entry within the group
 az network private-endpoint dns-zone-group create \
   --resource-group myrg \
   --endpoint-name myaccount-pe \
   --name myaccount-zonegroup \
+  --zone-name privatelink-documents-azure-com \
   --private-dns-zone /subscriptions/<sub>/resourceGroups/myrg/providers/Microsoft.Network/privateDnsZones/privatelink.documents.azure.com
 
 # Verify DNS resolution from a VM in the VNet:
@@ -437,35 +440,26 @@ When you **disable public network access** and use only private endpoints, the A
 - Data Explorer queries fail with network errors
 - Chromium browsers block with **Private Network Access (PNA)** CORS errors
 
-**Solutions:**
+**Solutions (in order of preference):**
+
+**Option 1 (recommended): Manage from inside the VNet.** Run management commands from a host that already has private network access — an Azure Bastion-connected VM, a Cloud Shell session with VNet integration, or a developer workstation on a VPN/ExpressRoute connection.
 
 ```bash
-# Option 1: Enable the "Accept connections from within public Azure datacenters" exception
-# This keeps the private endpoint but also allows traffic originating from any Azure
-# datacenter IP — including the Azure Portal backend, Data Explorer, and Azure-hosted
-# services. SECURITY NOTE: this is NOT a portal-only allowlist; it permits any Azure
-# tenant's outbound traffic to reach your account's public endpoint. Access is still
-# gated by Entra ID / RBAC and account keys, but combine with disable-local-auth and
-# managed identity for defense in depth before using this exception in production.
-az cosmosdb update \
-  --name myaccount \
-  --resource-group myrg \
-  --public-network-access ENABLED \
-  --ip-range-filter "0.0.0.0"  # Special value: "Accept connections from within public Azure datacenters"
-
-# Option 2: Use Azure CLI or SDK from within VNet
-# From a VM, Azure Cloud Shell, or developer workstation connected to VNet via VPN/Bastion
+# From a VM in the VNet (e.g., reached via Azure Bastion)
 az cosmosdb sql database list --account-name myaccount --resource-group myrg
-
-# Option 3: VS Code with Remote extension
-# Connect to a VM in the VNet via Remote-SSH or Bastion
-# Use Cosmos DB extension from within the VNet
 ```
 
+**Option 2: VS Code Remote Development.** Connect to a VM inside the VNet via Remote-SSH or Bastion and use the Azure Cosmos DB extension from there.
+
+**Option 3: Allow only the published Azure portal middleware IPs.** This is a narrow allowlist of portal-only addresses. Microsoft publishes the current list per API and cloud environment in [Allow requests from the Azure portal](https://learn.microsoft.com/azure/cosmos-db/how-to-configure-firewall#allow-requests-from-the-azure-portal). Fetch the current values from that doc rather than hardcoding them, because the published IPs change over time. The Azure portal also exposes an **Add Azure Portal Middleware IPs** button that adds the correct set automatically.
+
+**Anti-pattern: do not use `--ip-range-filter "0.0.0.0"` as a "portal exception".**
+The `0.0.0.0` entry corresponds to the **Accept connections from within Azure datacenters** toggle. It is **not** portal-only: it permits inbound traffic from any IP in Azure's datacenter ranges, which includes resources owned by other Azure customers. Microsoft's own firewall documentation warns that this option "configures the firewall to allow all requests from Azure, including requests from the subscriptions of other customers deployed in Azure" and "limits the effectiveness of a firewall policy." Prefer Options 1–3 above.
+
 **Chromium Private Network Access (PNA) blocking:**
-- Affects Chrome, Edge, Brave when portal tries to access private endpoint from public internet
+- Affects Chrome, Edge, Brave when the portal tries to reach a private endpoint from a public-internet origin
 - Browser blocks "public-to-private" requests as a security policy
-- Solution: use the Azure datacenters exception (Option 1) or CLI/SDK from within VNet (Option 2/3)
+- Solution: use Option 1 or 2 (browse from inside the VNet); Option 3 also works because the request then originates from a permitted portal IP rather than the user's browser
 
 ### Disable Public Access (Production Best Practice)
 
@@ -489,8 +483,8 @@ az cosmosdb update \
 | Connection timeout from application | DNS not configured | Link private DNS zone to VNet |
 | Resolves to public IP (104.x.x.x) | Missing DNS integration | Re-create private endpoint with DNS zone |
 | Works from one VNet, not another | DNS zone not linked to spoke | Link DNS zone to all peered VNets |
-| Portal shows "Unable to load" | Public access disabled | Enable Azure datacenters exception or use CLI from VNet |
-| Chromium PNA CORS error | Browser blocks public→private | Use Azure datacenters exception or access from VNet |
+| Portal shows "Unable to load" | Public access disabled | Manage from inside the VNet (Bastion/Cloud Shell) or add only the published portal middleware IPs — do not use `0.0.0.0` |
+| Chromium PNA CORS error | Browser blocks public→private | Access from within the VNet, or use the published portal middleware IPs |
 | Custom DNS servers: no resolution | DNS not forwarding to Azure | Configure conditional forwarder to 168.63.129.16 |
 
 ### Connection String Unchanged
