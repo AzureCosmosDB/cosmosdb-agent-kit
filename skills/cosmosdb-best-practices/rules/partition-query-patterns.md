@@ -83,4 +83,14 @@ public class Message
 // "Get messages in conversation" - single partition, fast
 ```
 
+### Query Alignment vs. Cardinality
+
+When query-pattern guidance conflicts with pure cardinality guidance, favor the partition key that supports the dominant access pattern for read-heavy workloads.
+
+For example, if most queries filter by `Category`, partitioning by `Category` may be preferable to partitioning by `/id`, even though `/id` provides higher cardinality. This keeps the dominant queries single-partition and avoids unnecessary cross-partition scans.
+
+If the query field has insufficient cardinality and may create hot partitions, consider a synthetic or hierarchical partition key that preserves query alignment while improving distribution.
+
+See also: `partition-high-cardinality`.
+
 Reference: [Choose a partition key](https://learn.microsoft.com/azure/cosmos-db/partitioning-overview#choose-a-partition-key)

@@ -77,4 +77,14 @@ Good partition keys typically:
 - Match your most common query patterns
 - Distribute writes evenly (no single key dominates)
 
+### Cardinality vs. Query Patterns
+
+High cardinality is important for even distribution, but it should not be the sole factor when selecting a partition key.
+
+For read-heavy workloads where most queries filter on a specific field, prefer a partition key aligned with the dominant query pattern even if its cardinality is lower than `/id`. Single-partition reads are often more efficient than maximizing distribution that the workload does not require.
+
+A bare `/id` partition key is most appropriate when point reads by id are the dominant access pattern or when write throughput requires maximum distribution. If the dominant query pattern filters on another field, consider whether aligning the partition key with that field would reduce cross-partition queries.
+
+See also: `partition-query-patterns`.
+
 Reference: [Partitioning in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/partitioning-overview)
