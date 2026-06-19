@@ -35,7 +35,7 @@ points here. Expand this file freely — it has no character limit.
 ### Naming
 
 - 🔴 Filename: `{prefix}-{description}.md`
-- 🔴 Valid prefixes: `model-`, `partition-`, `query-`, `sdk-`, `index-`, `throughput-`, `global-`, `monitoring-`, `pattern-`, `tooling-`, `vector-`
+- 🔴 Valid prefixes: `model-`, `partition-`, `query-`, `sdk-`, `index-`, `throughput-`, `global-`, `monitoring-`, `pattern-`, `tooling-`, `vector-`, `fts-`, `security-`
 - 🟡 Description should be 2-4 hyphenated words max
 
 ### Content Quality
@@ -90,7 +90,7 @@ Rules in this repo are often created by the automated evaluation loop: an LLM re
 | `id` | 🔴 Yes | String (unique identifier) |
 | `name` | 🔴 Yes | String (short descriptive name) |
 | `description` | 🔴 Yes | String (what this test validates) |
-| `tags` | 🔴 Yes | List (should match rule category: sdk, model, partition, query, etc.) |
+| `tags` | 🔴 Yes | List (should match rule category: sdk, model, partition, query, security, fts, vector, etc.) |
 | `inputs.prompt` | 🔴 Yes | String (realistic user query triggering the rule's guidance) |
 | `expected.outcomes` | 🔴 Yes | List (at minimum `- type: task_completed`) |
 
