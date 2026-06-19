@@ -1,7 +1,7 @@
 ---
 title: Configure Private Endpoints with Correct DNS Resolution
 impact: HIGH
-impactDescription: prevents connection failures and portal access issues
+impactDescription: 100% client connection failure when DNS misconfigured
 tags: connectivity, private-endpoint, dns, vnet, security, portal
 ---
 
@@ -55,12 +55,13 @@ az network private-endpoint create \
   --connection-name myaccount-connection
 
 # Associate the private endpoint with the Private DNS zone (DNS zone group)
-# Note: --zone-name is required and names the zone entry within the group
+# Note: --zone-name here is a required label for this entry inside the zone
+# group, not a DNS zone name. Any short identifier works.
 az network private-endpoint dns-zone-group create \
   --resource-group myrg \
   --endpoint-name myaccount-pe \
   --name myaccount-zonegroup \
-  --zone-name privatelink-documents-azure-com \
+  --zone-name myzone \
   --private-dns-zone /subscriptions/<sub>/resourceGroups/myrg/providers/Microsoft.Network/privateDnsZones/privatelink.documents.azure.com
 
 # Verify DNS resolution from a VM in the VNet:

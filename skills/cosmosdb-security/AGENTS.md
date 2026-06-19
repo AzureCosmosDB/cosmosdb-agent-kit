@@ -306,7 +306,7 @@ Reference: [Configure IP firewall in Azure Cosmos DB](https://learn.microsoft.co
 
 ### 1.5 Configure Private Endpoints with Correct DNS Resolution
 
-**Impact: HIGH** (prevents connection failures and portal access issues)
+**Impact: HIGH** (100% client connection failure when DNS misconfigured)
 
 Private endpoints route Cosmos DB traffic through your VNet instead of the public internet, but they require correct DNS configuration to work. The most common connectivity failures after enabling private endpoints are DNS misconfigurations, VNet peering without private DNS integration, and portal access blocked by browser Private Network Access (PNA) policies.
 
@@ -358,12 +358,13 @@ az network private-endpoint create \
   --connection-name myaccount-connection
 
 # Associate the private endpoint with the Private DNS zone (DNS zone group)
-# Note: --zone-name is required and names the zone entry within the group
+# Note: --zone-name here is a required label for this entry inside the zone
+# group, not a DNS zone name. Any short identifier works.
 az network private-endpoint dns-zone-group create \
   --resource-group myrg \
   --endpoint-name myaccount-pe \
   --name myaccount-zonegroup \
-  --zone-name privatelink-documents-azure-com \
+  --zone-name myzone \
   --private-dns-zone /subscriptions/<sub>/resourceGroups/myrg/providers/Microsoft.Network/privateDnsZones/privatelink.documents.azure.com
 
 # Verify DNS resolution from a VM in the VNet:
