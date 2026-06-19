@@ -306,7 +306,7 @@ Reference: [Configure IP firewall in Azure Cosmos DB](https://learn.microsoft.co
 
 ### 1.5 Configure Private Endpoints with Correct DNS Resolution
 
-**Impact: HIGH** (100% client connection failure when DNS misconfigured)
+**Impact: HIGH** (client connectivity failure when public network access is disabled and DNS resolves to the public endpoint)
 
 Private endpoints route Cosmos DB traffic through your VNet instead of the public internet, but they require correct DNS configuration to work. The most common connectivity failures after enabling private endpoints are DNS misconfigurations, VNet peering without private DNS integration, and portal access blocked by browser Private Network Access (PNA) policies.
 
@@ -398,8 +398,8 @@ nslookup myaccount.documents.azure.com
 dig myaccount.documents.azure.com
 
 # Expected: 
-# - Public DNS disabled: resolves to private IP (10.x.x.x)
-# - Public DNS enabled: may resolve to public IP (applications must reach via private route)
+# - Private DNS zone linked to this VNet: resolves to private IP (10.x.x.x)
+# - Private DNS zone not linked / not used: resolves to public IP (104.x.x.x) and will time out when public network access is disabled
 ```
 
 ### VNet Peering and Hub-Spoke Topologies
@@ -482,7 +482,7 @@ az cosmosdb update \
 | Symptom | Likely Cause | Solution |
 |---|---|---|
 | Connection timeout from application | DNS not configured | Link private DNS zone to VNet |
-| Resolves to public IP (104.x.x.x) | Missing DNS integration | Re-create private endpoint with DNS zone |
+| Resolves to public IP (104.x.x.x) | Missing DNS integration | Create/associate a private DNS zone group on the private endpoint and ensure the private DNS zone is linked to the VNet |
 | Works from one VNet, not another | DNS zone not linked to spoke | Link DNS zone to all peered VNets |
 | Portal shows "Unable to load" | Public access disabled | Manage from inside the VNet (Bastion/Cloud Shell) or add only the published portal middleware IPs — do not use `0.0.0.0` |
 | Chromium PNA CORS error | Browser blocks public→private | Access from within the VNet, or use the published portal middleware IPs |
