@@ -81,9 +81,9 @@ Good partition keys typically:
 
 High cardinality is important for even distribution, but it should not be the sole factor when selecting a partition key.
 
-For read-heavy workloads that can grow to multiple physical partitions and where most queries use an equality filter on a specific field, prefer a partition key aligned with that dominant query pattern even if its cardinality is lower than `/id`. Single-partition reads are often more efficient than cross-partition fan-out for the dominant access pattern.
+For read-heavy workloads that can grow to multiple physical partitions and where most queries use an equality filter on a specific field, prefer a partition key aligned with that dominant query pattern even if its cardinality is lower than `/id`, as long as it still provides sufficient cardinality to avoid hot partitions. If the query-aligned field is too low-cardinality, consider a synthetic or hierarchical partition key to preserve query alignment while improving distribution.
 
-A bare `/id` partition key is most appropriate when point reads by `/id` are the dominant access pattern, when the container is small enough that cross-partition fan-out is not a concern, or when write throughput requires maximum distribution. If the dominant query pattern filters on another field, consider whether aligning the partition key with that field would reduce cross-partition queries.
+A bare `/id` partition key is most appropriate when point reads by `/id` are the dominant access pattern, when the container is small enough to remain within a single physical partition, or when write throughput requires maximum distribution. If the dominant query pattern filters on another field, consider whether aligning the partition key with that field would reduce cross-partition queries.
 
 See also: `partition-query-patterns`.
 
