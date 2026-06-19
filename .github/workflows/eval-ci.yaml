@@ -1,0 +1,47 @@
+name: Eval CI (Azure OpenAI)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "skills/**"
+      - "evals/**"
+      - ".waza.yaml"
+  pull_request:
+    paths:
+      - "skills/**"
+      - "evals/**"
+      - ".waza.yaml"
+  workflow_dispatch:
+
+jobs:
+  eval:
+    name: Run evals with real model
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Waza
+        run: curl -fsSL https://raw.githubusercontent.com/microsoft/waza/main/install.sh | bash
+
+      - name: Run cosmosdb-best-practices evals
+        env:
+          COPILOT_BASE_URL: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          COPILOT_PROVIDER: azure
+          COPILOT_WIRE_API: responses
+          COPILOT_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+        run: |
+          waza run evals/cosmosdb-best-practices/eval.yaml \
+            --executor copilot-sdk \
+            --model ${{ secrets.AZURE_OPENAI_MODEL }} \
+            --verbose
+
+      - name: Upload eval results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: results/
+          retention-days: 30

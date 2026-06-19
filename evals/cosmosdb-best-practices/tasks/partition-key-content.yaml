@@ -1,0 +1,35 @@
+id: partition-key-content-007
+name: Partition Key Guidance - Content Assertion
+description: |
+  With a real model executor, assert that the skill response
+  actually contains actionable partition key guidance including
+  the term "partition key" and cardinality advice.
+tags:
+  - partition-key
+  - content-assertion
+  - requires-real-executor
+inputs:
+  prompt: |
+    I'm building a multi-tenant SaaS app on Cosmos DB. Each tenant
+    has thousands of users and millions of events. My container stores
+    events with fields: eventId, tenantId, userId, timestamp, eventType.
+    What should my partition key be?
+expected:
+  outcomes:
+    - type: task_completed
+graders:
+  - type: text
+    name: mentions_partition_key
+    config:
+      match_all:
+        - "partition key"
+        - "tenantId"
+  - type: text
+    name: mentions_cardinality
+    config:
+      match_any:
+        - "cardinality"
+        - "high cardinality"
+        - "evenly"
+        - "distribution"
+        - "hot partition"
