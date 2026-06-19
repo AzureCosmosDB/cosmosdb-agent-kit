@@ -1,0 +1,17 @@
+id: throughput-integrated-cache-007
+name: Throughput - Integrated Cache Recommendation
+description: |
+  Test that the skill recommends the integrated cache for read-heavy workloads
+  with repeated access patterns and notes the key requirements (dedicated gateway,
+  Gateway connection mode, session/eventual consistency).
+tags:
+  - throughput
+  - caching
+  - happy-path
+inputs:
+  prompt: |
+    My app reads product catalog data repeatedly throughout the day.
+    How can I reduce RU consumption using the integrated cache?
+expected:
+  outcomes:
+    - type: task_completed

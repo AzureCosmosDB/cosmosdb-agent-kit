@@ -1,6 +1,6 @@
 {
   "name": "azure-cosmosdb",
-  "version": "1.1.0",
+  "version": "1.0.0",
   "description": "Official Claude plugin for Azure Cosmos DB (NoSQL). Bundles skills for data modeling, partition key design, query optimization, SDK best practices, indexing, vector search, full-text search, global distribution, security, and more.",
   "author": {
     "name": "Azure Cosmos DB",
