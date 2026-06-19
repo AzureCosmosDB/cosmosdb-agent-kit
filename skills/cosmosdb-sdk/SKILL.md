@@ -3,16 +3,16 @@ name: cosmosdb-sdk
 description: |
   Azure Cosmos DB SDK best practices for .NET, Java, Python, Spring Boot, and
   LangChain: singleton client, async APIs, connection modes, retry handling,
-  diagnostics, serialization, emulator configuration, ETags, circuit breaker,
-  availability strategy, and framework-specific patterns.
+  diagnostics, serialization, emulator configuration, ETags,
+  and framework-specific patterns.
   USE FOR: CosmosClient singleton, async API, Direct vs Gateway mode, retry 429,
   preferred regions, excluded regions, availability strategy, circuit breaker,
   SDK diagnostics, serialization enums, emulator SSL, ETag concurrency,
   conditional create, patch increment, continuation token, content response,
   Spring Data Cosmos, Spring Boot versions, Newtonsoft dependency, namespace collision,
   Python async deps, local dev config, LangChain Cosmos DB saver, LangGraph checkpointer,
-  MCP persistent session, MCP tool content format, MCP tool filtering,
-  LangChain JS vectorstore, LangChain JS chat history, LangChain JS semantic cache.
+  MCP persistent session, tool content format, tool filtering,
+  LangChain JS vectorstore, chat history, semantic cache.
   DO NOT USE FOR: data modeling (use cosmosdb-data-modeling), queries (use cosmosdb-query-optimization),
   partition keys (use cosmosdb-partition-key).
 
