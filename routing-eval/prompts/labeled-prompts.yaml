@@ -1,0 +1,147 @@
+# Labeled routing corpus
+# ----------------------
+# Each entry is a representative developer question paired with the skill that
+# SHOULD be selected to answer it. The prompts are phrased the way a real user
+# would ask them, deliberately avoiding the skill name itself, so the routing
+# decision has to come from the skill description rather than keyword echo.
+#
+# expected_skill must match a skill directory name under skills/ (the value of
+# `name:` in that skill's SKILL.md frontmatter).
+#
+# Extend this file over time. Good additions:
+#   - ambiguous prompts that legitimately span two skills (note both in `also_acceptable`)
+#   - out-of-scope prompts where the correct answer is to pick nothing
+#     (set expected_skill: none) to test over-triggering.
+
+prompts:
+  # ---- cosmosdb-data-modeling ----
+  - id: model-001
+    expected_skill: cosmosdb-data-modeling
+    prompt: "I have orders and their line items in Cosmos DB. Should I store the items inside the order document or in a separate container?"
+  - id: model-002
+    expected_skill: cosmosdb-data-modeling
+    prompt: "My Cosmos DB documents are getting close to a megabyte because I keep appending events to an array. How should I restructure this?"
+
+  # ---- cosmosdb-partition-key ----
+  - id: partition-001
+    expected_skill: cosmosdb-partition-key
+    prompt: "What should I choose as the partition key for a multi-tenant app where each tenant has very different data volumes?"
+  - id: partition-002
+    expected_skill: cosmosdb-partition-key
+    prompt: "All my writes are hitting one physical partition and getting throttled. How do I spread the load more evenly?"
+
+  # ---- cosmosdb-query-optimization ----
+  - id: query-001
+    expected_skill: cosmosdb-query-optimization
+    prompt: "I already know the id and partition key of a document. What is the cheapest way to fetch it in Cosmos DB?"
+  - id: query-002
+    expected_skill: cosmosdb-query-optimization
+    prompt: "How do I page through a large Cosmos DB query result set without loading everything into memory at once?"
+
+  # ---- cosmosdb-sdk ----
+  - id: sdk-001
+    expected_skill: cosmosdb-sdk
+    prompt: "Should I create a new CosmosClient per request in my .NET API, or reuse a single instance?"
+  - id: sdk-002
+    expected_skill: cosmosdb-sdk
+    prompt: "My Java app keeps getting 429 responses from Cosmos DB. How should the SDK be configured to handle retries?"
+
+  # ---- cosmosdb-indexing ----
+  - id: index-001
+    expected_skill: cosmosdb-indexing
+    prompt: "My write RU charges are high but I only ever filter on two fields. How do I cut down the indexing overhead?"
+  - id: index-002
+    expected_skill: cosmosdb-indexing
+    prompt: "I need to ORDER BY two properties and Cosmos DB says it requires an index. What kind of index do I add?"
+
+  # ---- cosmosdb-throughput ----
+  - id: throughput-001
+    expected_skill: cosmosdb-throughput
+    prompt: "My Cosmos DB workload is spiky during the day and idle overnight. How should I provision RU/s for that?"
+  - id: throughput-002
+    expected_skill: cosmosdb-throughput
+    prompt: "For a dev/test Cosmos DB environment with light, occasional usage, what is the most cost-effective throughput option?"
+
+  # ---- cosmosdb-global-distribution ----
+  - id: global-001
+    expected_skill: cosmosdb-global-distribution
+    prompt: "I need my Cosmos DB app to keep accepting writes even if an entire Azure region goes down. How do I set that up?"
+  - id: global-002
+    expected_skill: cosmosdb-global-distribution
+    prompt: "Which consistency level should I pick if I want low read latency but can tolerate slightly stale data?"
+
+  # ---- cosmosdb-monitoring ----
+  - id: monitoring-001
+    expected_skill: cosmosdb-monitoring
+    prompt: "How can I track P99 latency and get alerted when my Cosmos DB account starts throttling requests?"
+  - id: monitoring-002
+    expected_skill: cosmosdb-monitoring
+    prompt: "I want to push Cosmos DB request unit metrics and diagnostic logs into Azure Monitor. How do I wire that up?"
+
+  # ---- cosmosdb-design-patterns ----
+  - id: pattern-001
+    expected_skill: cosmosdb-design-patterns
+    prompt: "I want to keep a precomputed leaderboard view that updates automatically whenever scores change in Cosmos DB. What pattern fits?"
+  - id: pattern-002
+    expected_skill: cosmosdb-design-patterns
+    prompt: "I'm building a LangGraph multi-agent app and need to persist checkpoints in Cosmos DB so runs can resume. How should I structure that?"
+
+  # ---- cosmosdb-tooling ----
+  - id: tooling-001
+    expected_skill: cosmosdb-tooling
+    prompt: "Is there a way to browse and edit my Cosmos DB data directly inside VS Code?"
+  - id: tooling-002
+    expected_skill: cosmosdb-tooling
+    prompt: "How do I run Cosmos DB locally on my machine for development without an Azure subscription?"
+
+  # ---- cosmosdb-vector-search ----
+  - id: vector-001
+    expected_skill: cosmosdb-vector-search
+    prompt: "I want to store embeddings in Cosmos DB and run nearest-neighbor similarity search over them. How do I set up the container?"
+  - id: vector-002
+    expected_skill: cosmosdb-vector-search
+    prompt: "What index type should I use for vector similarity search over a few million embeddings in Cosmos DB?"
+
+  # ---- cosmosdb-full-text-search ----
+  - id: fts-001
+    expected_skill: cosmosdb-full-text-search
+    prompt: "I need keyword search with BM25 relevance ranking over a text field in Cosmos DB. How do I enable it?"
+  - id: fts-002
+    expected_skill: cosmosdb-full-text-search
+    prompt: "How do I combine full-text keyword matching with relevance scoring in a single Cosmos DB query?"
+
+  # ---- cosmosdb-security ----
+  - id: security-001
+    expected_skill: cosmosdb-security
+    prompt: "I want to stop using account keys and authenticate to Cosmos DB with a managed identity instead. How?"
+  - id: security-002
+    expected_skill: cosmosdb-security
+    prompt: "How do I lock down my Cosmos DB account so only my virtual network can reach it, and enable point-in-time restore?"
+
+  # ---- Adversarial: ambiguous prompts that legitimately span two skills ----
+  # These accept more than one skill so a reasonable route is not punished, but a
+  # wildly off route still misses. They test contention, not keyword echo.
+  - id: ambiguous-001
+    expected_skill: cosmosdb-query-optimization
+    also_acceptable: [cosmosdb-indexing]
+    prompt: "A single Cosmos DB query that filters and sorts is both slow and burning RUs. Should I rework the query or change how the data is indexed?"
+  - id: ambiguous-002
+    expected_skill: cosmosdb-partition-key
+    also_acceptable: [cosmosdb-throughput]
+    prompt: "A handful of huge tenants keep overloading one partition while I am also overpaying on provisioned RU/s. What should I change?"
+  - id: ambiguous-003
+    expected_skill: cosmosdb-design-patterns
+    also_acceptable: [cosmosdb-query-optimization]
+    prompt: "I want a fast, always-current leaderboard view over scores that change constantly. How should I approach this in Cosmos DB?"
+
+  # ---- Adversarial: out-of-scope prompts where the right answer is to pick nothing ----
+  # No Cosmos DB skill should fire. Selecting any skill is over-triggering.
+  - id: none-001
+    expected_skill: none
+    prompt: "What is the best way to structure a Dockerfile for a multi-stage Node.js build?"
+  - id: none-002
+    expected_skill: none
+    prompt: "How do I configure an Azure Front Door WAF rule to block traffic from a specific country?"
+  - id: none-003
+    expected_skill: none
+    prompt: "Can you help me write a GitHub Actions matrix build that tests across three Python versions?"
