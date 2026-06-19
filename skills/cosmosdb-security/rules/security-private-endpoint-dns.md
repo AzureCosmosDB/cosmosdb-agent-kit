@@ -30,7 +30,8 @@ az network private-endpoint create \
 **Correct (private endpoint with automatic DNS integration):**
 
 ```bash
-# Create private DNS zone for Cosmos DB
+# Create private DNS zone for Azure Cosmos DB for NoSQL (documents.azure.com)
+# (Other Cosmos DB APIs use different privatelink zones and Private Link group IDs.)
 az network private-dns zone create \
   --resource-group myrg \
   --name privatelink.documents.azure.com
