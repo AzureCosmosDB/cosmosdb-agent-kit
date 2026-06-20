@@ -12,7 +12,11 @@ description: |
   Spring Data Cosmos, Spring Boot versions, Newtonsoft dependency, namespace collision,
   Python async deps, local dev config, LangChain Cosmos DB saver, LangGraph checkpointer,
   MCP persistent session, MCP tool content format, MCP tool filtering,
-  LangChain JS vectorstore, LangChain JS chat history, LangChain JS semantic cache.
+  LangChain JS vectorstore, LangChain JS chat history, LangChain JS semantic cache,
+  RAG API, RAG pipeline, RAG application, vector store client for RAG, embedding ingestion.
+  COMPANION SKILLS: for RAG API tasks, apply this skill together with
+  cosmosdb-vector-search (vector index + VectorDistance retrieval) and
+  cosmosdb-design-patterns (retrieval orchestration and grounding).
   DO NOT USE FOR: data modeling (use cosmosdb-data-modeling), queries (use cosmosdb-query-optimization),
   partition keys (use cosmosdb-partition-key).
 

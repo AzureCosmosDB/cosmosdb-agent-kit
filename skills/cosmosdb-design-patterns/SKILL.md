@@ -9,8 +9,12 @@ description: |
   USE FOR: Cosmos DB change feed, materialized views, CQRS, event sourcing,
   ranking patterns, service layer, relationship hydration, LangGraph, multi-agent,
   human-in-the-loop, interrupt, checkpoint, agent routing, FastAPI startup,
-  chat history, background tasks, async routing, agent attribution, AI grounding.
-  DO NOT USE FOR: SDK configuration (use cosmosdb-sdk), data modeling (use cosmosdb-data-modeling).
+  chat history, background tasks, async routing, agent attribution, AI grounding,
+  RAG API, RAG orchestration, retrieval pipeline, grounding retrieval.
+  COMPANION SKILLS: for RAG API tasks, apply this skill together with
+  cosmosdb-vector-search (vector index + VectorDistance retrieval) and
+  cosmosdb-sdk (CosmosClient setup + embedding ingestion).
+  DO NOT USE FOR: SDK configuration alone (use cosmosdb-sdk), data modeling (use cosmosdb-data-modeling).
 
 license: MIT
 metadata:

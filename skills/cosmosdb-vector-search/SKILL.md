@@ -6,8 +6,12 @@ description: |
   normalizing embeddings, VectorDistance queries, and repository patterns for RAG.
   USE FOR: Cosmos DB vector search, vector embedding policy, vector index,
   flat index, quantizedFlat, diskANN, VectorDistance, cosine similarity,
-  embedding normalization, RAG, retrieval augmented generation, semantic search,
-  vector repository pattern, AI search.
+  embedding normalization, RAG, RAG API, RAG pipeline, RAG application,
+  retrieval augmented generation, semantic search,
+  vector repository pattern, AI search, grounding retrieval.
+  COMPANION SKILLS: for RAG API tasks, apply this skill together with
+  cosmosdb-sdk (CosmosClient setup + embedding ingestion) and
+  cosmosdb-design-patterns (retrieval orchestration and grounding).
   DO NOT USE FOR: full-text search (use cosmosdb-full-text-search),
   LangChain integration (use cosmosdb-sdk or cosmosdb-design-patterns).
 

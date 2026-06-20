@@ -9,6 +9,12 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## 2026-06-18 — Split-skill routing: co-select SDK + vector-search + design-patterns for RAG API tasks
+
+- **Routing:** Added a shared `RAG API` trigger cluster and mutual `COMPANION SKILLS` cross-references to the `description` frontmatter of the `cosmosdb-sdk`, `cosmosdb-vector-search`, and `cosmosdb-design-patterns` skills so a RAG API task selects all three together — SDK client + embedding ingestion, vector index + `VectorDistance` retrieval, and retrieval orchestration + grounding.
+- **Refinement:** Softened the `cosmosdb-design-patterns` exclusion from "SDK configuration" to "SDK configuration alone" so RAG orchestration work is no longer routed entirely away from it.
+- No rule content or compiled `AGENTS.md` changes — this is a discoverability/routing-only update to three `SKILL.md` descriptions.
+
 ## 2026-06-15 — `sdk-go-partition-key-metadata`: Go cross-SDK partition metadata guidance ([#161](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/issues/161))
 
 - **New rule:** `sdk-go-partition-key-metadata.md` — Instructs agents to avoid stale `azcosmos` pins, prefer current Go SDK releases, and create single-path partition keys with explicit metadata that interoperates with other Cosmos DB SDKs used by verifiers.
