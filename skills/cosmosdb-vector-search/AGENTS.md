@@ -858,7 +858,9 @@ class DocumentRepository:
     async def insert_document(self, document: DocumentChunk) -> DocumentChunk:
         """Insert document with vector embedding."""
         try:
-            doc_dict = document.dict()
+            # model_dump(mode="json") (Pydantic v2) JSON-serializes datetime/UUID/etc.
+            # so the Cosmos SDK can persist them; plain .dict() can raise TypeError.
+            doc_dict = document.model_dump(mode="json")
             created_item = await self.container.upsert_item(body=doc_dict)
             return DocumentChunk(**created_item)
         except CosmosHttpResponseError as e:
