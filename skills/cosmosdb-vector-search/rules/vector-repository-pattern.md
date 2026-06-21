@@ -71,19 +71,28 @@ class DocumentRepository:
         self,
         query_embedding: List[float],
         limit: int = 5,
-        similarity_threshold: float = 0.0,
+        max_distance: float = 0.6,
         category_filter: Optional[str] = None
     ) -> List[DocumentChunk]:
-        """Perform vector similarity search with VectorDistance()."""
+        """Perform vector similarity search with VectorDistance().
+
+        VectorDistance() returns a *distance*: smaller means more similar, so
+        keep matches whose distance is BELOW max_distance. The default 0.6 is a
+        permissive cosine-distance cutoff — tune it per embedding model.
+        """
         try:
-            # Build parameterized query
-            safe_limit = max(1, min(int(limit), 50))
+            # Coerce limit defensively: a missing or non-numeric value must not
+            # raise — fall back to a sane default instead.
+            try:
+                safe_limit = max(1, min(int(limit), 50))
+            except (TypeError, ValueError):
+                safe_limit = 5
             query = f"""
                 SELECT TOP {safe_limit} 
                     c.id, c.title, c.content, c.category, c.metadata,
                     VectorDistance(c.embedding, @queryVector) AS similarityScore
                 FROM c
-                WHERE VectorDistance(c.embedding, @queryVector) > @threshold
+                WHERE VectorDistance(c.embedding, @queryVector) < @maxDistance
             """
             
             # Add optional filters
@@ -95,7 +104,7 @@ class DocumentRepository:
             # Build parameters
             parameters = [
                 {"name": "@queryVector", "value": query_embedding},
-                {"name": "@threshold", "value": similarity_threshold}
+                {"name": "@maxDistance", "value": max_distance}
             ]
             
             if category_filter:
@@ -159,7 +168,7 @@ public interface IDocumentRepository
     Task<List<DocumentChunk>> VectorSearchAsync(
         float[] queryEmbedding, 
         int limit = 5, 
-        double similarityThreshold = 0.0, 
+        double maxDistance = 0.6, 
         string? categoryFilter = null);
     Task<DocumentChunk?> GetDocumentAsync(string id, string category);
 }
@@ -196,7 +205,7 @@ public class DocumentRepository : IDocumentRepository
     public async Task<List<DocumentChunk>> VectorSearchAsync(
         float[] queryEmbedding, 
         int limit = 5,
-        double similarityThreshold = 0.0, 
+        double maxDistance = 0.6, 
         string? categoryFilter = null)
     {
         try
@@ -204,12 +213,14 @@ public class DocumentRepository : IDocumentRepository
             var safeLimit = Math.Clamp(limit, 1, 50);
 
             // Build query. TOP requires a literal integer in Cosmos DB SQL.
+            // VectorDistance() is a distance: smaller = more similar, so keep
+            // rows BELOW maxDistance (0.6 is a permissive cosine-distance cutoff).
             var queryText = $@"
                 SELECT TOP {safeLimit} 
                     c.id, c.title, c.content, c.category, c.metadata,
                     VectorDistance(c.embedding, @queryVector) AS similarityScore
                 FROM c
-                WHERE VectorDistance(c.embedding, @queryVector) > @threshold";
+                WHERE VectorDistance(c.embedding, @queryVector) < @maxDistance";
 
             if (!string.IsNullOrEmpty(categoryFilter))
             {
@@ -221,7 +232,7 @@ public class DocumentRepository : IDocumentRepository
             // Build query definition
             var queryDef = new QueryDefinition(queryText)
                 .WithParameter("@queryVector", queryEmbedding)
-                .WithParameter("@threshold", similarityThreshold);
+                .WithParameter("@maxDistance", maxDistance);
 
             if (!string.IsNullOrEmpty(categoryFilter))
             {
@@ -309,11 +320,13 @@ class DocumentRepository {
         queryEmbedding: number[],
         options: {
             limit?: number;
-            similarityThreshold?: number;
+            maxDistance?: number;
             categoryFilter?: string;
         } = {}
     ): Promise<DocumentChunk[]> {
-        const { limit = 5, similarityThreshold = 0.0, categoryFilter } = options;
+        // VectorDistance() is a distance: smaller = more similar, so keep rows
+        // BELOW maxDistance (0.6 is a permissive cosine-distance cutoff).
+        const { limit = 5, maxDistance = 0.6, categoryFilter } = options;
 
         try {
             const parsedLimit = Number.parseInt(String(limit), 10);
@@ -325,12 +338,12 @@ class DocumentRepository {
                     c.id, c.title, c.content, c.category, c.metadata,
                     VectorDistance(c.embedding, @queryVector) AS similarityScore
                 FROM c
-                WHERE VectorDistance(c.embedding, @queryVector) > @threshold
+                WHERE VectorDistance(c.embedding, @queryVector) < @maxDistance
             `;
 
             const parameters = [
                 { name: '@queryVector', value: queryEmbedding },
-                { name: '@threshold', value: similarityThreshold }
+                { name: '@maxDistance', value: maxDistance }
             ];
 
             if (categoryFilter) {
