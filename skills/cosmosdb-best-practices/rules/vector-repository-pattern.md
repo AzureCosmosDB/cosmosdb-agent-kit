@@ -48,7 +48,9 @@ public class DocumentService {
 **Correct (repository pattern with clean abstraction):**
 
 ```python
-# Python - GOOD: Repository pattern
+# Python (azure.cosmos.aio) - GOOD: async repository pattern
+# `container` is an async ContainerProxy from azure.cosmos.aio, so every
+# SDK call below is awaited and queries are iterated with `async for`.
 class DocumentRepository:
     """Repository for documents with vector search capabilities"""
     
@@ -59,7 +61,7 @@ class DocumentRepository:
         """Insert document with vector embedding."""
         try:
             doc_dict = document.dict()
-            created_item = self.container.upsert_item(body=doc_dict)
+            created_item = await self.container.upsert_item(body=doc_dict)
             return DocumentChunk(**created_item)
         except CosmosHttpResponseError as e:
             logger.error(f"Failed to insert document: {e.message}")
@@ -99,13 +101,15 @@ class DocumentRepository:
             if category_filter:
                 parameters.append({"name": "@category", "value": category_filter})
             
-            # Execute query
-            items = list(self.container.query_items(
-                query=query,
-                parameters=parameters,
-                enable_cross_partition_query=True,
-                populate_query_metrics=True
-            ))
+            # Execute query (azure.cosmos.aio returns an async iterator; there is
+            # no enable_cross_partition_query kwarg — cross-partition is automatic)
+            items = [
+                item
+                async for item in self.container.query_items(
+                    query=query,
+                    parameters=parameters,
+                )
+            ]
             
             # Convert to domain models
             results = []
@@ -126,7 +130,7 @@ class DocumentRepository:
     async def get_document(self, document_id: str, category: str) -> Optional[DocumentChunk]:
         """Point read with partition key."""
         try:
-            item = self.container.read_item(
+            item = await self.container.read_item(
                 item=document_id,
                 partition_key=category
             )

@@ -722,13 +722,15 @@ WHERE c.category = @category
 ORDER BY VectorDistance(c.embedding, @embedding)
 """
 
+# category is the partition key, so scope the read to one logical
+# partition instead of fanning out with enable_cross_partition_query.
 items = documents_container.query_items(
     query=query,
     parameters=[
         {"name": "@embedding", "value": embedding},
         {"name": "@category", "value": category},
     ],
-    enable_cross_partition_query=True,
+    partition_key=category,
 )
 return {"results": [to_search_result(item) for item in items]}
 ```

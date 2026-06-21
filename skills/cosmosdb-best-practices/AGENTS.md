@@ -11894,13 +11894,15 @@ WHERE c.category = @category
 ORDER BY VectorDistance(c.embedding, @embedding)
 """
 
+# category is the partition key, so scope the read to one logical
+# partition instead of fanning out with enable_cross_partition_query.
 items = documents_container.query_items(
     query=query,
     parameters=[
         {"name": "@embedding", "value": embedding},
         {"name": "@category", "value": category},
     ],
-    enable_cross_partition_query=True,
+    partition_key=category,
 )
 return {"results": [to_search_result(item) for item in items]}
 ```
@@ -13538,9 +13540,7 @@ documents = [
 
 **Impact: HIGH (Clean abstraction for vector operations)**
 
-When implementing vector search, use a repository pattern to encapsulate Cosmos DB operations. This separates data access logic from business logic and makes vector search operations testable and maintainable. For FastAPI or REST-based RAG APIs, pair this guidance with SDK-correct writes/client configuration and FastAPI startup, chat history, and response DTO mapping. If using `azure.cosmos.aio`, also check the SDK version before copying sync-only query kwargs such as `enable_cross_partition_query`.
-
-**RAG API critical path:** configure vector policy/index, write documents with partition-key fields in the body, query with parameterized `VectorDistance`, use a literal bounded `TOP N`, project only public fields, and map Cosmos documents to API DTOs before returning them.
+When implementing vector search, use a repository pattern to encapsulate Cosmos DB operations. This separates data access logic from business logic and makes vector search operations testable and maintainable. For FastAPI or other async frameworks, either use `azure.cosmos.aio` and `await` SDK calls (and avoid sync-only kwargs like `enable_cross_partition_query` on older pins), or keep the repository synchronous and wrap sync SDK calls with `asyncio.to_thread`.
 
 **Key Methods to Implement:**
 1. **insert_document/upsert_document** - Store documents with embeddings
@@ -13579,7 +13579,9 @@ public class DocumentService {
 **Correct (repository pattern with clean abstraction):**
 
 ```python
-# Python - GOOD: Repository pattern
+# Python (azure.cosmos.aio) - GOOD: async repository pattern
+# `container` is an async ContainerProxy from azure.cosmos.aio, so every
+# SDK call below is awaited and queries are iterated with `async for`.
 class DocumentRepository:
     """Repository for documents with vector search capabilities"""
     
@@ -13590,7 +13592,7 @@ class DocumentRepository:
         """Insert document with vector embedding."""
         try:
             doc_dict = document.dict()
-            created_item = self.container.upsert_item(body=doc_dict)
+            created_item = await self.container.upsert_item(body=doc_dict)
             return DocumentChunk(**created_item)
         except CosmosHttpResponseError as e:
             logger.error(f"Failed to insert document: {e.message}")
@@ -13630,13 +13632,15 @@ class DocumentRepository:
             if category_filter:
                 parameters.append({"name": "@category", "value": category_filter})
             
-            # Execute query
-            items = list(self.container.query_items(
-                query=query,
-                parameters=parameters,
-                enable_cross_partition_query=True,
-                populate_query_metrics=True
-            ))
+            # Execute query (azure.cosmos.aio returns an async iterator; there is
+            # no enable_cross_partition_query kwarg — cross-partition is automatic)
+            items = [
+                item
+                async for item in self.container.query_items(
+                    query=query,
+                    parameters=parameters,
+                )
+            ]
             
             # Convert to domain models
             results = []
@@ -13657,7 +13661,7 @@ class DocumentRepository:
     async def get_document(self, document_id: str, category: str) -> Optional[DocumentChunk]:
         """Point read with partition key."""
         try:
-            item = self.container.read_item(
+            item = await self.container.read_item(
                 item=document_id,
                 partition_key=category
             )
@@ -13843,7 +13847,10 @@ class DocumentRepository {
         const { limit = 5, similarityThreshold = 0.0, categoryFilter } = options;
 
         try {
-            const safeLimit = Math.max(1, Math.min(Number(limit), 50));
+            const parsedLimit = Number.parseInt(String(limit), 10);
+            const safeLimit = Number.isFinite(parsedLimit)
+                ? Math.max(1, Math.min(parsedLimit, 50))
+                : 5;
             let query = `
                 SELECT TOP ${safeLimit} 
                     c.id, c.title, c.content, c.category, c.metadata,
