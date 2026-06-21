@@ -342,10 +342,9 @@ class DocumentRepository {
                 })
                 .fetchAll();
 
-            return resources.map(item => ({
-                ...item,
-                embedding: undefined // Exclude from public API responses
-            }));
+            // Explicitly omit the embedding so the key never appears in API
+            // responses (setting it to undefined would keep the key present).
+            return resources.map(({ embedding, ...item }) => item);
         } catch (error) {
             console.error('Vector search failed:', error);
             throw error;
