@@ -82,7 +82,7 @@ items = documents_container.query_items(
         {"name": "@embedding", "value": embedding},
         {"name": "@category", "value": category},
     ],
-    enable_cross_partition_query=True,
+    partition_key=category,
 )
 return {"results": [to_search_result(item) for item in items]}
 ```

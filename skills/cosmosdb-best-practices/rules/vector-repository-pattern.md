@@ -9,9 +9,7 @@ tags: vector, repository, pattern, architecture, vector-search
 
 **Impact: HIGH (Clean abstraction for vector operations)**
 
-When implementing vector search, use a repository pattern to encapsulate Cosmos DB operations. This separates data access logic from business logic and makes vector search operations testable and maintainable. For FastAPI or REST-based RAG APIs, pair this guidance with SDK-correct writes/client configuration and FastAPI startup, chat history, and response DTO mapping. If using `azure.cosmos.aio`, also check the SDK version before copying sync-only query kwargs such as `enable_cross_partition_query`.
-
-**RAG API critical path:** configure vector policy/index, write documents with partition-key fields in the body, query with parameterized `VectorDistance`, use a literal bounded `TOP N`, project only public fields, and map Cosmos documents to API DTOs before returning them.
+When implementing vector search, use a repository pattern to encapsulate Cosmos DB operations. This separates data access logic from business logic and makes vector search operations testable and maintainable. For FastAPI or other async frameworks, either use `azure.cosmos.aio` and `await` SDK calls (and avoid sync-only kwargs like `enable_cross_partition_query` on older pins), or keep the repository synchronous and wrap sync SDK calls with `asyncio.to_thread`.
 
 **Key Methods to Implement:**
 1. **insert_document/upsert_document** - Store documents with embeddings
@@ -314,7 +312,10 @@ class DocumentRepository {
         const { limit = 5, similarityThreshold = 0.0, categoryFilter } = options;
 
         try {
-            const safeLimit = Math.max(1, Math.min(Number(limit), 50));
+            const parsedLimit = Number.parseInt(String(limit), 10);
+            const safeLimit = Number.isFinite(parsedLimit)
+                ? Math.max(1, Math.min(parsedLimit, 50))
+                : 5;
             let query = `
                 SELECT TOP ${safeLimit} 
                     c.id, c.title, c.content, c.category, c.metadata,
