@@ -4,12 +4,12 @@ description: |
   Azure Cosmos DB design patterns: change feed materialized views, efficient
   ranking, service layer relationship hydration, LangGraph multi-agent orchestration,
   human-in-the-loop interrupts, checkpoint resumption, agent routing, FastAPI startup,
-  chat history separation, background task writes, async Cosmos DB routing, and
+  chat history separation, response DTO mapping, background task writes, async Cosmos DB routing, and
   agent name attribution.
   USE FOR: Cosmos DB change feed, materialized views, CQRS, event sourcing,
   ranking patterns, service layer, relationship hydration, LangGraph, multi-agent,
   human-in-the-loop, interrupt, checkpoint, agent routing, FastAPI startup,
-  chat history, background tasks, async routing, agent attribution, AI grounding.
+  FastAPI response_model, response DTO, API contract, chat history, background tasks, async routing, agent attribution, AI grounding.
   DO NOT USE FOR: SDK configuration (use cosmosdb-sdk), data modeling (use cosmosdb-data-modeling).
 
 license: MIT
@@ -31,6 +31,7 @@ Reference these guidelines when:
 - Building LangGraph multi-agent applications with Cosmos DB
 - Implementing human-in-the-loop flows
 - Managing chat history and agent routing
+- Building FastAPI APIs with strict response models backed by Cosmos DB documents
 
 ## Rules
 
@@ -42,6 +43,7 @@ Reference these guidelines when:
 - [pattern-langgraph-resume-checkpoint](rules/pattern-langgraph-resume-checkpoint.md) - Resume from checkpoint after interrupt
 - [pattern-langgraph-agent-routing-cosmosdb](rules/pattern-langgraph-agent-routing-cosmosdb.md) - Persist active agent in Cosmos DB
 - [pattern-langgraph-fastapi-startup](rules/pattern-langgraph-fastapi-startup.md) - Initialize LangGraph agents in FastAPI
+- [pattern-fastapi-response-dtos](rules/pattern-fastapi-response-dtos.md) - Map Cosmos documents to FastAPI response DTOs
 - [pattern-langgraph-chat-history-separate](rules/pattern-langgraph-chat-history-separate.md) - Store chat history in dedicated container
 - [pattern-background-task-writes](rules/pattern-background-task-writes.md) - FastAPI background tasks for non-blocking writes
 - [pattern-langgraph-async-cosmos-routing](rules/pattern-langgraph-async-cosmos-routing.md) - Async Cosmos DB calls in LangGraph routing

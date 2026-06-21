@@ -9,6 +9,18 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## 2026-06-21 — FastAPI RAG API: Python SDK write, async query, and response-DTO guidance ([#219](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/issues/219))
+
+Benchmark-driven changes from a 5×3 A/B/C matrix on a FastAPI + Cosmos DB RAG chat API (`github-copilot-cli`, `gpt-5.5`, Cosmos DB vNext emulator, `cosmosdb_reward` grader). Split-topic skills moved from 60% (3/5) to 100% (5/5) success and the original failure classes did not recur.
+
+- **New rule:** `sdk-python-write-partition-key-from-body.md` — Python sync writes (`create_item`, `upsert_item`, `replace_item`) derive the partition key from the item body; do not pass `partition_key=`. Keeps `partition_key=` for `read_item`/`delete_item`/`patch_item`/partition-scoped `query_items`. Failure signature: `TypeError: Session.request() got an unexpected keyword argument 'partition_key'`.
+- **New rule:** `sdk-python-async-query-options.md` — Do not copy sync `enable_cross_partition_query=True` into `azure.cosmos.aio`; prefer `partition_key=` for async single-partition queries and verify the installed async method signature. Failure signature: `TypeError: ClientSession._request() got an unexpected keyword argument 'enable_cross_partition_query'`.
+- **New rule:** `pattern-fastapi-response-dtos.md` — Map Cosmos persistence documents to API DTOs and strip system fields (`_rid`, `_self`, `_etag`, `_attachments`, `_ts`) and internal fields (`id`, `type`, `schemaVersion`, raw `embedding`) before returning through strict `response_model` endpoints; prefer query projections for search endpoints. Prevents HTTP 500 from extra fields.
+- **Amended:** `vector-repository-pattern.md` — Added RAG critical-path routing so `cosmosdb-vector-search`, `cosmosdb-sdk`, and `cosmosdb-design-patterns` co-select for FastAPI RAG APIs (SDK-correct writes, async query options, response DTO mapping on the same path).
+- **Supporting cleanup:** Removed unsupported `partition_key=` write kwargs from Python materialized-view examples and stale `enable_cross_partition_query=True` async examples; reinforced literal bounded `TOP N`, parameterized `VectorDistance`, metadata filters, and public-field projection.
+- **Dual-skill update:** Applied to the monolith `cosmosdb-best-practices` skill and the split `cosmosdb-sdk`, `cosmosdb-design-patterns`, and `cosmosdb-vector-search` skills; regenerated all compiled `AGENTS.md` files.
+- **New eval tasks:** `sdk-python-write-partition-key-from-body.yaml`, `sdk-python-async-query-options.yaml`, `pattern-fastapi-response-dtos.yaml`, `vector-rag-critical-path.yaml`.
+
 ## 2026-06-18 — `sdk-diagnostics`: enforce `.Diagnostics` capture in `CosmosException` catch blocks ([#156](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/issues/156))
 
 - **Amended:** `sdk-diagnostics.md` — Rewrote the acceptance criterion as a strict syntactic minimum: every `catch` declaring `CosmosException` (or a subclass) must reference `.Diagnostics` on the caught variable inside the block. Added three violation patterns (log-message-only, diagnostics-dropping re-wrap, bare swallow), a minimal acceptable catch block (`StatusCode`/`ActivityId`/`RequestCharge`/`Diagnostics`), a diagnostics-preserving re-wrap variant, a mechanical detector description (Roslyn/regex), "Why it matters" cross-links to the throughput/RU and 429/retry rules, and a deep-linked reference (`#capture-diagnostics`). Addresses the 0/38 adoption baseline reported in the issue.

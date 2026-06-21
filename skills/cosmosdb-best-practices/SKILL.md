@@ -7,7 +7,7 @@ description: |
   or implementing high-performance database operations.
   USE FOR: Cosmos DB NoSQL, partition key design, RU optimization, point reads,
   cross-partition queries, SDK singleton, CosmosClient, container modeling,
-  change feed, bulk operations, vector search, full-text search, hierarchical
+  change feed, bulk operations, FastAPI RAG APIs, response DTOs, vector search, full-text search, hierarchical
   partition keys, global distribution, autoscale throughput, indexing policy.
   DO NOT USE FOR: PostgreSQL, MySQL, MongoDB (non-Azure), DynamoDB, Cassandra,
   Azure SQL, Cosmos DB for PostgreSQL (vCore), Cosmos DB for MongoDB vCore, Azure DocumentDB,
@@ -33,6 +33,7 @@ Reference these guidelines when:
 - Using the Cosmos DB Emulator for local development
 - Inspecting or managing Cosmos DB data with developer tooling
 - Implementing vector search or RAG features on Cosmos DB
+- Building FastAPI APIs with strict response models backed by Cosmos DB documents
 - Reviewing code for performance issues
 - Configuring throughput and scaling
 - Building globally distributed applications
@@ -119,6 +120,8 @@ Reference these guidelines when:
 - [sdk-dotnet-cosmos-package-id](rules/sdk-dotnet-cosmos-package-id.md) - Use `Microsoft.Azure.Cosmos`, not the abandoned `Azure.Cosmos` v4-preview package
 - [sdk-newtonsoft-dependency](rules/sdk-newtonsoft-dependency.md) - Explicitly reference Newtonsoft.Json package
 - [sdk-python-async-deps](rules/sdk-python-async-deps.md) - Include aiohttp when using Python async SDK
+- [sdk-python-async-query-options](rules/sdk-python-async-query-options.md) - Match Python async query options to SDK version
+- [sdk-python-write-partition-key-from-body](rules/sdk-python-write-partition-key-from-body.md) - Let Python write methods derive the partition key from the item body
 - [sdk-spring-data-annotations](rules/sdk-spring-data-annotations.md) - Annotate entities for Spring Data Cosmos
 - [sdk-spring-data-repository](rules/sdk-spring-data-repository.md) - Use CosmosRepository correctly and handle Iterable return types
 - [sdk-langchain-cosmosdb-saver](rules/sdk-langchain-cosmosdb-saver.md) - Use CosmosDBSaver for LangGraph checkpointing with async container client
@@ -173,6 +176,7 @@ Reference these guidelines when:
 - [pattern-langgraph-resume-checkpoint](rules/pattern-langgraph-resume-checkpoint.md) - Resume LangGraph from checkpoint after interrupt for multi-turn conversations
 - [pattern-langgraph-agent-routing-cosmosdb](rules/pattern-langgraph-agent-routing-cosmosdb.md) - Persist active agent in Cosmos DB for deterministic routing via point reads
 - [pattern-langgraph-fastapi-startup](rules/pattern-langgraph-fastapi-startup.md) - Initialize LangGraph agents in FastAPI startup with retry logic
+- [pattern-fastapi-response-dtos](rules/pattern-fastapi-response-dtos.md) - Map Cosmos DB documents to FastAPI response DTOs
 - [pattern-langgraph-chat-history-separate](rules/pattern-langgraph-chat-history-separate.md) - Store chat history in a dedicated container, not the checkpointer
 - [pattern-background-task-writes](rules/pattern-background-task-writes.md) - Use FastAPI background tasks for non-blocking chat history writes
 - [pattern-langgraph-async-cosmos-routing](rules/pattern-langgraph-async-cosmos-routing.md) - Wrap Cosmos DB sync calls in asyncio.to_thread for LangGraph routing functions

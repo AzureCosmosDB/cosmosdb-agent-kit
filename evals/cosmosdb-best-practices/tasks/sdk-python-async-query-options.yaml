@@ -1,0 +1,22 @@
+id: sdk-python-async-query-options
+name: SDK Best Practice - Python async query options match SDK version
+description: |
+  Test that the skill warns Python/FastAPI developers not to blindly copy sync
+  query_items kwargs into azure.cosmos.aio code, especially enable_cross_partition_query
+  on older azure-cosmos pins such as 4.9.0. The answer should prefer partition_key
+  for scoped async queries and recommend upgrading/verifying signatures for newer options.
+tags:
+  - sdk
+  - python
+  - async
+  - query
+  - fastapi
+inputs:
+  prompt: |
+    My FastAPI app uses azure.cosmos.aio with azure-cosmos==4.9.0. I copied sync
+    query_items code and passed enable_cross_partition_query=True in async queries,
+    but requests fail with ClientSession._request() got an unexpected keyword argument
+    'enable_cross_partition_query'. What should I change?
+expected:
+  outcomes:
+    - type: task_completed

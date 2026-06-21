@@ -12,7 +12,7 @@ description: |
   Spring Data Cosmos, Spring Boot versions, Newtonsoft dependency, namespace collision,
   Python async deps, local dev config, LangChain Cosmos DB saver, LangGraph checkpointer,
   MCP persistent session, tool content format, tool filtering,
-  LangChain JS vectorstore, chat history, semantic cache.
+  LangChain JS vectorstore, chat history, semantic cache, FastAPI RAG API SDK usage.
   DO NOT USE FOR: data modeling (use cosmosdb-data-modeling), queries (use cosmosdb-query-optimization),
   partition keys (use cosmosdb-partition-key).
 
@@ -36,6 +36,7 @@ Reference these guidelines when:
 - Using ETags for optimistic concurrency
 - Integrating with Spring Boot or LangChain
 - Configuring availability and resilience features
+- Building Python/FastAPI RAG or vector-search APIs that write to Cosmos DB
 
 ## Rules
 
@@ -62,6 +63,8 @@ Reference these guidelines when:
 - [sdk-dotnet-cosmos-package-id](rules/sdk-dotnet-cosmos-package-id.md) - Use correct NuGet package
 - [sdk-newtonsoft-dependency](rules/sdk-newtonsoft-dependency.md) - Reference Newtonsoft.Json explicitly
 - [sdk-python-async-deps](rules/sdk-python-async-deps.md) - Include aiohttp for Python async
+- [sdk-python-async-query-options](rules/sdk-python-async-query-options.md) - Match async query options to SDK version
+- [sdk-python-write-partition-key-from-body](rules/sdk-python-write-partition-key-from-body.md) - Let Python writes derive partition key from body
 - [sdk-spring-data-annotations](rules/sdk-spring-data-annotations.md) - Annotate entities for Spring Data
 - [sdk-spring-data-repository](rules/sdk-spring-data-repository.md) - Use CosmosRepository correctly
 - [sdk-dotnet-namespace-collision](rules/sdk-dotnet-namespace-collision.md) - Avoid namespace collisions

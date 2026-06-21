@@ -1,0 +1,23 @@
+id: sdk-python-write-partition-key-from-body
+name: SDK Best Practice - Python writes derive partition key from body
+description: |
+  Test that the skill tells Python/FastAPI developers not to pass partition_key=
+  to create_item, upsert_item, or replace_item. The answer should explain that
+  Python write methods derive the partition key from the item body while reads,
+  deletes, patches, and partition-scoped queries use explicit partition_key.
+tags:
+  - sdk
+  - python
+  - partition-key
+  - writes
+  - fastapi
+inputs:
+  prompt: |
+    I'm building a FastAPI app with azure-cosmos. My sessions container has
+    partition key /userId and my documents container has partition key /category.
+    Should I call create_item(body=session_doc, partition_key=user_id) and
+    upsert_item(body=document_doc, partition_key=category), or is there a better
+    Python SDK pattern?
+expected:
+  outcomes:
+    - type: task_completed

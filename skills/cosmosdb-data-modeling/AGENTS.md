@@ -295,7 +295,6 @@ Denormalize when:
        lb_query = "SELECT c.id, c.leaderboardKey FROM c WHERE c.playerId = @pid"
        async for entry in leaderboard_container.query_items(
            query=lb_query, parameters=[{"name": "@pid", "value": player_id}],
-           enable_cross_partition_query=True,
        ):
            await leaderboard_container.delete_item(
                item=entry["id"], partition_key=entry["leaderboardKey"]

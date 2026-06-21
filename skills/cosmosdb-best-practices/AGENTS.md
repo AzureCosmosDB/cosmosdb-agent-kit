@@ -87,12 +87,14 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 4.32 [Use the Patch API for atomic counter increments](#432-use-the-patch-api-for-atomic-counter-increments)
    - 4.33 [Configure Preferred Regions for Availability](#433-configure-preferred-regions-for-availability)
    - 4.34 [Include aiohttp When Using Python Async SDK](#434-include-aiohttp-when-using-python-async-sdk)
-   - 4.35 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#435-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
-   - 4.36 [Handle 429 Errors with Retry-After](#436-handle-429-errors-with-retry-after)
-   - 4.37 [Use consistent enum serialization between Cosmos SDK and application layer](#437-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
-   - 4.38 [Reuse CosmosClient as Singleton](#438-reuse-cosmosclient-as-singleton)
-   - 4.39 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#439-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
-   - 4.40 [Use CosmosRepository correctly and handle Iterable return types](#440-use-cosmosrepository-correctly-and-handle-iterable-return-types)
+   - 4.35 [Use Python async query options that match your azure-cosmos version](#435-use-python-async-query-options-that-match-your-azure-cosmos-version)
+   - 4.36 [Let Python write methods derive the partition key from the item body](#436-let-python-write-methods-derive-the-partition-key-from-the-item-body)
+   - 4.37 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#437-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
+   - 4.38 [Handle 429 Errors with Retry-After](#438-handle-429-errors-with-retry-after)
+   - 4.39 [Use consistent enum serialization between Cosmos SDK and application layer](#439-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
+   - 4.40 [Reuse CosmosClient as Singleton](#440-reuse-cosmosclient-as-singleton)
+   - 4.41 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#441-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
+   - 4.42 [Use CosmosRepository correctly and handle Iterable return types](#442-use-cosmosrepository-correctly-and-handle-iterable-return-types)
 5. [Indexing Strategies](#5-indexing-strategies) — **MEDIUM-HIGH**
    - 5.1 [Composite Index Directions Must Match ORDER BY](#51-composite-index-directions-must-match-order-by)
    - 5.2 [Use Composite Indexes for ORDER BY](#52-use-composite-indexes-for-order-by)
@@ -125,16 +127,17 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 9.2 [Use Background Tasks for Non-Blocking Chat History Storage](#92-use-background-tasks-for-non-blocking-chat-history-storage)
    - 9.3 [Use Change Feed for cross-partition query optimization with materialized views](#93-use-change-feed-for-cross-partition-query-optimization-with-materialized-views)
    - 9.4 [Use count-based or cached rank approaches instead of full partition scans for ranking](#94-use-count-based-or-cached-rank-approaches-instead-of-full-partition-scans-for-ranking)
-   - 9.5 [Tag AI Messages with Agent Name for API Response Attribution](#95-tag-ai-messages-with-agent-name-for-api-response-attribution)
-   - 9.6 [Persist Active Agent in Cosmos DB for Deterministic Routing](#96-persist-active-agent-in-cosmos-db-for-deterministic-routing)
-   - 9.7 [Wrap Cosmos DB Sync Calls in asyncio.to_thread for LangGraph Routing Functions](#97-wrap-cosmos-db-sync-calls-in-asyncio-to-thread-for-langgraph-routing-functions)
-   - 9.8 [Use asyncio.to_thread for Active Agent Writes in LangGraph Node Functions](#98-use-asyncio-to-thread-for-active-agent-writes-in-langgraph-node-functions)
-   - 9.9 [Store Chat History Separately from LangGraph Checkpoints](#99-store-chat-history-separately-from-langgraph-checkpoints)
-   - 9.10 [Initialize LangGraph Agents in FastAPI Startup with Retry](#910-initialize-langgraph-agents-in-fastapi-startup-with-retry)
-   - 9.11 [Use LangGraph Interrupt for Human-in-the-Loop Confirmation](#911-use-langgraph-interrupt-for-human-in-the-loop-confirmation)
-   - 9.12 [Use StateGraph with Conditional Edges for Multi-Agent Routing](#912-use-stategraph-with-conditional-edges-for-multi-agent-routing)
-   - 9.13 [Resume LangGraph from Checkpoint After Interrupt](#913-resume-langgraph-from-checkpoint-after-interrupt)
-   - 9.14 [Use a service layer to hydrate document references before rendering](#914-use-a-service-layer-to-hydrate-document-references-before-rendering)
+   - 9.5 [Map Cosmos DB documents to FastAPI response DTOs](#95-map-cosmos-db-documents-to-fastapi-response-dtos)
+   - 9.6 [Tag AI Messages with Agent Name for API Response Attribution](#96-tag-ai-messages-with-agent-name-for-api-response-attribution)
+   - 9.7 [Persist Active Agent in Cosmos DB for Deterministic Routing](#97-persist-active-agent-in-cosmos-db-for-deterministic-routing)
+   - 9.8 [Wrap Cosmos DB Sync Calls in asyncio.to_thread for LangGraph Routing Functions](#98-wrap-cosmos-db-sync-calls-in-asyncio-to-thread-for-langgraph-routing-functions)
+   - 9.9 [Use asyncio.to_thread for Active Agent Writes in LangGraph Node Functions](#99-use-asyncio-to-thread-for-active-agent-writes-in-langgraph-node-functions)
+   - 9.10 [Store Chat History Separately from LangGraph Checkpoints](#910-store-chat-history-separately-from-langgraph-checkpoints)
+   - 9.11 [Initialize LangGraph Agents in FastAPI Startup with Retry](#911-initialize-langgraph-agents-in-fastapi-startup-with-retry)
+   - 9.12 [Use LangGraph Interrupt for Human-in-the-Loop Confirmation](#912-use-langgraph-interrupt-for-human-in-the-loop-confirmation)
+   - 9.13 [Use StateGraph with Conditional Edges for Multi-Agent Routing](#913-use-stategraph-with-conditional-edges-for-multi-agent-routing)
+   - 9.14 [Resume LangGraph from Checkpoint After Interrupt](#914-resume-langgraph-from-checkpoint-after-interrupt)
+   - 9.15 [Use a service layer to hydrate document references before rendering](#915-use-a-service-layer-to-hydrate-document-references-before-rendering)
 10. [Developer Tooling](#10-developer-tooling) — **MEDIUM**
    - 10.1 [Use Azure Cosmos DB Emulator for local development and testing](#101-use-azure-cosmos-db-emulator-for-local-development-and-testing)
    - 10.2 [Use Azure Cosmos DB VS Code extension for routine inspection and management](#102-use-azure-cosmos-db-vs-code-extension-for-routine-inspection-and-management)
@@ -410,7 +413,6 @@ Denormalize when:
        lb_query = "SELECT c.id, c.leaderboardKey FROM c WHERE c.playerId = @pid"
        async for entry in leaderboard_container.query_items(
            query=lb_query, parameters=[{"name": "@pid", "value": player_id}],
-           enable_cross_partition_query=True,
        ):
            await leaderboard_container.delete_item(
                item=entry["id"], partition_key=entry["leaderboardKey"]
@@ -4269,7 +4271,7 @@ Capture and log diagnostics from Cosmos DB responses, especially for slow or fai
 
 `CosmosException.Diagnostics` (type `CosmosDiagnostics`) is a first-class structured signal the SDK provides for debugging failures (RU spend, latency tails, 429s, region selection, and channel reuse). Demonstrating the pattern is not enough — it must be applied at the point of failure.
 
-**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A bare swallow (`catch (CosmosException) { }`, `catch (CosmosException) { return null; }`, `return default;`, `return new T();`, etc., without first surfacing `.Diagnostics`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
+**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A catch block that swallows the exception (e.g., `catch (CosmosException) { }`, or returning `null` / `default` / `new T()`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
 
 **Incorrect (ignoring diagnostics):**
 
@@ -4427,7 +4429,7 @@ Key diagnostic fields:
 
 **Detector (mechanical check):** For each `catch` clause whose declared type binds to `Microsoft.Azure.Cosmos.CosmosException` (or a subclass), verify the block body contains a member access ending in `.Diagnostics` on the caught variable. If absent, flag the catch-block source range. This is expressible as a Roslyn analyzer or a regex over `.cs` files (excluding `bin/`, `obj/`, and test directories).
 
-**Why it matters:** `Diagnostics` carries the RU charge, activity ID, the region the call hit, and the per-channel timing breakdown. On a 429 it also contains the back-end retry hints. Without it, the operator loses exactly the information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
+**Why it matters:** `RequestCharge` and `ActivityId` provide immediate cost/correlation context, and `Diagnostics` provides the detailed timeline, regions contacted, and retry/transient-failure context (on a 429 it also includes retry details). Without diagnostics, the operator loses the detailed information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
 
 Reference: [Capture diagnostics — Troubleshoot .NET SDK](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-dotnet-sdk#capture-diagnostics)
 
@@ -7375,7 +7377,161 @@ from azure.cosmos import CosmosClient
 
 Reference: [Azure Cosmos DB Python SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-python)
 
-### 4.35 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
+### 4.35 Use Python async query options that match your azure-cosmos version
+
+**Impact: HIGH** (prevents aiohttp runtime errors from leaking unsupported kwargs through azure.cosmos.aio query calls)
+
+## Use Python Async Query Options That Match Your azure-cosmos Version
+
+**Impact: HIGH (prevents runtime 500s in Python/FastAPI async query paths)**
+
+The synchronous `azure.cosmos.ContainerProxy.query_items` API and the asynchronous `azure.cosmos.aio.ContainerProxy.query_items` API do not expose the same named query options in all `azure-cosmos` versions. In particular, `azure-cosmos==4.9.0` supports `enable_cross_partition_query` on the sync API but not on the async API. Passing sync-only kwargs to the async pipeline can leak them down to `aiohttp` and crash requests.
+
+Prefer partition-scoped async queries with `partition_key=`. For cross-partition async queries, either omit the legacy sync-style `enable_cross_partition_query=True` flag on older SDK pins or upgrade to a current `azure-cosmos` version whose async API/docs support the option.
+
+**Incorrect (sync-style kwarg copied into an older async SDK):**
+
+```python
+from azure.cosmos.aio import CosmosClient
+
+async def find_session(container, session_id: str):
+    items = container.query_items(
+        query="SELECT * FROM c WHERE c.sessionId = @sid",
+        parameters=[{"name": "@sid", "value": session_id}],
+        enable_cross_partition_query=True,  # BAD on azure-cosmos 4.9 aio
+    )
+    return [item async for item in items]
+```
+
+This can fail at runtime with:
+
+```text
+TypeError: ClientSession._request() got an unexpected keyword argument 'enable_cross_partition_query'
+```
+
+**Correct (single-partition async query):**
+
+```python
+async def list_messages(messages_container, session_id: str):
+    items = messages_container.query_items(
+        query="SELECT * FROM c WHERE c.sessionId = @sid ORDER BY c.createdAt",
+        parameters=[{"name": "@sid", "value": session_id}],
+        partition_key=session_id,
+    )
+    return [item async for item in items]
+```
+
+**Correct (cross-partition async query compatible with older pins):**
+
+```python
+async def find_session_by_id(sessions_container, session_id: str):
+    # No partition key is known here, so the query fans out. On older async SDK pins,
+    # omit enable_cross_partition_query=True instead of passing a sync-only kwarg.
+    items = sessions_container.query_items(
+        query="SELECT * FROM c WHERE c.sessionId = @sid",
+        parameters=[{"name": "@sid", "value": session_id}],
+    )
+    results = [item async for item in items]
+    return results[0] if results else None
+```
+
+**Correct (upgrade if you require current async query options):**
+
+```text
+azure-cosmos>=4.14.0
+aiohttp>=3.9.0
+```
+
+Then verify the exact async method signature and docs for the version you deploy before using newer kwargs.
+
+**Key points:**
+
+- Do not blindly copy sync `query_items` kwargs into `azure.cosmos.aio` code.
+- Use `partition_key=` for async single-partition queries whenever possible.
+- If a query must fan out and you are pinned to `azure-cosmos==4.9.0`, omit `enable_cross_partition_query=True` in async code.
+- If you see `ClientSession._request() got an unexpected keyword argument ...`, inspect async Cosmos SDK kwargs first.
+
+Reference: [Azure Cosmos DB async Python ContainerProxy API](https://learn.microsoft.com/python/api/azure-cosmos/azure.cosmos.aio.containerproxy)
+
+### 4.36 Let Python write methods derive the partition key from the item body
+
+**Impact: HIGH** (prevents runtime 500s from passing unsupported partition_key kwargs to Python create/upsert/replace writes)
+
+## Let Python Write Methods Derive the Partition Key from the Item Body
+
+**Impact: HIGH (prevents runtime failures in Python create/upsert/replace paths)**
+
+In the Azure Cosmos DB Python SDK, item write methods such as `create_item`, `upsert_item`, and `replace_item` derive the partition key from the item body. Do not pass `partition_key=` to these write methods. If the document is missing the partition-key field, fix the document shape.
+
+Use explicit `partition_key=` for operations where the SDK requires or accepts it: point reads, deletes, patches, and partition-scoped queries.
+
+**Incorrect (passing partition_key to Python write methods):**
+
+```python
+# BAD: create_item/upsert_item/replace_item do not use partition_key= for writes.
+session_doc = {
+    "id": session_id,
+    "sessionId": session_id,
+    "userId": user_id,
+    "title": title,
+}
+sessions_container.create_item(body=session_doc, partition_key=user_id)
+
+document_doc = {
+    "id": document_id,
+    "documentId": document_id,
+    "category": category,
+    "content": content,
+    "embedding": embedding,
+}
+documents_container.upsert_item(body=document_doc, partition_key=category)
+```
+
+**Correct (partition-key value is in the document body):**
+
+```python
+# GOOD: the item body contains the partition-key property.
+session_doc = {
+    "id": session_id,
+    "sessionId": session_id,
+    "userId": user_id,  # container partition key: /userId
+    "title": title,
+}
+sessions_container.create_item(body=session_doc)
+
+document_doc = {
+    "id": document_id,
+    "documentId": document_id,
+    "category": category,  # container partition key: /category
+    "content": content,
+    "embedding": embedding,
+}
+documents_container.upsert_item(body=document_doc)
+```
+
+**Correct (partition_key belongs on reads, deletes, patches, and scoped queries):**
+
+```python
+session = sessions_container.read_item(item=session_id, partition_key=user_id)
+
+sessions_container.patch_item(
+    item=session_id,
+    partition_key=user_id,
+    patch_operations=[{"op": "replace", "path": "/title", "value": title}],
+)
+
+messages = list(messages_container.query_items(
+    query="SELECT * FROM c WHERE c.sessionId = @sid ORDER BY c.createdAt",
+    parameters=[{"name": "@sid", "value": session_id}],
+    partition_key=session_id,
+))
+```
+
+**Failure signature:** if a Python write path raises `TypeError: Session.request() got an unexpected keyword argument 'partition_key'`, inspect the nearest `create_item`, `upsert_item`, or `replace_item` call and remove the unsupported write kwarg.
+
+Reference: [Azure Cosmos DB Python ContainerProxy API](https://learn.microsoft.com/python/api/azure-cosmos/azure.cosmos.containerproxy)
+
+### 4.37 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
 
 **Impact: HIGH** (causes wrong partition key to be sent, producing silent data corruption or 400/404 errors)
 
@@ -7434,7 +7590,7 @@ usersContainer.createItem(
 
 Reference: [Java SDK createItem](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-get-started)
 
-### 4.36 Handle 429 Errors with Retry-After
+### 4.38 Handle 429 Errors with Retry-After
 
 **Impact: HIGH** (prevents cascading failures)
 
@@ -7551,7 +7707,7 @@ await Task.WhenAll(tasks);
 
 Reference: [Handle rate limiting](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-request-rate-too-large)
 
-### 4.37 Use consistent enum serialization between Cosmos SDK and application layer
+### 4.39 Use consistent enum serialization between Cosmos SDK and application layer
 
 **Impact: critical** (undefined)
 
@@ -7672,7 +7828,7 @@ await container.create_item(body=doc.model_dump(by_alias=True, mode="json"))
 - Point reads work but filtered queries don't
 - API returns different enum format than stored in Cosmos DB
 
-### 4.38 Reuse CosmosClient as Singleton
+### 4.40 Reuse CosmosClient as Singleton
 
 **Impact: CRITICAL** (prevents connection exhaustion)
 
@@ -7864,7 +8020,7 @@ async fn list_orders(
 
 Reference: [CosmosClient best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-dotnet)
 
-### 4.39 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
+### 4.41 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
 
 **Impact: CRITICAL** (prevents startup failures and data access errors in Spring Data Cosmos applications)
 
@@ -7980,7 +8136,7 @@ Add `@JsonIgnoreProperties(ignoreUnknown = true)` to every Cosmos entity class s
 
 Reference: [Spring Data Azure Cosmos DB annotations](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-spring-data)
 
-### 4.40 Use CosmosRepository correctly and handle Iterable return types
+### 4.42 Use CosmosRepository correctly and handle Iterable return types
 
 **Impact: HIGH** (prevents ClassCastException and query failures in Spring Data Cosmos repositories)
 
@@ -11363,10 +11519,8 @@ async def process_change_feed():
                     "total": order["total"]
                 }
                 
-                await status_container.upsert_item(
-                    body=status_view,
-                    partition_key=order["status"]
-                )
+                # Python writes derive the partition key from status_view["status"].
+                await status_container.upsert_item(body=status_view)
 ```
 
 **Query the materialized view (single-partition!):**
@@ -11665,7 +11819,102 @@ public class ScoreBucket
 
 Reference: [Cosmos DB query optimization](https://learn.microsoft.com/azure/cosmos-db/nosql/query/getting-started)
 
-### 9.5 Tag AI Messages with Agent Name for API Response Attribution
+### 9.5 Map Cosmos DB documents to FastAPI response DTOs
+
+**Impact: HIGH** (prevents strict response_model failures and avoids leaking system fields, storage-only fields, or raw embeddings)
+
+## Map Cosmos DB Documents to FastAPI Response DTOs
+
+**Impact: HIGH (prevents API 500s and keeps storage internals out of public responses)**
+
+Cosmos DB documents are persistence records, not public API response contracts. FastAPI `response_model` validation checks the returned value against the declared response shape. If the returned value is invalid, FastAPI treats that as an application bug and returns a server error.
+
+Do not return raw Cosmos DB SDK documents from endpoints with a strict `response_model` or an exact API contract. Cosmos items include system fields like `_rid`, `_self`, `_etag`, `_attachments`, and `_ts`, and application storage documents often include internal fields like `type`, `schemaVersion`, synthetic ids, denormalized helper fields, or raw `embedding` vectors. Map the storage document to an explicit DTO/dict before returning it.
+
+**Incorrect (raw Cosmos document returned through response_model):**
+
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel, ConfigDict
+
+app = FastAPI()
+
+class SessionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sessionId: str
+    userId: str
+    title: str
+    createdAt: str
+
+@app.get("/api/sessions/{session_id}", response_model=SessionResponse)
+def get_session(session_id: str, user_id: str):
+    doc = sessions_container.read_item(item=session_id, partition_key=user_id)
+    return doc  # BAD: may include id, type, _etag, _rid, _ts, etc.
+```
+
+**Correct (map to the API contract):**
+
+```python
+def to_session_response(doc: dict) -> dict:
+    return {
+        "sessionId": doc["sessionId"],
+        "userId": doc["userId"],
+        "title": doc.get("title", ""),
+        "createdAt": doc["createdAt"],
+    }
+
+@app.get("/api/sessions/{session_id}", response_model=SessionResponse)
+def get_session(session_id: str, user_id: str):
+    doc = sessions_container.read_item(item=session_id, partition_key=user_id)
+    return to_session_response(doc)
+```
+
+**Correct (project and map vector-search results):**
+
+```python
+def to_search_result(item: dict) -> dict:
+    return {
+        "documentId": item.get("documentId", item["id"]),
+        "content": item["content"],
+        "category": item["category"],
+        "metadata": item.get("metadata", {}),
+        "score": item["score"],
+    }
+
+safe_limit = max(1, min(int(limit), 50))
+query = f"""
+SELECT TOP {safe_limit}
+    c.documentId,
+    c.content,
+    c.category,
+    c.metadata,
+    VectorDistance(c.embedding, @embedding) AS score
+FROM c
+WHERE c.category = @category
+ORDER BY VectorDistance(c.embedding, @embedding)
+"""
+
+items = documents_container.query_items(
+    query=query,
+    parameters=[
+        {"name": "@embedding", "value": embedding},
+        {"name": "@category", "value": category},
+    ],
+    enable_cross_partition_query=True,
+)
+return {"results": [to_search_result(item) for item in items]}
+```
+
+**Key points:**
+
+- Keep Cosmos system fields internal unless the API contract explicitly asks for them.
+- Keep raw embeddings internal unless building an embedding export endpoint.
+- Prefer SQL projections for query endpoints so extra fields do not leave the data layer.
+- Do not fix contract drift by changing Pydantic models to `extra="allow"`; map the storage document to the public contract instead.
+
+References: [FastAPI response model](https://fastapi.tiangolo.com/tutorial/response-model/) | [Azure Cosmos DB Python ContainerProxy API](https://learn.microsoft.com/python/api/azure-cosmos/azure.cosmos.containerproxy)
+
+### 9.6 Tag AI Messages with Agent Name for API Response Attribution
 
 **Impact: MEDIUM** (enables API layer to report which agent generated a response for UI display and logging)
 
@@ -11711,7 +11960,7 @@ async def call_product_search(state, config):
 
 Reference: [LangGraph multi-agent patterns](https://langchain-ai.github.io/langgraph/concepts/multi_agent/)
 
-### 9.6 Persist Active Agent in Cosmos DB for Deterministic Routing
+### 9.7 Persist Active Agent in Cosmos DB for Deterministic Routing
 
 **Impact: HIGH** (eliminates LLM re-classification overhead and prevents routing drift)
 
@@ -11801,7 +12050,7 @@ def patch_active_agent(tenant_id, user_id, thread_id, new_agent):
 
 Reference: [Azure Cosmos DB point reads](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-read-item)
 
-### 9.7 Wrap Cosmos DB Sync Calls in asyncio.to_thread for LangGraph Routing Functions
+### 9.8 Wrap Cosmos DB Sync Calls in asyncio.to_thread for LangGraph Routing Functions
 
 **Impact: CRITICAL** (prevents event loop blocking that causes all concurrent requests to hang)
 
@@ -11869,7 +12118,7 @@ async def get_active_agent(state, config) -> str:
 
 Reference: [Python asyncio.to_thread documentation](https://docs.python.org/3/library/asyncio-task.html#asyncio.to_thread)
 
-### 9.8 Use asyncio.to_thread for Active Agent Writes in LangGraph Node Functions
+### 9.9 Use asyncio.to_thread for Active Agent Writes in LangGraph Node Functions
 
 **Impact: HIGH** (prevents event loop blocking during Cosmos DB upserts in async node functions)
 
@@ -11937,7 +12186,7 @@ async def call_agent(state, config):
 
 Reference: [Python asyncio.to_thread documentation](https://docs.python.org/3/library/asyncio-task.html#asyncio.to_thread)
 
-### 9.9 Store Chat History Separately from LangGraph Checkpoints
+### 9.10 Store Chat History Separately from LangGraph Checkpoints
 
 **Impact: MEDIUM** (enables efficient message retrieval and agent attribution)
 
@@ -12005,7 +12254,7 @@ def get_messages(session_id: str):
 
 Reference: [Azure Cosmos DB container design](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-model-partition-example)
 
-### 9.10 Initialize LangGraph Agents in FastAPI Startup with Retry
+### 9.11 Initialize LangGraph Agents in FastAPI Startup with Retry
 
 **Impact: HIGH** (prevents request failures when dependent services are not yet ready)
 
@@ -12087,7 +12336,7 @@ async def chat(message: str):
 
 Reference: [FastAPI lifespan events](https://fastapi.tiangolo.com/advanced/events/)
 
-### 9.11 Use LangGraph Interrupt for Human-in-the-Loop Confirmation
+### 9.12 Use LangGraph Interrupt for Human-in-the-Loop Confirmation
 
 **Impact: HIGH** (enables safe confirmation flows for sensitive operations)
 
@@ -12153,7 +12402,7 @@ graph = builder.compile(checkpointer=CosmosDBSaver(async_container))
 
 Reference: [LangGraph human-in-the-loop](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/)
 
-### 9.12 Use StateGraph with Conditional Edges for Multi-Agent Routing
+### 9.13 Use StateGraph with Conditional Edges for Multi-Agent Routing
 
 **Impact: HIGH** (enables deterministic agent hand-off in multi-agent LangGraph applications)
 
@@ -12244,7 +12493,7 @@ async def call_agent_a(state: MessagesState, config) -> Command[Literal["agent_a
 
 Reference: [LangGraph multi-agent patterns](https://langchain-ai.github.io/langgraph/concepts/multi_agent/)
 
-### 9.13 Resume LangGraph from Checkpoint After Interrupt
+### 9.14 Resume LangGraph from Checkpoint After Interrupt
 
 **Impact: HIGH** (enables multi-turn conversations with persistent state)
 
@@ -12305,7 +12554,7 @@ async def chat(session_id: str, user_message: str):
 
 Reference: [LangGraph persistence](https://langchain-ai.github.io/langgraph/concepts/persistence/)
 
-### 9.14 Use a service layer to hydrate document references before rendering
+### 9.15 Use a service layer to hydrate document references before rendering
 
 **Impact: HIGH** (bridges document storage with frameworks expecting object graphs, prevents empty/null relationship data)
 
@@ -13289,7 +13538,9 @@ documents = [
 
 **Impact: HIGH (Clean abstraction for vector operations)**
 
-When implementing vector search, use a repository pattern to encapsulate Cosmos DB operations. This separates data access logic from business logic and makes vector search operations testable and maintainable.
+When implementing vector search, use a repository pattern to encapsulate Cosmos DB operations. This separates data access logic from business logic and makes vector search operations testable and maintainable. For FastAPI or REST-based RAG APIs, pair this guidance with SDK-correct writes/client configuration and FastAPI startup, chat history, and response DTO mapping. If using `azure.cosmos.aio`, also check the SDK version before copying sync-only query kwargs such as `enable_cross_partition_query`.
+
+**RAG API critical path:** configure vector policy/index, write documents with partition-key fields in the body, query with parameterized `VectorDistance`, use a literal bounded `TOP N`, project only public fields, and map Cosmos documents to API DTOs before returning them.
 
 **Key Methods to Implement:**
 1. **insert_document/upsert_document** - Store documents with embeddings
@@ -13355,8 +13606,9 @@ class DocumentRepository:
         """Perform vector similarity search with VectorDistance()."""
         try:
             # Build parameterized query
-            query = """
-                SELECT TOP @limit 
+            safe_limit = max(1, min(int(limit), 50))
+            query = f"""
+                SELECT TOP {safe_limit} 
                     c.id, c.title, c.content, c.category, c.metadata,
                     VectorDistance(c.embedding, @queryVector) AS similarityScore
                 FROM c
@@ -13372,7 +13624,6 @@ class DocumentRepository:
             # Build parameters
             parameters = [
                 {"name": "@queryVector", "value": query_embedding},
-                {"name": "@limit", "value": limit},
                 {"name": "@threshold", "value": similarity_threshold}
             ]
             
@@ -13394,7 +13645,7 @@ class DocumentRepository:
                 if 'metadata' not in item:
                     item['metadata'] = {}
                 item['metadata']['similarityScore'] = score
-                item['embedding'] = []  # Exclude from response for performance
+                item.pop('embedding', None)  # Keep raw embeddings out of API responses
                 results.append(DocumentChunk(**item))
             
             return results
@@ -13477,9 +13728,11 @@ public class DocumentRepository : IDocumentRepository
     {
         try
         {
-            // Build query
-            var queryText = @"
-                SELECT TOP @limit 
+            var safeLimit = Math.Clamp(limit, 1, 50);
+
+            // Build query. TOP requires a literal integer in Cosmos DB SQL.
+            var queryText = $@"
+                SELECT TOP {safeLimit} 
                     c.id, c.title, c.content, c.category, c.metadata,
                     VectorDistance(c.embedding, @queryVector) AS similarityScore
                 FROM c
@@ -13495,7 +13748,6 @@ public class DocumentRepository : IDocumentRepository
             // Build query definition
             var queryDef = new QueryDefinition(queryText)
                 .WithParameter("@queryVector", queryEmbedding)
-                .WithParameter("@limit", limit)
                 .WithParameter("@threshold", similarityThreshold);
 
             if (!string.IsNullOrEmpty(categoryFilter))
@@ -13591,8 +13843,9 @@ class DocumentRepository {
         const { limit = 5, similarityThreshold = 0.0, categoryFilter } = options;
 
         try {
+            const safeLimit = Math.max(1, Math.min(Number(limit), 50));
             let query = `
-                SELECT TOP @limit 
+                SELECT TOP ${safeLimit} 
                     c.id, c.title, c.content, c.category, c.metadata,
                     VectorDistance(c.embedding, @queryVector) AS similarityScore
                 FROM c
@@ -13601,7 +13854,6 @@ class DocumentRepository {
 
             const parameters = [
                 { name: '@queryVector', value: queryEmbedding },
-                { name: '@limit', value: limit },
                 { name: '@threshold', value: similarityThreshold }
             ];
 
@@ -13621,7 +13873,7 @@ class DocumentRepository {
 
             return resources.map(item => ({
                 ...item,
-                embedding: [] // Exclude for performance
+                embedding: undefined // Exclude from public API responses
             }));
         } catch (error) {
             console.error('Vector search failed:', error);

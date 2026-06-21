@@ -23,16 +23,17 @@ Design patterns for Azure Cosmos DB applications: change feed materialized views
    - 1.2 [Use Background Tasks for Non-Blocking Chat History Storage](#12-use-background-tasks-for-non-blocking-chat-history-storage)
    - 1.3 [Use Change Feed for cross-partition query optimization with materialized views](#13-use-change-feed-for-cross-partition-query-optimization-with-materialized-views)
    - 1.4 [Use count-based or cached rank approaches instead of full partition scans for ranking](#14-use-count-based-or-cached-rank-approaches-instead-of-full-partition-scans-for-ranking)
-   - 1.5 [Tag AI Messages with Agent Name for API Response Attribution](#15-tag-ai-messages-with-agent-name-for-api-response-attribution)
-   - 1.6 [Persist Active Agent in Cosmos DB for Deterministic Routing](#16-persist-active-agent-in-cosmos-db-for-deterministic-routing)
-   - 1.7 [Wrap Cosmos DB Sync Calls in asyncio.to_thread for LangGraph Routing Functions](#17-wrap-cosmos-db-sync-calls-in-asyncio-to-thread-for-langgraph-routing-functions)
-   - 1.8 [Use asyncio.to_thread for Active Agent Writes in LangGraph Node Functions](#18-use-asyncio-to-thread-for-active-agent-writes-in-langgraph-node-functions)
-   - 1.9 [Store Chat History Separately from LangGraph Checkpoints](#19-store-chat-history-separately-from-langgraph-checkpoints)
-   - 1.10 [Initialize LangGraph Agents in FastAPI Startup with Retry](#110-initialize-langgraph-agents-in-fastapi-startup-with-retry)
-   - 1.11 [Use LangGraph Interrupt for Human-in-the-Loop Confirmation](#111-use-langgraph-interrupt-for-human-in-the-loop-confirmation)
-   - 1.12 [Use StateGraph with Conditional Edges for Multi-Agent Routing](#112-use-stategraph-with-conditional-edges-for-multi-agent-routing)
-   - 1.13 [Resume LangGraph from Checkpoint After Interrupt](#113-resume-langgraph-from-checkpoint-after-interrupt)
-   - 1.14 [Use a service layer to hydrate document references before rendering](#114-use-a-service-layer-to-hydrate-document-references-before-rendering)
+   - 1.5 [Map Cosmos DB documents to FastAPI response DTOs](#15-map-cosmos-db-documents-to-fastapi-response-dtos)
+   - 1.6 [Tag AI Messages with Agent Name for API Response Attribution](#16-tag-ai-messages-with-agent-name-for-api-response-attribution)
+   - 1.7 [Persist Active Agent in Cosmos DB for Deterministic Routing](#17-persist-active-agent-in-cosmos-db-for-deterministic-routing)
+   - 1.8 [Wrap Cosmos DB Sync Calls in asyncio.to_thread for LangGraph Routing Functions](#18-wrap-cosmos-db-sync-calls-in-asyncio-to-thread-for-langgraph-routing-functions)
+   - 1.9 [Use asyncio.to_thread for Active Agent Writes in LangGraph Node Functions](#19-use-asyncio-to-thread-for-active-agent-writes-in-langgraph-node-functions)
+   - 1.10 [Store Chat History Separately from LangGraph Checkpoints](#110-store-chat-history-separately-from-langgraph-checkpoints)
+   - 1.11 [Initialize LangGraph Agents in FastAPI Startup with Retry](#111-initialize-langgraph-agents-in-fastapi-startup-with-retry)
+   - 1.12 [Use LangGraph Interrupt for Human-in-the-Loop Confirmation](#112-use-langgraph-interrupt-for-human-in-the-loop-confirmation)
+   - 1.13 [Use StateGraph with Conditional Edges for Multi-Agent Routing](#113-use-stategraph-with-conditional-edges-for-multi-agent-routing)
+   - 1.14 [Resume LangGraph from Checkpoint After Interrupt](#114-resume-langgraph-from-checkpoint-after-interrupt)
+   - 1.15 [Use a service layer to hydrate document references before rendering](#115-use-a-service-layer-to-hydrate-document-references-before-rendering)
 
 ---
 
@@ -346,10 +347,8 @@ async def process_change_feed():
                     "total": order["total"]
                 }
                 
-                await status_container.upsert_item(
-                    body=status_view,
-                    partition_key=order["status"]
-                )
+                # Python writes derive the partition key from status_view["status"].
+                await status_container.upsert_item(body=status_view)
 ```
 
 **Query the materialized view (single-partition!):**
@@ -648,7 +647,102 @@ public class ScoreBucket
 
 Reference: [Cosmos DB query optimization](https://learn.microsoft.com/azure/cosmos-db/nosql/query/getting-started)
 
-### 1.5 Tag AI Messages with Agent Name for API Response Attribution
+### 1.5 Map Cosmos DB documents to FastAPI response DTOs
+
+**Impact: HIGH** (prevents strict response_model failures and avoids leaking system fields, storage-only fields, or raw embeddings)
+
+## Map Cosmos DB Documents to FastAPI Response DTOs
+
+**Impact: HIGH (prevents API 500s and keeps storage internals out of public responses)**
+
+Cosmos DB documents are persistence records, not public API response contracts. FastAPI `response_model` validation checks the returned value against the declared response shape. If the returned value is invalid, FastAPI treats that as an application bug and returns a server error.
+
+Do not return raw Cosmos DB SDK documents from endpoints with a strict `response_model` or an exact API contract. Cosmos items include system fields like `_rid`, `_self`, `_etag`, `_attachments`, and `_ts`, and application storage documents often include internal fields like `type`, `schemaVersion`, synthetic ids, denormalized helper fields, or raw `embedding` vectors. Map the storage document to an explicit DTO/dict before returning it.
+
+**Incorrect (raw Cosmos document returned through response_model):**
+
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel, ConfigDict
+
+app = FastAPI()
+
+class SessionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sessionId: str
+    userId: str
+    title: str
+    createdAt: str
+
+@app.get("/api/sessions/{session_id}", response_model=SessionResponse)
+def get_session(session_id: str, user_id: str):
+    doc = sessions_container.read_item(item=session_id, partition_key=user_id)
+    return doc  # BAD: may include id, type, _etag, _rid, _ts, etc.
+```
+
+**Correct (map to the API contract):**
+
+```python
+def to_session_response(doc: dict) -> dict:
+    return {
+        "sessionId": doc["sessionId"],
+        "userId": doc["userId"],
+        "title": doc.get("title", ""),
+        "createdAt": doc["createdAt"],
+    }
+
+@app.get("/api/sessions/{session_id}", response_model=SessionResponse)
+def get_session(session_id: str, user_id: str):
+    doc = sessions_container.read_item(item=session_id, partition_key=user_id)
+    return to_session_response(doc)
+```
+
+**Correct (project and map vector-search results):**
+
+```python
+def to_search_result(item: dict) -> dict:
+    return {
+        "documentId": item.get("documentId", item["id"]),
+        "content": item["content"],
+        "category": item["category"],
+        "metadata": item.get("metadata", {}),
+        "score": item["score"],
+    }
+
+safe_limit = max(1, min(int(limit), 50))
+query = f"""
+SELECT TOP {safe_limit}
+    c.documentId,
+    c.content,
+    c.category,
+    c.metadata,
+    VectorDistance(c.embedding, @embedding) AS score
+FROM c
+WHERE c.category = @category
+ORDER BY VectorDistance(c.embedding, @embedding)
+"""
+
+items = documents_container.query_items(
+    query=query,
+    parameters=[
+        {"name": "@embedding", "value": embedding},
+        {"name": "@category", "value": category},
+    ],
+    enable_cross_partition_query=True,
+)
+return {"results": [to_search_result(item) for item in items]}
+```
+
+**Key points:**
+
+- Keep Cosmos system fields internal unless the API contract explicitly asks for them.
+- Keep raw embeddings internal unless building an embedding export endpoint.
+- Prefer SQL projections for query endpoints so extra fields do not leave the data layer.
+- Do not fix contract drift by changing Pydantic models to `extra="allow"`; map the storage document to the public contract instead.
+
+References: [FastAPI response model](https://fastapi.tiangolo.com/tutorial/response-model/) | [Azure Cosmos DB Python ContainerProxy API](https://learn.microsoft.com/python/api/azure-cosmos/azure.cosmos.containerproxy)
+
+### 1.6 Tag AI Messages with Agent Name for API Response Attribution
 
 **Impact: MEDIUM** (enables API layer to report which agent generated a response for UI display and logging)
 
@@ -694,7 +788,7 @@ async def call_product_search(state, config):
 
 Reference: [LangGraph multi-agent patterns](https://langchain-ai.github.io/langgraph/concepts/multi_agent/)
 
-### 1.6 Persist Active Agent in Cosmos DB for Deterministic Routing
+### 1.7 Persist Active Agent in Cosmos DB for Deterministic Routing
 
 **Impact: HIGH** (eliminates LLM re-classification overhead and prevents routing drift)
 
@@ -784,7 +878,7 @@ def patch_active_agent(tenant_id, user_id, thread_id, new_agent):
 
 Reference: [Azure Cosmos DB point reads](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-read-item)
 
-### 1.7 Wrap Cosmos DB Sync Calls in asyncio.to_thread for LangGraph Routing Functions
+### 1.8 Wrap Cosmos DB Sync Calls in asyncio.to_thread for LangGraph Routing Functions
 
 **Impact: CRITICAL** (prevents event loop blocking that causes all concurrent requests to hang)
 
@@ -852,7 +946,7 @@ async def get_active_agent(state, config) -> str:
 
 Reference: [Python asyncio.to_thread documentation](https://docs.python.org/3/library/asyncio-task.html#asyncio.to_thread)
 
-### 1.8 Use asyncio.to_thread for Active Agent Writes in LangGraph Node Functions
+### 1.9 Use asyncio.to_thread for Active Agent Writes in LangGraph Node Functions
 
 **Impact: HIGH** (prevents event loop blocking during Cosmos DB upserts in async node functions)
 
@@ -920,7 +1014,7 @@ async def call_agent(state, config):
 
 Reference: [Python asyncio.to_thread documentation](https://docs.python.org/3/library/asyncio-task.html#asyncio.to_thread)
 
-### 1.9 Store Chat History Separately from LangGraph Checkpoints
+### 1.10 Store Chat History Separately from LangGraph Checkpoints
 
 **Impact: MEDIUM** (enables efficient message retrieval and agent attribution)
 
@@ -988,7 +1082,7 @@ def get_messages(session_id: str):
 
 Reference: [Azure Cosmos DB container design](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-model-partition-example)
 
-### 1.10 Initialize LangGraph Agents in FastAPI Startup with Retry
+### 1.11 Initialize LangGraph Agents in FastAPI Startup with Retry
 
 **Impact: HIGH** (prevents request failures when dependent services are not yet ready)
 
@@ -1070,7 +1164,7 @@ async def chat(message: str):
 
 Reference: [FastAPI lifespan events](https://fastapi.tiangolo.com/advanced/events/)
 
-### 1.11 Use LangGraph Interrupt for Human-in-the-Loop Confirmation
+### 1.12 Use LangGraph Interrupt for Human-in-the-Loop Confirmation
 
 **Impact: HIGH** (enables safe confirmation flows for sensitive operations)
 
@@ -1136,7 +1230,7 @@ graph = builder.compile(checkpointer=CosmosDBSaver(async_container))
 
 Reference: [LangGraph human-in-the-loop](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/)
 
-### 1.12 Use StateGraph with Conditional Edges for Multi-Agent Routing
+### 1.13 Use StateGraph with Conditional Edges for Multi-Agent Routing
 
 **Impact: HIGH** (enables deterministic agent hand-off in multi-agent LangGraph applications)
 
@@ -1227,7 +1321,7 @@ async def call_agent_a(state: MessagesState, config) -> Command[Literal["agent_a
 
 Reference: [LangGraph multi-agent patterns](https://langchain-ai.github.io/langgraph/concepts/multi_agent/)
 
-### 1.13 Resume LangGraph from Checkpoint After Interrupt
+### 1.14 Resume LangGraph from Checkpoint After Interrupt
 
 **Impact: HIGH** (enables multi-turn conversations with persistent state)
 
@@ -1288,7 +1382,7 @@ async def chat(session_id: str, user_message: str):
 
 Reference: [LangGraph persistence](https://langchain-ai.github.io/langgraph/concepts/persistence/)
 
-### 1.14 Use a service layer to hydrate document references before rendering
+### 1.15 Use a service layer to hydrate document references before rendering
 
 **Impact: HIGH** (bridges document storage with frameworks expecting object graphs, prevents empty/null relationship data)
 

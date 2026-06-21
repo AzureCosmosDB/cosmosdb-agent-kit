@@ -3,11 +3,11 @@ name: cosmosdb-vector-search
 description: |
   Azure Cosmos DB vector search best practices: enabling the feature, defining
   embedding policies, configuring vector indexes (flat, quantizedFlat, diskANN),
-  normalizing embeddings, VectorDistance queries, and repository patterns for RAG.
+  normalizing embeddings, VectorDistance queries, repository patterns for RAG, and FastAPI RAG API integration.
   USE FOR: Cosmos DB vector search, vector embedding policy, vector index,
   flat index, quantizedFlat, diskANN, VectorDistance, cosine similarity,
   embedding normalization, RAG, retrieval augmented generation, semantic search,
-  vector repository pattern, AI search.
+  vector repository pattern, AI search, FastAPI RAG API, hybrid metadata filters.
   DO NOT USE FOR: full-text search (use cosmosdb-full-text-search),
   LangChain integration (use cosmosdb-sdk or cosmosdb-design-patterns).
 
@@ -29,6 +29,7 @@ Reference these guidelines when:
 - Choosing vector index types (flat, quantizedFlat, diskANN)
 - Writing vector similarity queries
 - Implementing RAG patterns with Cosmos DB
+- Building FastAPI or REST APIs that combine vector search with session/message storage; also use cosmosdb-sdk and cosmosdb-design-patterns for SDK writes and response DTOs
 
 ## Rules
 

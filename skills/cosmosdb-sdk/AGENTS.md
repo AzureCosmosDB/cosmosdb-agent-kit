@@ -53,12 +53,14 @@ Best practices for Azure Cosmos DB SDK usage: singleton client, async APIs, conn
    - 1.32 [Use the Patch API for atomic counter increments](#132-use-the-patch-api-for-atomic-counter-increments)
    - 1.33 [Configure Preferred Regions for Availability](#133-configure-preferred-regions-for-availability)
    - 1.34 [Include aiohttp When Using Python Async SDK](#134-include-aiohttp-when-using-python-async-sdk)
-   - 1.35 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#135-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
-   - 1.36 [Handle 429 Errors with Retry-After](#136-handle-429-errors-with-retry-after)
-   - 1.37 [Use consistent enum serialization between Cosmos SDK and application layer](#137-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
-   - 1.38 [Reuse CosmosClient as Singleton](#138-reuse-cosmosclient-as-singleton)
-   - 1.39 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#139-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
-   - 1.40 [Use CosmosRepository correctly and handle Iterable return types](#140-use-cosmosrepository-correctly-and-handle-iterable-return-types)
+   - 1.35 [Use Python async query options that match your azure-cosmos version](#135-use-python-async-query-options-that-match-your-azure-cosmos-version)
+   - 1.36 [Let Python write methods derive the partition key from the item body](#136-let-python-write-methods-derive-the-partition-key-from-the-item-body)
+   - 1.37 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#137-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
+   - 1.38 [Handle 429 Errors with Retry-After](#138-handle-429-errors-with-retry-after)
+   - 1.39 [Use consistent enum serialization between Cosmos SDK and application layer](#139-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
+   - 1.40 [Reuse CosmosClient as Singleton](#140-reuse-cosmosclient-as-singleton)
+   - 1.41 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#141-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
+   - 1.42 [Use CosmosRepository correctly and handle Iterable return types](#142-use-cosmosrepository-correctly-and-handle-iterable-return-types)
 
 ---
 
@@ -723,7 +725,7 @@ Capture and log diagnostics from Cosmos DB responses, especially for slow or fai
 
 `CosmosException.Diagnostics` (type `CosmosDiagnostics`) is a first-class structured signal the SDK provides for debugging failures (RU spend, latency tails, 429s, region selection, and channel reuse). Demonstrating the pattern is not enough — it must be applied at the point of failure.
 
-**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A bare swallow (`catch (CosmosException) { }`, `catch (CosmosException) { return null; }`, `return default;`, `return new T();`, etc., without first surfacing `.Diagnostics`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
+**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A catch block that swallows the exception (e.g., `catch (CosmosException) { }`, or returning `null` / `default` / `new T()`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
 
 **Incorrect (ignoring diagnostics):**
 
@@ -881,7 +883,7 @@ Key diagnostic fields:
 
 **Detector (mechanical check):** For each `catch` clause whose declared type binds to `Microsoft.Azure.Cosmos.CosmosException` (or a subclass), verify the block body contains a member access ending in `.Diagnostics` on the caught variable. If absent, flag the catch-block source range. This is expressible as a Roslyn analyzer or a regex over `.cs` files (excluding `bin/`, `obj/`, and test directories).
 
-**Why it matters:** `Diagnostics` carries the RU charge, activity ID, the region the call hit, and the per-channel timing breakdown. On a 429 it also contains the back-end retry hints. Without it, the operator loses exactly the information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
+**Why it matters:** `RequestCharge` and `ActivityId` provide immediate cost/correlation context, and `Diagnostics` provides the detailed timeline, regions contacted, and retry/transient-failure context (on a 429 it also includes retry details). Without diagnostics, the operator loses the detailed information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
 
 Reference: [Capture diagnostics — Troubleshoot .NET SDK](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-dotnet-sdk#capture-diagnostics)
 
@@ -3829,7 +3831,161 @@ from azure.cosmos import CosmosClient
 
 Reference: [Azure Cosmos DB Python SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-python)
 
-### 1.35 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
+### 1.35 Use Python async query options that match your azure-cosmos version
+
+**Impact: HIGH** (prevents aiohttp runtime errors from leaking unsupported kwargs through azure.cosmos.aio query calls)
+
+## Use Python Async Query Options That Match Your azure-cosmos Version
+
+**Impact: HIGH (prevents runtime 500s in Python/FastAPI async query paths)**
+
+The synchronous `azure.cosmos.ContainerProxy.query_items` API and the asynchronous `azure.cosmos.aio.ContainerProxy.query_items` API do not expose the same named query options in all `azure-cosmos` versions. In particular, `azure-cosmos==4.9.0` supports `enable_cross_partition_query` on the sync API but not on the async API. Passing sync-only kwargs to the async pipeline can leak them down to `aiohttp` and crash requests.
+
+Prefer partition-scoped async queries with `partition_key=`. For cross-partition async queries, either omit the legacy sync-style `enable_cross_partition_query=True` flag on older SDK pins or upgrade to a current `azure-cosmos` version whose async API/docs support the option.
+
+**Incorrect (sync-style kwarg copied into an older async SDK):**
+
+```python
+from azure.cosmos.aio import CosmosClient
+
+async def find_session(container, session_id: str):
+    items = container.query_items(
+        query="SELECT * FROM c WHERE c.sessionId = @sid",
+        parameters=[{"name": "@sid", "value": session_id}],
+        enable_cross_partition_query=True,  # BAD on azure-cosmos 4.9 aio
+    )
+    return [item async for item in items]
+```
+
+This can fail at runtime with:
+
+```text
+TypeError: ClientSession._request() got an unexpected keyword argument 'enable_cross_partition_query'
+```
+
+**Correct (single-partition async query):**
+
+```python
+async def list_messages(messages_container, session_id: str):
+    items = messages_container.query_items(
+        query="SELECT * FROM c WHERE c.sessionId = @sid ORDER BY c.createdAt",
+        parameters=[{"name": "@sid", "value": session_id}],
+        partition_key=session_id,
+    )
+    return [item async for item in items]
+```
+
+**Correct (cross-partition async query compatible with older pins):**
+
+```python
+async def find_session_by_id(sessions_container, session_id: str):
+    # No partition key is known here, so the query fans out. On older async SDK pins,
+    # omit enable_cross_partition_query=True instead of passing a sync-only kwarg.
+    items = sessions_container.query_items(
+        query="SELECT * FROM c WHERE c.sessionId = @sid",
+        parameters=[{"name": "@sid", "value": session_id}],
+    )
+    results = [item async for item in items]
+    return results[0] if results else None
+```
+
+**Correct (upgrade if you require current async query options):**
+
+```text
+azure-cosmos>=4.14.0
+aiohttp>=3.9.0
+```
+
+Then verify the exact async method signature and docs for the version you deploy before using newer kwargs.
+
+**Key points:**
+
+- Do not blindly copy sync `query_items` kwargs into `azure.cosmos.aio` code.
+- Use `partition_key=` for async single-partition queries whenever possible.
+- If a query must fan out and you are pinned to `azure-cosmos==4.9.0`, omit `enable_cross_partition_query=True` in async code.
+- If you see `ClientSession._request() got an unexpected keyword argument ...`, inspect async Cosmos SDK kwargs first.
+
+Reference: [Azure Cosmos DB async Python ContainerProxy API](https://learn.microsoft.com/python/api/azure-cosmos/azure.cosmos.aio.containerproxy)
+
+### 1.36 Let Python write methods derive the partition key from the item body
+
+**Impact: HIGH** (prevents runtime 500s from passing unsupported partition_key kwargs to Python create/upsert/replace writes)
+
+## Let Python Write Methods Derive the Partition Key from the Item Body
+
+**Impact: HIGH (prevents runtime failures in Python create/upsert/replace paths)**
+
+In the Azure Cosmos DB Python SDK, item write methods such as `create_item`, `upsert_item`, and `replace_item` derive the partition key from the item body. Do not pass `partition_key=` to these write methods. If the document is missing the partition-key field, fix the document shape.
+
+Use explicit `partition_key=` for operations where the SDK requires or accepts it: point reads, deletes, patches, and partition-scoped queries.
+
+**Incorrect (passing partition_key to Python write methods):**
+
+```python
+# BAD: create_item/upsert_item/replace_item do not use partition_key= for writes.
+session_doc = {
+    "id": session_id,
+    "sessionId": session_id,
+    "userId": user_id,
+    "title": title,
+}
+sessions_container.create_item(body=session_doc, partition_key=user_id)
+
+document_doc = {
+    "id": document_id,
+    "documentId": document_id,
+    "category": category,
+    "content": content,
+    "embedding": embedding,
+}
+documents_container.upsert_item(body=document_doc, partition_key=category)
+```
+
+**Correct (partition-key value is in the document body):**
+
+```python
+# GOOD: the item body contains the partition-key property.
+session_doc = {
+    "id": session_id,
+    "sessionId": session_id,
+    "userId": user_id,  # container partition key: /userId
+    "title": title,
+}
+sessions_container.create_item(body=session_doc)
+
+document_doc = {
+    "id": document_id,
+    "documentId": document_id,
+    "category": category,  # container partition key: /category
+    "content": content,
+    "embedding": embedding,
+}
+documents_container.upsert_item(body=document_doc)
+```
+
+**Correct (partition_key belongs on reads, deletes, patches, and scoped queries):**
+
+```python
+session = sessions_container.read_item(item=session_id, partition_key=user_id)
+
+sessions_container.patch_item(
+    item=session_id,
+    partition_key=user_id,
+    patch_operations=[{"op": "replace", "path": "/title", "value": title}],
+)
+
+messages = list(messages_container.query_items(
+    query="SELECT * FROM c WHERE c.sessionId = @sid ORDER BY c.createdAt",
+    parameters=[{"name": "@sid", "value": session_id}],
+    partition_key=session_id,
+))
+```
+
+**Failure signature:** if a Python write path raises `TypeError: Session.request() got an unexpected keyword argument 'partition_key'`, inspect the nearest `create_item`, `upsert_item`, or `replace_item` call and remove the unsupported write kwarg.
+
+Reference: [Azure Cosmos DB Python ContainerProxy API](https://learn.microsoft.com/python/api/azure-cosmos/azure.cosmos.containerproxy)
+
+### 1.37 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
 
 **Impact: HIGH** (causes wrong partition key to be sent, producing silent data corruption or 400/404 errors)
 
@@ -3888,7 +4044,7 @@ usersContainer.createItem(
 
 Reference: [Java SDK createItem](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-get-started)
 
-### 1.36 Handle 429 Errors with Retry-After
+### 1.38 Handle 429 Errors with Retry-After
 
 **Impact: HIGH** (prevents cascading failures)
 
@@ -4005,7 +4161,7 @@ await Task.WhenAll(tasks);
 
 Reference: [Handle rate limiting](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-request-rate-too-large)
 
-### 1.37 Use consistent enum serialization between Cosmos SDK and application layer
+### 1.39 Use consistent enum serialization between Cosmos SDK and application layer
 
 **Impact: critical** (undefined)
 
@@ -4126,7 +4282,7 @@ await container.create_item(body=doc.model_dump(by_alias=True, mode="json"))
 - Point reads work but filtered queries don't
 - API returns different enum format than stored in Cosmos DB
 
-### 1.38 Reuse CosmosClient as Singleton
+### 1.40 Reuse CosmosClient as Singleton
 
 **Impact: CRITICAL** (prevents connection exhaustion)
 
@@ -4318,7 +4474,7 @@ async fn list_orders(
 
 Reference: [CosmosClient best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-dotnet)
 
-### 1.39 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
+### 1.41 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
 
 **Impact: CRITICAL** (prevents startup failures and data access errors in Spring Data Cosmos applications)
 
@@ -4434,7 +4590,7 @@ Add `@JsonIgnoreProperties(ignoreUnknown = true)` to every Cosmos entity class s
 
 Reference: [Spring Data Azure Cosmos DB annotations](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-spring-data)
 
-### 1.40 Use CosmosRepository correctly and handle Iterable return types
+### 1.42 Use CosmosRepository correctly and handle Iterable return types
 
 **Impact: HIGH** (prevents ClassCastException and query failures in Spring Data Cosmos repositories)
 

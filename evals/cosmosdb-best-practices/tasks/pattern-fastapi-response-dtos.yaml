@@ -1,0 +1,22 @@
+id: pattern-fastapi-response-dtos
+name: Design Pattern - Map Cosmos documents to FastAPI response DTOs
+description: |
+  Test that the skill advises mapping raw Cosmos DB documents to public FastAPI
+  response DTOs instead of returning raw SDK documents through strict response_model
+  endpoints. The answer should mention stripping Cosmos system fields and storage-only
+  fields such as raw embeddings unless the API contract asks for them.
+tags:
+  - pattern
+  - fastapi
+  - response-model
+  - dto
+  - rag
+inputs:
+  prompt: |
+    My FastAPI RAG API reads session and document items from Cosmos DB and returns
+    them from endpoints with Pydantic response_model classes. The Cosmos items have
+    fields like _etag, _rid, _ts, type, schemaVersion, and embedding. Should I return
+    those raw dicts directly, or map them first?
+expected:
+  outcomes:
+    - type: task_completed

@@ -151,10 +151,8 @@ async def process_change_feed():
                     "total": order["total"]
                 }
                 
-                await status_container.upsert_item(
-                    body=status_view,
-                    partition_key=order["status"]
-                )
+                # Python writes derive the partition key from status_view["status"].
+                await status_container.upsert_item(body=status_view)
 ```
 
 **Query the materialized view (single-partition!):**

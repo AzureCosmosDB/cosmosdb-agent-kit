@@ -1,0 +1,22 @@
+id: vector-rag-critical-path
+name: Vector Search - RAG API critical path spans SDK and FastAPI patterns
+description: |
+  Test that RAG/vector API guidance composes vector search, SDK write semantics,
+  and FastAPI response DTO boundaries instead of treating vector search as an
+  isolated topic.
+tags:
+  - vector
+  - rag
+  - fastapi
+  - sdk
+  - api-contract
+inputs:
+  prompt: |
+    I need a FastAPI RAG API on Cosmos DB NoSQL. It stores chat sessions/messages,
+    stores document chunks with 1536-dimensional embeddings, runs VectorDistance
+    search with category filters, and returns strict response_model payloads. Which
+    Cosmos DB skill guidance should I combine, and what are the key implementation
+    guardrails?
+expected:
+  outcomes:
+    - type: task_completed

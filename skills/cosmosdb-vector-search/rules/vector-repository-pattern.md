@@ -9,7 +9,9 @@ tags: vector, repository, pattern, architecture, vector-search
 
 **Impact: HIGH (Clean abstraction for vector operations)**
 
-When implementing vector search, use a repository pattern to encapsulate Cosmos DB operations. This separates data access logic from business logic and makes vector search operations testable and maintainable.
+When implementing vector search, use a repository pattern to encapsulate Cosmos DB operations. This separates data access logic from business logic and makes vector search operations testable and maintainable. For FastAPI or REST-based RAG APIs, pair this guidance with `cosmosdb-sdk` for SDK-correct writes/client configuration and `cosmosdb-design-patterns` for FastAPI startup, chat history, and response DTO mapping. If using `azure.cosmos.aio`, also check the SDK version before copying sync-only query kwargs such as `enable_cross_partition_query`.
+
+**RAG API critical path:** configure vector policy/index, write documents with partition-key fields in the body, query with parameterized `VectorDistance`, use a literal bounded `TOP N`, project only public fields, and map Cosmos documents to API DTOs before returning them.
 
 **Key Methods to Implement:**
 1. **insert_document/upsert_document** - Store documents with embeddings
@@ -75,8 +77,9 @@ class DocumentRepository:
         """Perform vector similarity search with VectorDistance()."""
         try:
             # Build parameterized query
-            query = """
-                SELECT TOP @limit 
+            safe_limit = max(1, min(int(limit), 50))
+            query = f"""
+                SELECT TOP {safe_limit} 
                     c.id, c.title, c.content, c.category, c.metadata,
                     VectorDistance(c.embedding, @queryVector) AS similarityScore
                 FROM c
@@ -92,7 +95,6 @@ class DocumentRepository:
             # Build parameters
             parameters = [
                 {"name": "@queryVector", "value": query_embedding},
-                {"name": "@limit", "value": limit},
                 {"name": "@threshold", "value": similarity_threshold}
             ]
             
@@ -114,7 +116,7 @@ class DocumentRepository:
                 if 'metadata' not in item:
                     item['metadata'] = {}
                 item['metadata']['similarityScore'] = score
-                item['embedding'] = []  # Exclude from response for performance
+                item.pop('embedding', None)  # Keep raw embeddings out of API responses
                 results.append(DocumentChunk(**item))
             
             return results
@@ -197,9 +199,11 @@ public class DocumentRepository : IDocumentRepository
     {
         try
         {
-            // Build query
-            var queryText = @"
-                SELECT TOP @limit 
+            var safeLimit = Math.Clamp(limit, 1, 50);
+
+            // Build query. TOP requires a literal integer in Cosmos DB SQL.
+            var queryText = $@"
+                SELECT TOP {safeLimit} 
                     c.id, c.title, c.content, c.category, c.metadata,
                     VectorDistance(c.embedding, @queryVector) AS similarityScore
                 FROM c
@@ -215,7 +219,6 @@ public class DocumentRepository : IDocumentRepository
             // Build query definition
             var queryDef = new QueryDefinition(queryText)
                 .WithParameter("@queryVector", queryEmbedding)
-                .WithParameter("@limit", limit)
                 .WithParameter("@threshold", similarityThreshold);
 
             if (!string.IsNullOrEmpty(categoryFilter))
@@ -311,8 +314,9 @@ class DocumentRepository {
         const { limit = 5, similarityThreshold = 0.0, categoryFilter } = options;
 
         try {
+            const safeLimit = Math.max(1, Math.min(Number(limit), 50));
             let query = `
-                SELECT TOP @limit 
+                SELECT TOP ${safeLimit} 
                     c.id, c.title, c.content, c.category, c.metadata,
                     VectorDistance(c.embedding, @queryVector) AS similarityScore
                 FROM c
@@ -321,7 +325,6 @@ class DocumentRepository {
 
             const parameters = [
                 { name: '@queryVector', value: queryEmbedding },
-                { name: '@limit', value: limit },
                 { name: '@threshold', value: similarityThreshold }
             ];
 
@@ -341,7 +344,7 @@ class DocumentRepository {
 
             return resources.map(item => ({
                 ...item,
-                embedding: [] // Exclude for performance
+                embedding: undefined // Exclude from public API responses
             }));
         } catch (error) {
             console.error('Vector search failed:', error);
