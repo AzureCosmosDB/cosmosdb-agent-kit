@@ -111,10 +111,10 @@ def pick_wrong_skill(expected_skill: str) -> str:
 
     The chosen skill must NOT contain the prompt's governing rule, so that any
     "applied" verdict in this arm comes from the model's own prior knowledge
-    rather than the supplied guidance. cosmosdb-tooling carries only tooling-*
-    rules; for tooling prompts we fall back to cosmosdb-monitoring.
+    rather than the supplied guidance. The four skills hold disjoint rule sets,
+    so any skill other than the expected one is a valid wrong context.
     """
-    return "cosmosdb-monitoring" if expected_skill == "cosmosdb-tooling" else "cosmosdb-tooling"
+    return "cosmosdb-ai-and-search" if expected_skill == "cosmosdb-operations" else "cosmosdb-operations"
 
 
 def approx_tokens(text: str) -> int:

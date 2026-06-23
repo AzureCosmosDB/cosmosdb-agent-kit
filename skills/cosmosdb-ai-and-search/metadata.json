@@ -1,0 +1,9 @@
+{
+  "references": [
+    "https://learn.microsoft.com/azure/cosmos-db/"
+  ],
+  "organization": "CosmosDB Agent Kit",
+  "date": "June 2026",
+  "version": "1.0.0",
+  "abstract": "Best practices for AI, RAG, and search on Azure Cosmos DB: vector search, full-text search, LangChain/LangGraph integration, and AI-agent design patterns."
+}

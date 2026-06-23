@@ -1,9 +1,0 @@
-{
-  "references": [
-    "https://learn.microsoft.com/azure/cosmos-db/"
-  ],
-  "organization": "CosmosDB Agent Kit",
-  "date": "June 2026",
-  "version": "1.0.0",
-  "abstract": "Best practices for Azure Cosmos DB data modeling: embedding vs referencing, document size limits, schema versioning, type discriminators, JSON serialization, and denormalization strategies."
-}

@@ -2,7 +2,7 @@
 
 A **local, on-demand** harness for testing whether an AI coding agent routes a
 question to the **correct skill** now that `cosmosdb-best-practices` has been
-split into 13 topic-specific skills.
+split into 4 topic-specific skills.
 
 It is **not** wired into CI and reads **no** repository secrets. You run it on
 your own machine with your own model credentials.
@@ -12,7 +12,7 @@ your own machine with your own model credentials.
 ## Why this exists
 
 When there was a single monolith skill, an agent never had to choose: it loaded
-the one skill and got every rule. After the split there are 13 topic skills, and
+the one skill and got every rule. After the split there are 4 topic skills, and
 the agent must first decide **which** skill to load, based only on each skill's
 `name` and `description` (the part loaded at startup). That selection step is a
 **new risk** the split introduces.
@@ -56,8 +56,8 @@ choice and compares it to the expected skill.
 
 Two arms:
 
-- `--arm split` (default): the 13 topic skills only.
-- `--arm all`: the 13 topic skills **plus** the monolith catch-all. A prompt that
+- `--arm split` (default): the 4 topic skills only.
+- `--arm all`: the 4 topic skills **plus** the monolith catch-all. A prompt that
   routes to the monolith counts as a miss against a specific-skill expectation,
   which is how we measure how much traffic the monolith absorbs.
 
@@ -123,7 +123,7 @@ different OpenAI-compatible endpoint, override these:
 ## Run it
 
 ```powershell
-# 13 split skills only (default)
+# 4 split skills only (default)
 python routing-eval/src/route_classify.py --arm split
 
 # include the monolith to see how much it absorbs

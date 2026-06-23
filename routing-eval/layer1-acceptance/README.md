@@ -27,7 +27,7 @@ end to end in two arms and compare final answer quality:
 
 - **Baseline arm (monolith-only):** only `cosmosdb-best-practices` is available.
   One skill, no routing decision, all rules present. This is the no-routing ceiling.
-- **Candidate arm (split-only):** only the 13 topic skills are available. The agent
+- **Candidate arm (split-only):** only the 4 topic skills are available. The agent
   must choose which skill(s) to load before answering. A wrong choice loads the
   wrong rules and the answer degrades.
 
@@ -45,7 +45,7 @@ gap between the arms is the routing penalty.
 # Baseline arm: a temp root containing ONLY the monolith
 python routing-eval/layer1-acceptance/stage_skill_set.py --arm monolith --out routing-eval/.tmp/skills-monolith
 
-# Candidate arm: a temp root containing ONLY the 13 split skills
+# Candidate arm: a temp root containing ONLY the 4 split skills
 python routing-eval/layer1-acceptance/stage_skill_set.py --arm split --out routing-eval/.tmp/skills-split
 ```
 

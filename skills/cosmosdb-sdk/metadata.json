@@ -5,5 +5,5 @@
   "organization": "CosmosDB Agent Kit",
   "date": "June 2026",
   "version": "1.0.0",
-  "abstract": "Best practices for Azure Cosmos DB SDK usage: singleton client, async APIs, connection modes, retry handling, diagnostics, serialization, emulator configuration, and framework-specific patterns for .NET, Java, Python, Spring Boot, and LangChain."
+  "abstract": "Best practices for the Azure Cosmos DB SDK across .NET, Java, Python, Go, and Spring Boot, plus local development and emulator tooling."
 }
