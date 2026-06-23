@@ -1,0 +1,31 @@
+id: incorrect-guidance-baseline-009
+name: CI Failure Baseline - Incorrect Rule Should Fail
+description: |
+  This task verifies CI blocks on incorrect guidance.
+  A skill that gives wrong advice (e.g. "use cross-partition queries always")
+  must fail the content grader, proving CI is actually enforcing correctness.
+  This task should PASS only when the skill gives correct guidance.
+tags:
+  - baseline
+  - ci-enforcement
+  - requires-real-executor
+inputs:
+  prompt: |
+    Should I always use cross-partition queries in Cosmos DB for simplicity,
+    even when I have the partition key available?
+expected:
+  outcomes:
+    - type: task_completed
+graders:
+  - type: text
+    name: discourages_unnecessary_cross_partition
+    description: Skill must warn against unnecessary cross-partition queries
+    config:
+      match_any:
+        - "avoid"
+        - "not recommended"
+        - "performance"
+        - "cost"
+        - "RU"
+        - "point read"
+        - "when possible"

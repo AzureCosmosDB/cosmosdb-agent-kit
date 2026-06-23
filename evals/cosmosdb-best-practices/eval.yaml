@@ -6,7 +6,7 @@ description: |
 skill: cosmosdb-best-practices
 version: "1.0"
 config:
-  trials_per_task: 1
+  trials_per_task: 3
   timeout_seconds: 300
   parallel: false
   executor: mock
@@ -22,5 +22,11 @@ graders:
     config:
       max_tool_calls: 10
       max_duration_ms: 60000
+  - type: text
+    name: domain_terms
+    description: Response must contain at least one Cosmos DB domain-specific term
+    config:
+      regex_match:
+        - "(?i)(partition key|RU/s|request unit|CosmosClient|throughput|indexing|point read|change feed|TTL|consistency level)"
 tasks:
   - "tasks/*.yaml"

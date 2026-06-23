@@ -1,0 +1,41 @@
+id: sdk-singleton-content-008
+name: SDK Singleton - Content Assertion
+description: |
+  Assert that the skill explicitly recommends the singleton CosmosClient
+  pattern and warns against creating a new client per request.
+tags:
+  - sdk
+  - singleton
+  - content-assertion
+  - requires-real-executor
+inputs:
+  prompt: |
+    Review this Python code for Cosmos DB best practices:
+
+    def get_user(user_id: str):
+        client = CosmosClient(url=ENDPOINT, credential=KEY)
+        db = client.get_database_client("mydb")
+        container = db.get_container_client("users")
+        return container.read_item(item=user_id, partition_key=user_id)
+expected:
+  outcomes:
+    - type: task_completed
+graders:
+  - type: text
+    name: recommends_singleton
+    config:
+      match_any:
+        - "singleton"
+        - "single instance"
+        - "reuse"
+        - "module-level"
+        - "global"
+  - type: text
+    name: warns_about_overhead
+    config:
+      match_any:
+        - "overhead"
+        - "connection pool"
+        - "performance"
+        - "per request"
+        - "each request"
