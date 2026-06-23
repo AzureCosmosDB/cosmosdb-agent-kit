@@ -1,17 +1,17 @@
-# Azure Cosmos DB SDK Best Practices
+# Azure Cosmos DB SDK & Developer Tooling
 
-39 rules (HIGH impact) for SDK usage across .NET, Java, Python, Spring Boot, and LangChain: client configuration, connection modes, retries, diagnostics, and framework integration.
-
-Part of the [cosmosdb-agent-kit](https://github.com/AzureCosmosDB/cosmosdb-agent-kit) skill collection.
+Best practices for the Azure Cosmos DB SDK across .NET, Java, Python, Go, and Spring Boot, plus local development and emulator tooling.
 
 ## Installation
 
 **Claude Code:**
+
 ```bash
 cp -r skills/cosmosdb-sdk ~/.claude/skills/
 ```
 
 **GitHub Copilot / VS Code:**
+
 ```bash
 cp -r skills/cosmosdb-sdk ~/.copilot/skills/
 ```

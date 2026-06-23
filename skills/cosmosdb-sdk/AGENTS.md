@@ -12,7 +12,7 @@ June 2026
 
 ## Abstract
 
-Best practices for Azure Cosmos DB SDK usage: singleton client, async APIs, connection modes, retry handling, diagnostics, serialization, emulator configuration, and framework-specific patterns for .NET, Java, Python, Spring Boot, and LangChain.
+Best practices for the Azure Cosmos DB SDK across .NET, Java, Python, Go, and Spring Boot, plus local development and emulator tooling.
 
 ---
 
@@ -35,30 +35,20 @@ Best practices for Azure Cosmos DB SDK usage: singleton client, async APIs, conn
    - 1.14 [Unwrap CosmosItemResponse and enable content response in Java SDK](#114-unwrap-cosmositemresponse-and-enable-content-response-in-java-sdk)
    - 1.15 [Use dependent @Bean methods for Cosmos DB initialization in Spring Boot](#115-use-dependent-bean-methods-for-cosmos-db-initialization-in-spring-boot)
    - 1.16 [Spring Boot and Java version compatibility for Cosmos DB SDK](#116-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
-   - 1.17 [Initialize Async Cosmos DB Container Before CosmosDBSaver](#117-initialize-async-cosmos-db-container-before-cosmosdbsaver)
-   - 1.18 [Use CosmosDBSaver for LangGraph Checkpointing](#118-use-cosmosdbsaver-for-langgraph-checkpointing)
-   - 1.19 [Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS](#119-use-azurecosmosdbnosqlchatmessagehistory-for-persistent-conversations-in-js-ts)
-   - 1.20 [Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain](#120-configure-azure-openai-embedding-deployment-name-for-js-ts-langchain)
-   - 1.21 [Prevent Filter Injection in JS/TS LangChain Vector Store Queries](#121-prevent-filter-injection-in-js-ts-langchain-vector-store-queries)
-   - 1.22 [Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search](#122-configure-full-text-prerequisites-before-js-ts-langchain-hybrid-search)
-   - 1.23 [Use Managed Identity for JS/TS LangChain Cosmos DB Integration](#123-use-managed-identity-for-js-ts-langchain-cosmos-db-integration)
-   - 1.24 [Choose the Correct Search Type for JS/TS LangChain Vector Store](#124-choose-the-correct-search-type-for-js-ts-langchain-vector-store)
-   - 1.25 [Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS](#125-use-azurecosmosdbnosqlsemanticcache-for-llm-cost-reduction-in-js-ts)
-   - 1.26 [Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript](#126-correctly-initialize-azurecosmosdbnosqlvectorstore-in-javascript-typescript)
-   - 1.27 [Use Persistent MCP Client Sessions for Multi-Agent Applications](#127-use-persistent-mcp-client-sessions-for-multi-agent-applications)
-   - 1.28 [Handle MCP ToolMessage Content Format Variations](#128-handle-mcp-toolmessage-content-format-variations)
-   - 1.29 [Filter MCP Tools by Name Prefix for Agent Assignment](#129-filter-mcp-tools-by-name-prefix-for-agent-assignment)
-   - 1.30 [Configure local development environment to avoid cloud connection conflicts](#130-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
-   - 1.31 [Explicitly reference Newtonsoft.Json package](#131-explicitly-reference-newtonsoft-json-package)
-   - 1.32 [Use the Patch API for atomic counter increments](#132-use-the-patch-api-for-atomic-counter-increments)
-   - 1.33 [Configure Preferred Regions for Availability](#133-configure-preferred-regions-for-availability)
-   - 1.34 [Include aiohttp When Using Python Async SDK](#134-include-aiohttp-when-using-python-async-sdk)
-   - 1.35 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#135-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
-   - 1.36 [Handle 429 Errors with Retry-After](#136-handle-429-errors-with-retry-after)
-   - 1.37 [Use consistent enum serialization between Cosmos SDK and application layer](#137-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
-   - 1.38 [Reuse CosmosClient as Singleton](#138-reuse-cosmosclient-as-singleton)
-   - 1.39 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#139-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
-   - 1.40 [Use CosmosRepository correctly and handle Iterable return types](#140-use-cosmosrepository-correctly-and-handle-iterable-return-types)
+   - 1.17 [Configure local development environment to avoid cloud connection conflicts](#117-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
+   - 1.18 [Explicitly reference Newtonsoft.Json package](#118-explicitly-reference-newtonsoft-json-package)
+   - 1.19 [Use the Patch API for atomic counter increments](#119-use-the-patch-api-for-atomic-counter-increments)
+   - 1.20 [Configure Preferred Regions for Availability](#120-configure-preferred-regions-for-availability)
+   - 1.21 [Include aiohttp When Using Python Async SDK](#121-include-aiohttp-when-using-python-async-sdk)
+   - 1.22 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#122-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
+   - 1.23 [Handle 429 Errors with Retry-After](#123-handle-429-errors-with-retry-after)
+   - 1.24 [Use consistent enum serialization between Cosmos SDK and application layer](#124-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
+   - 1.25 [Reuse CosmosClient as Singleton](#125-reuse-cosmosclient-as-singleton)
+   - 1.26 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#126-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
+   - 1.27 [Use CosmosRepository correctly and handle Iterable return types](#127-use-cosmosrepository-correctly-and-handle-iterable-return-types)
+2. [Developer Tooling](#2-developer-tooling) — **MEDIUM**
+   - 2.1 [Use Azure Cosmos DB Emulator for local development and testing](#21-use-azure-cosmos-db-emulator-for-local-development-and-testing)
+   - 2.2 [Use Azure Cosmos DB VS Code extension for routine inspection and management](#22-use-azure-cosmos-db-vs-code-extension-for-routine-inspection-and-management)
 
 ---
 
@@ -723,7 +713,7 @@ Capture and log diagnostics from Cosmos DB responses, especially for slow or fai
 
 `CosmosException.Diagnostics` (type `CosmosDiagnostics`) is a first-class structured signal the SDK provides for debugging failures (RU spend, latency tails, 429s, region selection, and channel reuse). Demonstrating the pattern is not enough — it must be applied at the point of failure.
 
-**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A bare swallow (`catch (CosmosException) { }`, `catch (CosmosException) { return null; }`, `return default;`, `return new T();`, etc., without first surfacing `.Diagnostics`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
+**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A catch block that swallows the exception (e.g., `catch (CosmosException) { }`, or returning `null` / `default` / `new T()`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
 
 **Incorrect (ignoring diagnostics):**
 
@@ -881,7 +871,7 @@ Key diagnostic fields:
 
 **Detector (mechanical check):** For each `catch` clause whose declared type binds to `Microsoft.Azure.Cosmos.CosmosException` (or a subclass), verify the block body contains a member access ending in `.Diagnostics` on the caught variable. If absent, flag the catch-block source range. This is expressible as a Roslyn analyzer or a regex over `.cs` files (excluding `bin/`, `obj/`, and test directories).
 
-**Why it matters:** `Diagnostics` carries the RU charge, activity ID, the region the call hit, and the per-channel timing breakdown. On a 429 it also contains the back-end retry hints. Without it, the operator loses exactly the information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
+**Why it matters:** `RequestCharge` and `ActivityId` provide immediate cost/correlation context, and `Diagnostics` provides the detailed timeline, regions contacted, and retry/transient-failure context (on a 429 it also includes retry details). Without diagnostics, the operator loses the detailed information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
 
 Reference: [Capture diagnostics — Troubleshoot .NET SDK](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-dotnet-sdk#capture-diagnostics)
 
@@ -2419,927 +2409,7 @@ export PATH=$JAVA_HOME/bin:$PATH
 - [Spring Boot 2.7.x System Requirements](https://docs.spring.io/spring-boot/docs/2.7.x/reference/html/getting-started.html#getting-started-system-requirements)
 - [Azure Cosmos DB Java SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-java-v4)
 
-### 1.17 Initialize Async Cosmos DB Container Before CosmosDBSaver
-
-**Impact: HIGH** (prevents credential and event-loop errors in async applications)
-
-## Initialize Async Cosmos DB Container Before CosmosDBSaver
-
-**Impact: HIGH (prevents credential and event-loop errors in async applications)**
-
-When using `CosmosDBSaver` with the async Cosmos DB SDK, the container client must be created within an active async context (e.g., inside an `async def` function). Creating it at module level causes event-loop errors because the async credential and client require a running loop. Always initialize the async client inside your application's startup routine and recompile the LangGraph graph afterward.
-
-**Incorrect (module-level initialization — event loop not running):**
-
-```python
-from azure.cosmos.aio import CosmosClient as AsyncCosmosClient
-from azure.identity.aio import DefaultAzureCredential as AsyncDefaultAzureCredential
-from langchain_azure_cosmosdb import CosmosDBSaver
-
-# BAD: No event loop running at module import time
-credential = AsyncDefaultAzureCredential()
-client = AsyncCosmosClient(url, credential=credential)
-container = client.get_database_client("db").get_container_client("Checkpoints")
-checkpointer = CosmosDBSaver(container)  # May raise RuntimeError
-```
-
-**Incorrect (mixing sync credential with async client):**
-
-```python
-from azure.cosmos.aio import CosmosClient as AsyncCosmosClient
-from azure.identity import DefaultAzureCredential  # sync credential
-
-# BAD: Sync credential cannot be used with async CosmosClient
-credential = DefaultAzureCredential()
-client = AsyncCosmosClient(url, credential=credential)
-```
-
-**Correct (initialize in async startup function):**
-
-```python
-from azure.cosmos.aio import CosmosClient as AsyncCosmosClient
-from azure.identity.aio import DefaultAzureCredential as AsyncDefaultAzureCredential
-from langchain_azure_cosmosdb import CosmosDBSaver
-from langgraph.graph import StateGraph, MessagesState
-
-builder = StateGraph(MessagesState)
-# ... add nodes and edges ...
-graph = builder.compile(checkpointer=None)  # initial compile without persistence
-
-async def setup():
-    """Call during application startup (e.g., FastAPI lifespan)."""
-    global graph
-    credential = AsyncDefaultAzureCredential()
-    client = AsyncCosmosClient(cosmos_url, credential=credential)
-    database = client.get_database_client("MyDatabase")
-    container = database.get_container_client("Checkpoints")
-    checkpointer = CosmosDBSaver(container)
-    graph = builder.compile(checkpointer=checkpointer)
-```
-
-**Tip:** Keep a reference to the `AsyncCosmosClient` so you can close it gracefully on shutdown with `await client.close()`.
-
-Reference: [Azure Cosmos DB async Python SDK](https://learn.microsoft.com/python/api/azure-cosmos/azure.cosmos.aio?view=azure-python)
-
-### 1.18 Use CosmosDBSaver for LangGraph Checkpointing
-
-**Impact: HIGH** (enables persistent multi-turn conversation state across restarts)
-
-## Use CosmosDBSaver for LangGraph Checkpointing
-
-**Impact: HIGH (enables persistent multi-turn conversation state across restarts)**
-
-When building LangGraph agents that require multi-turn conversation persistence, use `CosmosDBSaver` from `langchain-azure-cosmosdb` as the checkpointer. This stores graph state in Cosmos DB, enabling conversations to survive process restarts and scale across multiple instances. The checkpointer requires an **async** container client — using a sync client will raise runtime errors.
-
-**Incorrect (using in-memory checkpointer — state lost on restart):**
-
-```python
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import StateGraph, MessagesState
-
-builder = StateGraph(MessagesState)
-# ... add nodes and edges ...
-
-# BAD: State is lost when the process restarts
-checkpointer = MemorySaver()
-graph = builder.compile(checkpointer=checkpointer)
-```
-
-**Incorrect (passing a sync container client — will fail at runtime):**
-
-```python
-from azure.cosmos import CosmosClient
-from langchain_azure_cosmosdb import CosmosDBSaver
-
-# BAD: CosmosDBSaver requires an async container client
-sync_client = CosmosClient(url, credential=credential)
-sync_container = sync_client.get_database_client("db").get_container_client("Checkpoints")
-checkpointer = CosmosDBSaver(sync_container)  # RuntimeError
-```
-
-**Correct (async container client with CosmosDBSaver):**
-
-```python
-from azure.cosmos.aio import CosmosClient as AsyncCosmosClient
-from azure.identity.aio import DefaultAzureCredential as AsyncDefaultAzureCredential
-from langchain_azure_cosmosdb import CosmosDBSaver
-from langgraph.graph import StateGraph, MessagesState
-
-builder = StateGraph(MessagesState)
-# ... add nodes and edges ...
-
-# Compile initially without checkpointer (setup may be async)
-graph = builder.compile(checkpointer=None)
-
-async def initialize_checkpointer():
-    credential = AsyncDefaultAzureCredential()
-    client = AsyncCosmosClient(cosmos_url, credential=credential)
-    database = client.get_database_client("MyDatabase")
-    container = database.get_container_client("Checkpoints")
-    checkpointer = CosmosDBSaver(container)
-    # Recompile graph with persistent checkpointer
-    return builder.compile(checkpointer=checkpointer)
-```
-
-Reference: [langchain-azure-cosmosdb documentation](https://python.langchain.com/docs/integrations/providers/azure_cosmos_db/)
-
-### 1.19 Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS
-
-**Impact: HIGH** (enables persistent multi-turn conversations that survive restarts and scale horizontally)
-
-## Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS
-
-**Impact: HIGH (enables persistent multi-turn conversations that survive restarts and scale horizontally)**
-
-When building conversational AI applications with LangChain.js, use `AzureCosmosDBNoSQLChatMessageHistory` to persist chat messages in Cosmos DB. This ensures conversations survive process restarts, enables horizontal scaling across multiple instances, and provides a queryable audit trail. Each conversation session is stored as a document identified by a `sessionId`, with the partition key enabling efficient retrieval.
-
-**Incorrect (in-memory history — lost on restart, no horizontal scaling):**
-
-```typescript
-import { ChatMessageHistory } from "langchain/memory";
-
-// BAD: Messages lost when process restarts or user hits different instance
-const history = new ChatMessageHistory();
-await history.addUserMessage("Hello");
-await history.addAIMessage("Hi there!");
-// Process restarts... conversation is gone
-```
-
-**Incorrect (wrong partition key — cross-partition queries for session lookup):**
-
-```typescript
-import { AzureCosmosDBNoSQLChatMessageHistory } from "@langchain/azure-cosmosdb";
-
-// BAD: If container partition key is /userId but you query by sessionId,
-// lookups become cross-partition scans
-const history = new AzureCosmosDBNoSQLChatMessageHistory({
-  endpoint: process.env.COSMOS_ENDPOINT,
-  credential,
-  databaseName: "mydb",
-  containerName: "chat-history", // partitioned by /userId
-  sessionId: "session-123",     // queries will fan out across partitions
-});
-```
-
-**Correct (persistent chat history with proper session isolation):**
-
-```typescript
-import { AzureCosmosDBNoSQLChatMessageHistory } from "@langchain/azure-cosmosdb";
-import { DefaultAzureCredential } from "@azure/identity";
-import { RunnableWithMessageHistory } from "@langchain/core/runnables";
-import { ChatOpenAI } from "@langchain/openai";
-
-const credential = new DefaultAzureCredential();
-
-const model = new ChatOpenAI({
-  azureOpenAIApiDeploymentName: "gpt-4o",
-});
-
-// Factory function creates history per session
-function getMessageHistory(sessionId: string) {
-  return new AzureCosmosDBNoSQLChatMessageHistory({
-    endpoint: process.env.COSMOS_ENDPOINT,
-    credential,
-    databaseName: "mydb",
-    containerName: "chat-history", // partition key should be /sessionId
-    sessionId,
-  });
-}
-
-// Wrap model with persistent history
-const withHistory = new RunnableWithMessageHistory({
-  runnable: model,
-  getMessageHistory,
-  inputMessagesKey: "input",
-  historyMessagesKey: "history",
-});
-
-// Invoke with session tracking — messages persist across restarts
-const response = await withHistory.invoke(
-  { input: "What did we discuss earlier?" },
-  { configurable: { sessionId: "user-123-session-456" } }
-);
-```
-
-**Container design tips:**
-- Use `/sessionId` as partition key for efficient single-session retrieval
-- Enable TTL to auto-expire old conversations (e.g., 30 days)
-- Use a composite index on `sessionId` + `_ts` if you query history by time range
-
-Reference: [LangChain.js Azure Cosmos DB Chat History](https://js.langchain.com/docs/integrations/chat_memory/azure_cosmosdb_nosql/)
-
-### 1.20 Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain
-
-**Impact: MEDIUM** (incorrect deployment name causes 404 errors or uses wrong model)
-
-## Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain
-
-**Impact: MEDIUM (incorrect deployment name causes 404 errors or uses wrong model)**
-
-When using `AzureOpenAIEmbeddings` with `@langchain/openai` in JavaScript/TypeScript, you must specify the Azure OpenAI **deployment name** (the name you chose when deploying the model in Azure AI Studio or via CLI) — not the bare model name. Azure OpenAI uses deployment names to route requests, and these can differ from the underlying model name. Passing a bare model name like `"text-embedding-3-small"` only works if your deployment happens to use that exact name.
-
-**Incorrect (using bare model name or wrong property):**
-
-```typescript
-import { AzureOpenAIEmbeddings } from "@langchain/openai";
-
-// BAD: "model" property is for OpenAI API, not Azure OpenAI
-const embeddings = new AzureOpenAIEmbeddings({
-  model: "text-embedding-3-small",  // Wrong property for Azure
-});
-
-// BAD: Using model name instead of deployment name
-const embeddings2 = new AzureOpenAIEmbeddings({
-  azureOpenAIApiDeploymentName: "text-embedding-3-small", // Only works if deployment has this exact name
-  azureOpenAIApiVersion: "2024-06-01",
-});
-
-// BAD: Missing API version — will use an outdated default
-const embeddings3 = new AzureOpenAIEmbeddings({
-  azureOpenAIApiDeploymentName: "my-embeddings",
-});
-```
-
-**Correct (explicit deployment name and API version):**
-
-```typescript
-import { AzureOpenAIEmbeddings } from "@langchain/openai";
-
-const embeddings = new AzureOpenAIEmbeddings({
-  azureOpenAIApiDeploymentName: "my-embedding-deployment", // Your actual deployment name
-  azureOpenAIApiVersion: "2024-06-01",
-  // Endpoint and key from environment variables:
-  // AZURE_OPENAI_API_INSTANCE_NAME or azureOpenAIApiInstanceName
-  // AZURE_OPENAI_API_KEY or azureOpenAIApiKey (if not using managed identity)
-});
-```
-
-**Correct (with managed identity — no API key needed):**
-
-```typescript
-import { AzureOpenAIEmbeddings } from "@langchain/openai";
-import { DefaultAzureCredential } from "@azure/identity";
-
-const credential = new DefaultAzureCredential();
-
-const embeddings = new AzureOpenAIEmbeddings({
-  azureOpenAIApiDeploymentName: "my-embedding-deployment",
-  azureOpenAIApiVersion: "2024-06-01",
-  azureOpenAIApiInstanceName: "my-openai-resource", // just the resource name, not full URL
-  credentials: credential,
-});
-```
-
-**Tip:** Verify your deployment name with `az cognitiveservices account deployment list --name <resource> --resource-group <rg> --query "[].name"`.
-
-Reference: [LangChain.js Azure OpenAI Embeddings](https://js.langchain.com/docs/integrations/text_embedding/azure_openai/)
-
-### 1.21 Prevent Filter Injection in JS/TS LangChain Vector Store Queries
-
-**Impact: CRITICAL** (prevents NoSQL injection attacks that can exfiltrate or corrupt data)
-
-## Prevent Filter Injection in JS/TS LangChain Vector Store Queries
-
-**Impact: CRITICAL (prevents NoSQL injection attacks that can exfiltrate or corrupt data)**
-
-When passing filter clauses to `AzureCosmosDBNoSQLVectorStore` similarity searches, **never** concatenate user input directly into the filter string. Cosmos DB NoSQL queries support parameterized queries with `@param` placeholders — always use these to safely inject user-provided values. Concatenated filters allow attackers to manipulate query logic, bypass tenant isolation, or extract unauthorized data.
-
-**Incorrect (string concatenation — SQL injection vulnerability):**
-
-```typescript
-import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
-
-async function searchByCategory(store: AzureCosmosDBNoSQLVectorStore, userInput: string) {
-  // CRITICAL VULNERABILITY: User can inject arbitrary SQL predicates
-  // e.g., userInput = "electronics' OR c.secret != '"
-  const results = await store.similaritySearch("find products", 10, {
-    filter: `c.category = '${userInput}'`,
-  });
-  return results;
-}
-
-// Also BAD: Template literals are just string concatenation
-async function searchByTenant(store: AzureCosmosDBNoSQLVectorStore, tenantId: string) {
-  const results = await store.similaritySearch("query", 10, {
-    filter: `c.tenantId = "${tenantId}"`,  // STILL INJECTABLE
-  });
-  return results;
-}
-```
-
-**Correct (parameterized queries with @param placeholders):**
-
-```typescript
-import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
-
-async function searchByCategory(store: AzureCosmosDBNoSQLVectorStore, userInput: string) {
-  // SAFE: Parameters are escaped by the SDK — no injection possible
-  const results = await store.similaritySearch("find products", 10, {
-    filter: "c.category = @category",
-    filterParams: [{ name: "@category", value: userInput }],
-  });
-  return results;
-}
-
-async function searchByTenant(store: AzureCosmosDBNoSQLVectorStore, tenantId: string) {
-  // SAFE: Multi-tenant isolation with parameterized filter
-  const results = await store.similaritySearch("query", 10, {
-    filter: "c.tenantId = @tenantId AND c.isActive = true",
-    filterParams: [{ name: "@tenantId", value: tenantId }],
-  });
-  return results;
-}
-
-// Multiple parameters
-async function searchFiltered(
-  store: AzureCosmosDBNoSQLVectorStore,
-  category: string,
-  minPrice: number
-) {
-  const results = await store.similaritySearch("query", 10, {
-    filter: "c.category = @category AND c.price >= @minPrice",
-    filterParams: [
-      { name: "@category", value: category },
-      { name: "@minPrice", value: minPrice },
-    ],
-  });
-  return results;
-}
-```
-
-**Why this matters:** In multi-tenant RAG applications, filter injection can bypass tenant isolation. An attacker providing `tenantA' OR '1'='1` as a tenant ID would access all tenants' data if the filter is concatenated.
-
-Reference: [Azure Cosmos DB Parameterized Queries](https://learn.microsoft.com/azure/cosmos-db/nosql/query/parameterized-queries)
-
-### 1.22 Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search
-
-**Impact: HIGH** (full-text and hybrid queries fail at runtime without container-level configuration)
-
-## Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search
-
-**Impact: HIGH (full-text and hybrid queries fail at runtime without container-level configuration)**
-
-Before using `FullTextSearch`, `Hybrid`, or `HybridScoreThreshold` search types with `AzureCosmosDBNoSQLVectorStore` in JavaScript/TypeScript, you must configure three things on your Cosmos DB container: (1) enable the full-text search capability on the account, (2) define a `fullTextPolicy` specifying which properties to index and their language, and (3) add `fullTextIndexes` entries to the indexing policy. Without all three, queries will fail with opaque errors.
-
-**Incorrect (attempting hybrid search on unconfigured container):**
-
-```typescript
-import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
-
-// Container created with only vector embedding policy — no full-text config
-const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
-  endpoint: process.env.COSMOS_ENDPOINT,
-  credential,
-  databaseName: "mydb",
-  containerName: "docs",
-});
-
-// FAILS: "Full-text search is not enabled" or similar runtime error
-const results = await store.similaritySearch("query", 10, {
-  searchType: "Hybrid",
-});
-```
-
-**Correct (container configured with full-text policy and indexes):**
-
-First, configure the container (via ARM/Bicep/Terraform or CLI):
-
-```json
-{
-  "containerProperties": {
-    "id": "docs",
-    "partitionKey": { "paths": ["/tenantId"], "kind": "Hash" },
-    "fullTextPolicy": {
-      "defaultLanguage": "en-US",
-      "fullTextPaths": [
-        { "path": "/content", "language": "en-US" },
-        { "path": "/title", "language": "en-US" }
-      ]
-    },
-    "indexingPolicy": {
-      "includedPaths": [{ "path": "/*" }],
-      "excludedPaths": [{ "path": "/embedding/*" }],
-      "fullTextIndexes": [
-        { "path": "/content" },
-        { "path": "/title" }
-      ],
-      "vectorIndexes": [
-        { "path": "/embedding", "type": "diskANN" }
-      ]
-    },
-    "vectorEmbeddingPolicy": {
-      "vectorEmbeddings": [
-        {
-          "path": "/embedding",
-          "dataType": "float32",
-          "distanceFunction": "cosine",
-          "dimensions": 1536
-        }
-      ]
-    }
-  }
-}
-```
-
-Then use hybrid search in your application:
-
-```typescript
-import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
-import { AzureOpenAIEmbeddings } from "@langchain/openai";
-import { DefaultAzureCredential } from "@azure/identity";
-
-const embeddings = new AzureOpenAIEmbeddings({
-  azureOpenAIApiDeploymentName: "text-embedding-3-small",
-});
-
-const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
-  endpoint: process.env.COSMOS_ENDPOINT,
-  credential: new DefaultAzureCredential(),
-  databaseName: "mydb",
-  containerName: "docs",  // container has fullTextPolicy + fullTextIndexes
-});
-
-// Now hybrid search works — combines vector similarity with BM25 keyword matching
-const results = await store.similaritySearch("specific keyword plus semantic meaning", 10, {
-  searchType: "Hybrid",
-});
-```
-
-**Checklist before enabling full-text/hybrid search:**
-1. Account has full-text search capability enabled (`az cosmosdb update --capabilities EnableNoSQLFullTextSearch`)
-2. Container has `fullTextPolicy` with paths and languages defined
-3. Container indexing policy has `fullTextIndexes` for the same paths
-4. Container has `vectorEmbeddingPolicy` and `vectorIndexes` (for hybrid)
-
-Reference: [Azure Cosmos DB Full-Text Search](https://learn.microsoft.com/azure/cosmos-db/nosql/query/full-text-search)
-
-### 1.23 Use Managed Identity for JS/TS LangChain Cosmos DB Integration
-
-**Impact: CRITICAL** (zero-secret authentication eliminates credential leakage risk)
-
-## Use Managed Identity for JS/TS LangChain Cosmos DB Integration
-
-**Impact: CRITICAL (zero-secret authentication eliminates credential leakage risk)**
-
-In production JavaScript/TypeScript applications using `@langchain/azure-cosmosdb`, always authenticate with `DefaultAzureCredential` from `@azure/identity` instead of connection strings. Connection strings contain master keys that grant full access — if leaked, they compromise the entire account. Managed identity provides automatic credential rotation and least-privilege access via RBAC roles.
-
-**Incorrect (connection string in production):**
-
-```typescript
-import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
-import { AzureOpenAIEmbeddings } from "@langchain/openai";
-
-const embeddings = new AzureOpenAIEmbeddings({
-  azureOpenAIApiDeploymentName: "text-embedding-3-small",
-});
-
-// BAD: Connection string contains master key — full account access if leaked
-const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
-  connectionString: process.env.COSMOS_CONNECTION_STRING,
-  databaseName: "mydb",
-  containerName: "vectors",
-});
-```
-
-**Correct (endpoint + DefaultAzureCredential):**
-
-```typescript
-import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
-import { AzureOpenAIEmbeddings } from "@langchain/openai";
-import { DefaultAzureCredential } from "@azure/identity";
-
-const embeddings = new AzureOpenAIEmbeddings({
-  azureOpenAIApiDeploymentName: "text-embedding-3-small",
-});
-
-// GOOD: No secrets in code or config; works with system/user-assigned managed identity
-const credential = new DefaultAzureCredential();
-const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
-  endpoint: process.env.COSMOS_ENDPOINT, // e.g., "https://myaccount.documents.azure.com:443/"
-  credential,
-  databaseName: "mydb",
-  containerName: "vectors",
-});
-```
-
-**Required RBAC setup:** Assign the `Cosmos DB Built-in Data Contributor` role to your app's managed identity:
-
-```bash
-az cosmosdb sql role assignment create \
-  --account-name myaccount \
-  --resource-group myrg \
-  --role-definition-id 00000000-0000-0000-0000-000000000002 \
-  --principal-id <managed-identity-object-id> \
-  --scope "/"
-```
-
-**Note:** When using RBAC, the database and container must be pre-created (via Bicep, Terraform, or CLI) — the SDK cannot create resources with data-plane-only permissions.
-
-Reference: [Azure Cosmos DB RBAC with Azure Identity](https://learn.microsoft.com/azure/cosmos-db/nosql/security/how-to-grant-data-plane-role-based-access)
-
-### 1.24 Choose the Correct Search Type for JS/TS LangChain Vector Store
-
-**Impact: HIGH** (selecting wrong search type returns irrelevant results or causes errors)
-
-## Choose the Correct Search Type for JS/TS LangChain Vector Store
-
-**Impact: HIGH (selecting wrong search type returns irrelevant results or causes errors)**
-
-The `@langchain/azure-cosmosdb` package supports multiple search types via `AzureCosmosDBNoSQLVectorStore`. Choose the appropriate type based on your retrieval needs. Using full-text or hybrid search requires pre-configured `fullTextPolicy` and `fullTextIndexes` on the container — otherwise queries will fail at runtime.
-
-| Search Type | Use Case | Requires Full-Text Config |
-|---|---|---|
-| `Vector` | Pure semantic similarity (default) | No |
-| `VectorScoreThreshold` | Semantic with minimum relevance cutoff | No |
-| `FullTextSearch` | Keyword/BM25 matching only | Yes |
-| `Hybrid` | Vector + full-text combined (RRF fusion) | Yes |
-| `HybridScoreThreshold` | Hybrid with minimum score cutoff | Yes |
-
-**Incorrect (using hybrid search without full-text configuration):**
-
-```typescript
-import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
-
-const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
-  endpoint: process.env.COSMOS_ENDPOINT,
-  credential,
-  databaseName: "mydb",
-  containerName: "vectors", // container has NO fullTextPolicy configured
-});
-
-// BAD: Will fail — container doesn't have full-text indexes
-const results = await store.similaritySearch("query", 10, {
-  searchType: "Hybrid",
-});
-```
-
-**Correct (vector search — no special container config needed):**
-
-```typescript
-import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
-
-const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
-  endpoint: process.env.COSMOS_ENDPOINT,
-  credential,
-  databaseName: "mydb",
-  containerName: "vectors",
-});
-
-// Pure vector similarity search
-const results = await store.similaritySearch("semantic query", 5);
-
-// With score threshold — only return results above 0.7 similarity
-const filtered = await store.similaritySearchWithScore("semantic query", 10, {
-  searchType: "VectorScoreThreshold",
-  scoreThreshold: 0.7,
-});
-```
-
-**Correct (hybrid search — container has fullTextPolicy and fullTextIndexes):**
-
-```typescript
-// Container must have fullTextPolicy and fullTextIndexes configured FIRST
-const results = await store.similaritySearch("keyword and semantic query", 10, {
-  searchType: "Hybrid",
-});
-```
-
-Reference: [LangChain.js Azure Cosmos DB NoSQL Vector Store](https://js.langchain.com/docs/integrations/vectorstores/azure_cosmosdb_nosql/)
-
-### 1.25 Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS
-
-**Impact: MEDIUM** (reduces LLM API costs and latency by caching semantically similar queries)
-
-## Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS
-
-**Impact: MEDIUM (reduces LLM API costs and latency by caching semantically similar queries)**
-
-When building LLM-powered applications with LangChain.js, use `AzureCosmosDBNoSQLSemanticCache` to cache LLM responses in Cosmos DB. Unlike exact-match caches, semantic cache uses vector similarity to return cached responses for queries that are semantically similar (not just identical). This reduces LLM API costs for repeated or paraphrased queries and cuts response latency from seconds to milliseconds.
-
-**Incorrect (no caching — every request hits the LLM):**
-
-```typescript
-import { ChatOpenAI } from "@langchain/openai";
-
-const model = new ChatOpenAI({
-  azureOpenAIApiDeploymentName: "gpt-4o",
-});
-
-// BAD: Every call pays full LLM cost, even for repeated/similar questions
-const response1 = await model.invoke("What is Azure Cosmos DB?");
-const response2 = await model.invoke("Tell me about Azure Cosmos DB"); // Pays again
-```
-
-**Incorrect (exact-match cache misses paraphrased queries):**
-
-```typescript
-import { InMemoryCache } from "langchain/cache";
-
-const model = new ChatOpenAI({
-  azureOpenAIApiDeploymentName: "gpt-4o",
-  cache: new InMemoryCache(), // Only matches exact string — misses paraphrases
-});
-```
-
-**Correct (semantic cache with Cosmos DB):**
-
-```typescript
-import { AzureCosmosDBNoSQLSemanticCache } from "@langchain/azure-cosmosdb";
-import { AzureOpenAIEmbeddings, ChatOpenAI } from "@langchain/openai";
-import { DefaultAzureCredential } from "@azure/identity";
-
-const credential = new DefaultAzureCredential();
-
-const embeddings = new AzureOpenAIEmbeddings({
-  azureOpenAIApiDeploymentName: "text-embedding-3-small",
-  azureOpenAIApiVersion: "2024-06-01",
-});
-
-const cache = new AzureCosmosDBNoSQLSemanticCache(embeddings, {
-  endpoint: process.env.COSMOS_ENDPOINT,
-  credential,
-  databaseName: "mydb",
-  containerName: "semantic-cache",
-  similarityScoreThreshold: 0.8, // Only return cache hits above 80% similarity
-});
-
-const model = new ChatOpenAI({
-  azureOpenAIApiDeploymentName: "gpt-4o",
-  cache, // Semantically similar queries return cached responses
-});
-
-// Second call with paraphrased question hits cache — no LLM API call
-const response1 = await model.invoke("What is Azure Cosmos DB?");
-const response2 = await model.invoke("Tell me about Azure Cosmos DB"); // Cache hit!
-```
-
-**Container requirements:** The cache container needs a vector embedding policy configured for the embedding dimension (e.g., 1536 for text-embedding-3-small). Use TTL on the container to auto-expire stale cache entries.
-
-Reference: [LangChain.js Azure Cosmos DB Semantic Cache](https://js.langchain.com/docs/integrations/llm_caching/azure_cosmosdb_nosql/)
-
-### 1.26 Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript
-
-**Impact: HIGH** (prevents runtime connection failures and misconfigured vector stores)
-
-## Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript
-
-**Impact: HIGH (prevents runtime connection failures and misconfigured vector stores)**
-
-When using `@langchain/azure-cosmosdb` in JavaScript/TypeScript, initialize `AzureCosmosDBNoSQLVectorStore` with either a connection string (development) or endpoint + `DefaultAzureCredential` (production). The target database and container must already exist when using RBAC/managed identity — the SDK will not auto-create them. Always pass the embedding model instance at construction time.
-
-**Incorrect (missing embedding model, relying on auto-create with RBAC):**
-
-```typescript
-import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
-
-// BAD: No embedding model provided — store cannot generate vectors
-const store = new AzureCosmosDBNoSQLVectorStore({
-  connectionString: process.env.COSMOS_CONNECTION_STRING,
-  databaseName: "mydb",
-  containerName: "vectors",
-});
-
-// BAD: With RBAC, database/container must pre-exist — SDK cannot create them
-const store2 = new AzureCosmosDBNoSQLVectorStore(embeddings, {
-  endpoint: process.env.COSMOS_ENDPOINT,
-  databaseName: "nonexistent-db",
-  containerName: "nonexistent-container",
-});
-```
-
-**Correct (connection string for development):**
-
-```typescript
-import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
-import { AzureOpenAIEmbeddings } from "@langchain/openai";
-
-const embeddings = new AzureOpenAIEmbeddings({
-  azureOpenAIApiDeploymentName: "text-embedding-3-small",
-});
-
-const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
-  connectionString: process.env.COSMOS_CONNECTION_STRING,
-  databaseName: "mydb",
-  containerName: "vectors",
-});
-```
-
-**Correct (managed identity for production — database/container pre-created):**
-
-```typescript
-import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
-import { AzureOpenAIEmbeddings } from "@langchain/openai";
-import { DefaultAzureCredential } from "@azure/identity";
-
-const embeddings = new AzureOpenAIEmbeddings({
-  azureOpenAIApiDeploymentName: "text-embedding-3-small",
-});
-
-const credential = new DefaultAzureCredential();
-const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
-  endpoint: process.env.COSMOS_ENDPOINT,
-  credential,
-  databaseName: "mydb",       // must already exist
-  containerName: "vectors",   // must already exist with vector policy
-});
-```
-
-Reference: [LangChain.js Azure Cosmos DB Integration](https://js.langchain.com/docs/integrations/vectorstores/azure_cosmosdb_nosql/)
-
-### 1.27 Use Persistent MCP Client Sessions for Multi-Agent Applications
-
-**Impact: HIGH** (prevents session initialization overhead and connection churn)
-
-## Use Persistent MCP Client Sessions for Multi-Agent Applications
-
-**Impact: HIGH (prevents session initialization overhead and connection churn)**
-
-When using `MultiServerMCPClient` with LangGraph agents, avoid creating a new client instance per request. MCP sessions involve transport negotiation, tool discovery, and server handshakes. Creating a client per request adds latency and may exhaust server connection limits.
-
-**Note:** The API changed significantly in `langchain-mcp-adapters >= 0.2.0`. The persistent session pattern (manual `__aenter__`/`__aexit__`) only applies to versions `< 0.2.0`. In `>= 0.2.0`, sessions are managed internally per call via `get_tools()`.
-
-**Incorrect (new client per request — high overhead, applies to all versions):**
-
-```python
-from langchain_mcp_adapters.client import MultiServerMCPClient
-
-async def handle_request(user_input):
-    # BAD: Creates a new client (and underlying sessions) for every single request
-    client = MultiServerMCPClient({
-        "my_server": {"transport": "streamable_http", "url": "http://localhost:8080/mcp"}
-    })
-    tools = await client.get_tools()
-    # ... invoke agent ...
-    # Client discarded, next request pays setup cost again
-```
-
-**Correct (>= 0.2.0 — single client instance, get_tools() manages sessions internally):**
-
-```python
-from langchain_mcp_adapters.client import MultiServerMCPClient
-
-_mcp_client: MultiServerMCPClient | None = None
-
-async def setup_mcp():
-    """Call once during application startup."""
-    global _mcp_client
-    _mcp_client = MultiServerMCPClient({
-        "my_server": {
-            "transport": "streamable_http",
-            "url": f"{MCP_SERVER_BASE_URL}/mcp",
-        }
-    })
-    # get_tools() creates a per-call session under the hood
-    tools = await _mcp_client.get_tools()
-    return tools
-
-# No explicit cleanup needed — sessions are per-call in >= 0.2.0
-```
-
-**Correct (< 0.2.0 only — persistent session initialized once at startup):**
-
-```python
-from langchain_mcp_adapters.client import MultiServerMCPClient
-from langchain_mcp_adapters.tools import load_mcp_tools
-
-_mcp_client = None
-_session_context = None
-_persistent_session = None
-
-async def setup_mcp():
-    """Call once during application startup (< 0.2.0 API only)."""
-    global _mcp_client, _session_context, _persistent_session
-
-    _mcp_client = MultiServerMCPClient({
-        "my_server": {"transport": "streamable_http", "url": mcp_server_url}
-    })
-    _session_context = _mcp_client.session("my_server")
-    _persistent_session = await _session_context.__aenter__()
-
-    # Load tools once — they remain valid for the session lifetime
-    tools = await load_mcp_tools(_persistent_session)
-    return tools
-
-async def cleanup_mcp():
-    """Call during application shutdown (< 0.2.0 API only)."""
-    global _session_context, _persistent_session
-    if _session_context and _persistent_session:
-        await _session_context.__aexit__(None, None, None)
-        _session_context = None
-        _persistent_session = None
-```
-
-**Tip:** Wrap the session setup in retry logic with exponential backoff for production deployments where the MCP server may take time to become ready.
-
-Reference: [langchain-mcp-adapters documentation](https://github.com/langchain-ai/langchain-mcp-adapters)
-
-### 1.28 Handle MCP ToolMessage Content Format Variations
-
-**Impact: HIGH** (prevents JSON parse failures from langchain-mcp-adapters >= 0.2.0)
-
-## Handle MCP ToolMessage Content Format Variations
-
-**Impact: HIGH (prevents JSON parse failures from langchain-mcp-adapters >= 0.2.0)**
-
-Starting with `langchain-mcp-adapters` 0.2.0, `ToolMessage.content` changed from a plain JSON string to a list of content blocks (e.g., `[{"type": "text", "text": "..."}]`). Any code that parses `ToolMessage.content` must handle both formats to remain compatible across versions and avoid `json.JSONDecodeError` or `TypeError`.
-
-**Incorrect (assumes content is always a string):**
-
-```python
-import json
-from langchain_core.messages import ToolMessage
-
-def extract_routing_info(message: ToolMessage):
-    # BAD: Fails when content is a list (langchain-mcp-adapters >= 0.2.0)
-    data = json.loads(message.content)
-    return data.get("goto")
-```
-
-Error with newer adapter versions:
-```
-TypeError: the JSON object must be str, bytes or bytearray, not list
-```
-
-**Correct (handles both string and list formats):**
-
-```python
-import json
-from langchain_core.messages import ToolMessage
-
-def extract_routing_info(message: ToolMessage):
-    content = message.content
-
-    # Handle list-of-blocks format (langchain-mcp-adapters >= 0.2.0)
-    if isinstance(content, list):
-        text_parts = [block["text"] for block in content if block.get("type") == "text"]
-        content = text_parts[0] if text_parts else ""
-
-    # Now content is a plain string — safe to parse
-    data = json.loads(content)
-    return data.get("goto")
-```
-
-**When this matters:** Any time you inspect tool call results programmatically — for example, to extract routing decisions, parse structured responses, or implement conditional logic based on tool outputs.
-
-Reference: [langchain-mcp-adapters changelog](https://github.com/langchain-ai/langchain-mcp-adapters)
-
-### 1.29 Filter MCP Tools by Name Prefix for Agent Assignment
-
-**Impact: MEDIUM** (reduces agent confusion and improves routing accuracy)
-
-## Filter MCP Tools by Name Prefix for Agent Assignment
-
-**Impact: MEDIUM (reduces agent confusion and improves routing accuracy)**
-
-When a single MCP server exposes tools for multiple domains, assign each LangGraph agent only the subset of tools it needs. Use a name-prefix convention on the server side (e.g., `get_transaction_history`, `get_offer_information`, `transfer_to_sales_agent`) and filter client-side by prefix. This prevents agents from calling tools outside their domain and reduces prompt confusion from irrelevant tool descriptions.
-
-**Incorrect (all agents receive all tools):**
-
-```python
-from langchain_mcp_adapters.tools import load_mcp_tools
-from langgraph.prebuilt import create_react_agent
-
-all_tools = await load_mcp_tools(session)
-
-# BAD: Every agent sees every tool — leads to wrong tool calls
-support_agent = create_react_agent(model, all_tools, prompt=support_prompt)
-sales_agent = create_react_agent(model, all_tools, prompt=sales_prompt)
-transactions_agent = create_react_agent(model, all_tools, prompt=transactions_prompt)
-```
-
-**Correct (filter tools by prefix per agent):**
-
-```python
-from langchain_mcp_adapters.tools import load_mcp_tools
-from langgraph.prebuilt import create_react_agent
-
-all_tools = await load_mcp_tools(session)
-
-def filter_tools_by_prefix(tools, prefixes):
-    """Return only tools whose name starts with one of the given prefixes."""
-    return [t for t in tools if any(t.name.startswith(p) for p in prefixes)]
-
-# Each agent gets only the tools relevant to its domain
-support_tools = filter_tools_by_prefix(all_tools, [
-    "service_request", "get_branch_location", "transfer_to_"
-])
-sales_tools = filter_tools_by_prefix(all_tools, [
-    "get_offer_information", "create_account", "calculate_monthly_payment", "transfer_to_"
-])
-transactions_tools = filter_tools_by_prefix(all_tools, [
-    "bank_transfer", "get_transaction_history", "bank_balance", "transfer_to_"
-])
-
-support_agent = create_react_agent(model, support_tools, prompt=support_prompt)
-sales_agent = create_react_agent(model, sales_tools, prompt=sales_prompt)
-transactions_agent = create_react_agent(model, transactions_tools, prompt=transactions_prompt)
-```
-
-**Naming convention tip:** Include `transfer_to_` prefixed tools in each agent's set so agents can hand off conversations to other agents via the routing mechanism.
-
-Reference: [LangGraph prebuilt agents](https://langchain-ai.github.io/langgraph/reference/prebuilt/)
-
-### 1.30 Configure local development environment to avoid cloud connection conflicts
+### 1.17 Configure local development environment to avoid cloud connection conflicts
 
 **Impact: MEDIUM** (prevents accidental connections to production instead of emulator)
 
@@ -3510,7 +2580,7 @@ azure:
 
 Reference: [Azure Cosmos DB Emulator](https://learn.microsoft.com/azure/cosmos-db/emulator)
 
-### 1.31 Explicitly reference Newtonsoft.Json package
+### 1.18 Explicitly reference Newtonsoft.Json package
 
 **Impact: HIGH** (Prevents build failures and security vulnerabilities from missing or outdated Newtonsoft.Json dependency)
 
@@ -3614,7 +2684,7 @@ Solution:
 
 Reference: [Managing Newtonsoft.Json Dependencies](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-dotnet-sdk-v3?tabs=trace-net-core#managing-newtonsoftjson-dependencies)
 
-### 1.32 Use the Patch API for atomic counter increments
+### 1.19 Use the Patch API for atomic counter increments
 
 **Impact: HIGH** (eliminates read-modify-write for counters; reduces RU cost and eliminates concurrency conflicts)
 
@@ -3685,7 +2755,7 @@ return container.patchItem(videoId, new PartitionKey(videoId), ops, Video.class)
 
 Reference: [Partial document update (Patch API)](https://learn.microsoft.com/azure/cosmos-db/partial-document-update)
 
-### 1.33 Configure Preferred Regions for Availability
+### 1.20 Configure Preferred Regions for Availability
 
 **Impact: HIGH** (enables automatic failover, reduces latency)
 
@@ -3781,7 +2851,7 @@ Best practices:
 
 Reference: [Configure preferred regions](https://learn.microsoft.com/azure/cosmos-db/nosql/tutorial-global-distribution)
 
-### 1.34 Include aiohttp When Using Python Async SDK
+### 1.21 Include aiohttp When Using Python Async SDK
 
 **Impact: HIGH** (prevents application startup failure)
 
@@ -3829,7 +2899,7 @@ from azure.cosmos import CosmosClient
 
 Reference: [Azure Cosmos DB Python SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-python)
 
-### 1.35 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
+### 1.22 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
 
 **Impact: HIGH** (causes wrong partition key to be sent, producing silent data corruption or 400/404 errors)
 
@@ -3888,7 +2958,7 @@ usersContainer.createItem(
 
 Reference: [Java SDK createItem](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-get-started)
 
-### 1.36 Handle 429 Errors with Retry-After
+### 1.23 Handle 429 Errors with Retry-After
 
 **Impact: HIGH** (prevents cascading failures)
 
@@ -4005,7 +3075,7 @@ await Task.WhenAll(tasks);
 
 Reference: [Handle rate limiting](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-request-rate-too-large)
 
-### 1.37 Use consistent enum serialization between Cosmos SDK and application layer
+### 1.24 Use consistent enum serialization between Cosmos SDK and application layer
 
 **Impact: critical** (undefined)
 
@@ -4126,7 +3196,7 @@ await container.create_item(body=doc.model_dump(by_alias=True, mode="json"))
 - Point reads work but filtered queries don't
 - API returns different enum format than stored in Cosmos DB
 
-### 1.38 Reuse CosmosClient as Singleton
+### 1.25 Reuse CosmosClient as Singleton
 
 **Impact: CRITICAL** (prevents connection exhaustion)
 
@@ -4318,7 +3388,7 @@ async fn list_orders(
 
 Reference: [CosmosClient best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-dotnet)
 
-### 1.39 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
+### 1.26 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
 
 **Impact: CRITICAL** (prevents startup failures and data access errors in Spring Data Cosmos applications)
 
@@ -4434,7 +3504,7 @@ Add `@JsonIgnoreProperties(ignoreUnknown = true)` to every Cosmos entity class s
 
 Reference: [Spring Data Azure Cosmos DB annotations](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-spring-data)
 
-### 1.40 Use CosmosRepository correctly and handle Iterable return types
+### 1.27 Use CosmosRepository correctly and handle Iterable return types
 
 **Impact: HIGH** (prevents ClassCastException and query failures in Spring Data Cosmos repositories)
 
@@ -4524,6 +3594,79 @@ Pet getPetById(String id);
 **Update all callers** — controllers, tests, formatters, and other services must reference the renamed methods.
 
 Reference: [Spring Data Azure Cosmos DB repository](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-spring-data#define-a-repository)
+
+---
+
+## 2. Developer Tooling
+
+**Impact: MEDIUM**
+
+### 2.1 Use Azure Cosmos DB Emulator for local development and testing
+
+**Impact: MEDIUM** (prevents accidental cloud usage and speeds up local iteration)
+
+## Use Azure Cosmos DB Emulator for Local Development and Testing
+
+Prefer the Azure Cosmos DB Emulator for local development, exploratory testing, and repeatable developer workflows. It avoids cloud cost during local work, keeps feedback loops fast, and reduces the risk of accidentally using shared or production resources while iterating.
+
+**Incorrect (local development against cloud resources by default):**
+
+```yaml
+# Local development profile
+azure:
+  cosmos:
+    endpoint: https://my-prod-account.documents.azure.com:443/
+    key: ${COSMOS_KEY}
+```
+
+**Correct (default local development to the emulator):**
+
+```yaml
+# Local development profile
+azure:
+  cosmos:
+    endpoint: https://localhost:8081/
+    key: C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==
+```
+
+Run the emulator locally or in Docker, and keep production endpoints in environment-specific profiles or deployment configuration. For SDK-specific SSL and gateway-mode details, also apply the linked emulator configuration rules.
+
+Related rules:
+- `sdk-emulator-ssl`
+- `sdk-local-dev-config`
+
+Reference: [Use the Azure Cosmos DB Emulator for local development](https://learn.microsoft.com/azure/cosmos-db/emulator)
+
+### 2.2 Use Azure Cosmos DB VS Code extension for routine inspection and management
+
+**Impact: MEDIUM** (speeds up data inspection and reduces one-off scripts for routine tasks)
+
+## Use Azure Cosmos DB VS Code Extension for Routine Inspection and Management
+
+For day-to-day inspection tasks, prefer the Azure Cosmos DB VS Code extension over ad hoc scripts or direct SDK calls. The extension is faster for browsing accounts, querying containers, inspecting items, and validating local-versus-cloud data without introducing disposable code into the repository.
+
+**Incorrect (writing one-off code for routine inspection):**
+
+```bash
+# Need to inspect a few items or verify a container layout
+# Result: write a throwaway script just to browse data
+node inspect-cosmos.js
+python list_items.py
+```
+
+**Correct (use the extension for routine inspection first):**
+
+```text
+1. Install the Azure Cosmos DB VS Code extension:
+   ms-azuretools.vscode-cosmosdb
+2. Use the extension to connect to the target account or emulator.
+3. Browse databases, containers, and items directly in VS Code.
+4. Run exploratory queries there before deciding whether permanent code is needed.
+```
+
+Use code only when the task is repeatable, automated, or belongs in the product. For one-off inspection, prefer the tool built for inspection.
+
+Reference: [Azure Cosmos DB extension for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-cosmosdb)
 
 ---
 

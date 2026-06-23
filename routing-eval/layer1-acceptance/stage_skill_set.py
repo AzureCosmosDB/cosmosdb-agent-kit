@@ -7,7 +7,7 @@ or deleted; you point the agent runtime at the staged root for that arm.
 
 Arms:
   --arm monolith   copy only cosmosdb-best-practices (baseline; no routing choice)
-  --arm split      copy only the 13 topic skills (candidate; agent must route)
+  --arm split      copy only the 4 topic skills (candidate; agent must route)
 
 Example:
   python routing-eval/layer1-acceptance/stage_skill_set.py --arm monolith --out .tmp/skills-monolith

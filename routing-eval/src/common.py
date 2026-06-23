@@ -60,7 +60,7 @@ def _parse_frontmatter(skill_md: Path) -> dict:
 def load_skills(include_monolith: bool) -> list[Skill]:
     """Load every skill's name + description from skills/*/SKILL.md.
 
-    Set include_monolith=False for the "split" arm (the 13 topic skills only),
+    Set include_monolith=False for the "split" arm (the 4 topic skills only),
     True for the "all" arm (topic skills plus the monolith catch-all).
     """
     skills: list[Skill] = []

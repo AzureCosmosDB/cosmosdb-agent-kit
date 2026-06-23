@@ -11,7 +11,7 @@ every misroute (which skill stole the prompt). That tells you exactly which
 descriptions to sharpen, rather than just a lower aggregate number.
 
 Two arms:
-  --arm split   the 13 topic skills only (no monolith)   [default]
+  --arm split   the 4 topic skills only (no monolith)   [default]
   --arm all     topic skills plus the monolith catch-all
 
 In the "all" arm, a prompt routed to the monolith counts as a miss against a
@@ -160,7 +160,7 @@ def print_report(summary: dict) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Routing classifier (Layer 2 diagnostic).")
     parser.add_argument("--arm", choices=["split", "all"], default="split",
-                        help="split = 13 topic skills only; all = topic skills + monolith")
+                        help="split = 4 topic skills only; all = topic skills + monolith")
     parser.add_argument("--model", default=common.default_model(), help="model id (provider-specific)")
     parser.add_argument("--limit", type=int, default=None, help="only run the first N prompts")
     parser.add_argument("--out", default=None, help="path to write the JSON report")
