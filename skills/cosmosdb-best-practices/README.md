@@ -4,7 +4,9 @@ Azure Cosmos DB best practices for AI coding agents, following the [Agent Skills
 
 ## Overview
 
-This skill contains 118 rules across 13 categories, ordered by impact:
+This skill currently contains 127 rules across 13 categories and serves as the broad, catch-all Cosmos DB skill.
+
+This monolith skill remains available for broad prompts while focused skills (for example SDK, query, indexing, and security) are also shipped for narrower prompts.
 
 | Category | Impact | Description |
 |----------|--------|-------------|
@@ -20,21 +22,17 @@ This skill contains 118 rules across 13 categories, ordered by impact:
 | Developer Tooling | MEDIUM | Emulator and extension guidance for day-to-day work |
 | Vector Search | HIGH | Semantic search and RAG-related configuration |
 | Full-Text Search | HIGH | Keyword matching, BM25 ranking, and hybrid search configuration |
-| Security | CRITICAL | Authentication, RBAC, network isolation, and backup configuration |
+| Security | HIGH | Authentication, RBAC, network isolation, and backup configuration |
 
 ## Installation
 
-### Using add-skill (Recommended)
+### Using add-skill (recommended)
 
 ```bash
 npx skills add AzureCosmosDB/cosmosdb-agent-kit
 ```
 
-This installs the skill into your `.copilot/skills/` directory.
-
 ### Manual Installation
-
-Clone this repository and copy the skill:
 
 ```bash
 git clone https://github.com/AzureCosmosDB/cosmosdb-agent-kit.git
@@ -49,110 +47,80 @@ cp -r skills/cosmosdb-best-practices ~/.claude/skills/
 
 ## File Structure
 
-```
+```text
 skills/cosmosdb-best-practices/
-├── SKILL.md              # Skill definition (triggers agent activation)
-├── AGENTS.md             # Compiled rules (what agents read)
-├── metadata.json         # Version and metadata
-├── README.md             # This file
-└── rules/
-    ├── _sections.md      # Section definitions
-    ├── _template.md      # Template for new rules
-    ├── model-*.md        # Data modeling rules
-    ├── partition-*.md    # Partition key rules
-    ├── query-*.md        # Query optimization rules
-    ├── sdk-*.md          # SDK best practices rules
-    ├── index-*.md        # Indexing rules
-    ├── throughput-*.md   # Throughput rules
-    ├── global-*.md       # Global distribution rules
-    ├── monitoring-*.md   # Monitoring rules
-    ├── pattern-*.md      # Design pattern rules
-    ├── tooling-*.md      # Developer tooling rules
-    ├── vector-*.md       # Vector search rules
-    └── fts-*.md          # Full-text search rules
+|- SKILL.md
+|- AGENTS.md
+|- metadata.json
+|- README.md
+`- rules/
+   |- _sections.md
+   |- _template.md
+   |- model-*.md
+   |- partition-*.md
+   |- query-*.md
+   |- sdk-*.md
+   |- index-*.md
+   |- throughput-*.md
+   |- global-*.md
+   |- monitoring-*.md
+   |- pattern-*.md
+   |- tooling-*.md
+   |- vector-*.md
+   |- fts-*.md
+   `- security-*.md
 ```
 
 ## How It Works
 
-When you're working on Cosmos DB code, AI coding agents (Claude Code, GitHub Copilot, Gemini CLI, etc.) that support Agent Skills will automatically:
+Agents typically use SKILL.md for routing and AGENTS.md for compiled guidance.
 
-1. Detect the skill based on `SKILL.md` triggers
-2. Load `SKILL.md` as the lightweight index
-3. Follow linked rule files in `rules/` as needed
-4. Apply best practices while generating or reviewing code
+- SKILL.md: routing cues and high-level intent matching
+- rules/: source-of-truth rule authoring files
+- AGENTS.md: generated, consolidated runtime-friendly document
 
-`AGENTS.md` remains the compiled version of the full guidance for environments that want one monolithic document.
+## Build and Validate
 
-## Compiling Rules
+Compile this skill:
 
-To rebuild `AGENTS.md` from individual rules:
+```bash
+npm run build:skill -- cosmosdb-best-practices
+```
+
+Validate this skill:
+
+```bash
+npm run validate:skill -- cosmosdb-best-practices
+```
+
+Compile all skills:
 
 ```bash
 npm run build
-# or
-node scripts/compile.js
 ```
 
-## Contributing
+Validate all skills:
 
-### Adding a New Rule
-
-1. Copy `rules/_template.md` to a new file in the appropriate category
-2. Fill in the frontmatter (title, impact, impactDescription, tags)
-3. Add Incorrect and Correct code examples
-4. Run `npm run build` to recompile AGENTS.md
-5. Submit a pull request
-
-### Rule Format
-
-```markdown
----
-title: Rule Title
-impact: HIGH
-impactDescription: Brief explanation of why this matters
-tags: [relevant, tags, here]
----
-
-**Incorrect (brief reason):**
-
-```csharp
-// Anti-pattern code
+```bash
+npm run validate
 ```
 
-**Correct (brief reason):**
+## Contributing Notes
 
-```csharp
-// Best practice code
-```
-```
+When adding or editing rules in this skill:
 
-### Impact Levels
+1. Start from rules/_template.md.
+2. Keep required frontmatter fields: title, impact, impactDescription, tags.
+3. Include both Incorrect and Correct sections with code blocks.
+4. Rebuild AGENTS.md after rule changes.
+5. Run validation before opening a PR.
 
-- **CRITICAL**: Prevents data loss, outages, or unrecoverable issues
-- **HIGH**: Significant performance or cost impact
-- **MEDIUM-HIGH**: Notable optimization opportunity
-- **MEDIUM**: Recommended best practice
-- **LOW-MEDIUM**: Nice to have
-- **LOW**: Minor optimization
+For broader repository contribution rules, see [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Compatibility
 
-This skill follows the [Agent Skills](https://agentskills.io) open standard and is compatible with:
-
-- Claude Code
-- VS Code (GitHub Copilot)
-- GitHub.com
-- Gemini CLI
-- OpenCode
-- Factory
-- OpenAI Codex
+This skill follows the [Agent Skills](https://agentskills.io) standard and is compatible with major hosts, including GitHub Copilot, Claude Code, Gemini CLI, and Codex-compatible workflows.
 
 ## License
 
 MIT
-
-## Acknowledgments
-
-- Inspired by [Vercel's React Best Practices](https://vercel.com/blog/introducing-react-best-practices)
-- Based on the [Agent Skills](https://agentskills.io) specification from Anthropic
-- Azure Cosmos DB team for [official documentation](https://learn.microsoft.com/azure/cosmos-db/)

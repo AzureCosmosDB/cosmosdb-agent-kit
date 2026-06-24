@@ -9,49 +9,46 @@ A collection of skills for AI coding agents working with Azure Cosmos DB. Skills
 
 ![agent-kit-cosmosdb (1)](https://github.com/user-attachments/assets/0a2c2e5f-62ee-4741-adda-9af790980761)
 
-Skills follow the [Agent Skills](https://agentskills.io/) format and the kit ships with plugin manifests for **Claude Code**, **Codex**, **Cursor**, **Gemini CLI**, and **GitHub Copilot**.
+Skills follow the [Agent Skills](https://agentskills.io/) format and the kit ships with plugin manifests for Claude Code, Codex, Cursor, Gemini CLI, and GitHub Copilot.
 
 ## Available Skills
 
-| Skill | Description | Status |
-|-------|-------------|--------|
-| [cosmosdb-best-practices](skills/cosmosdb-best-practices/) | Performance optimization (111 rules, 12 categories) | ✅ Stable |
-| migration-capacity-planning | RU calculation, data sizing, pre-split partitions | 🚧 Planned |
+The repository currently ships a monolith skill plus focused topic skills.
 
-### cosmosdb-best-practices
+| Skill | Focus | Rules |
+|-------|-------|-------|
+| [cosmosdb-best-practices](skills/cosmosdb-best-practices/) | Full Cosmos DB guidance (catch-all) | 127 |
+| [cosmosdb-data-modeling](skills/cosmosdb-data-modeling/) | Data modeling | 11 |
+| [cosmosdb-partition-key](skills/cosmosdb-partition-key/) | Partition key design | 8 |
+| [cosmosdb-query-optimization](skills/cosmosdb-query-optimization/) | Query optimization | 12 |
+| [cosmosdb-sdk](skills/cosmosdb-sdk/) | SDK patterns and framework integration | 40 |
+| [cosmosdb-indexing](skills/cosmosdb-indexing/) | Indexing policy and composite indexes | 7 |
+| [cosmosdb-throughput](skills/cosmosdb-throughput/) | Throughput and scaling | 5 |
+| [cosmosdb-global-distribution](skills/cosmosdb-global-distribution/) | Multi-region and consistency | 6 |
+| [cosmosdb-monitoring](skills/cosmosdb-monitoring/) | Monitoring and diagnostics | 5 |
+| [cosmosdb-design-patterns](skills/cosmosdb-design-patterns/) | Architecture and app patterns | 14 |
+| [cosmosdb-tooling](skills/cosmosdb-tooling/) | Emulator and developer tooling | 2 |
+| [cosmosdb-vector-search](skills/cosmosdb-vector-search/) | Vector search guidance | 6 |
+| [cosmosdb-full-text-search](skills/cosmosdb-full-text-search/) | Full-text search guidance | 6 |
+| [cosmosdb-security](skills/cosmosdb-security/) | Security and hardening | 5 |
 
-Azure Cosmos DB performance optimization guidelines containing 111 rules across 12 categories, prioritized by impact.
+## Current Structure
 
-**Use when:**
-- Writing new code that interacts with Cosmos DB
-- Designing data models or choosing partition keys
-- Reviewing code for performance issues
-- Optimizing queries or throughput configuration
+The repository ships both the monolith and focused skills:
 
-**Categories covered:**
-- Data Modeling (Critical)
-- Partition Key Design (Critical)
-- Query Optimization (High)
-- SDK Best Practices (High)
-- Design Patterns (High)
-- Vector Search (High)
-- Full-Text Search (High)
-- Security (High)
-- Indexing Strategies (Medium-High)
-- Throughput & Scaling (Medium)
-- Global Distribution (Medium)
-- Developer Tooling (Medium)
-- Monitoring & Diagnostics (Low-Medium)
+- The monolith skill is available as a broad catch-all.
+- Focused skills are available for narrower prompts and lower-context loading.
+- Each skill is self-contained and compiles its own AGENTS.md from its own rules directory.
 
 ## Installation
 
-### APM (recommended — all harnesses at once)
+### APM (recommended: all harnesses at once)
 
 ```bash
 apm install AzureCosmosDB/cosmosdb-agent-kit
 ```
 
-Installs the skill across GitHub Copilot, Claude Code, Cursor, Codex, and Gemini in one command.
+Installs the skill catalog across GitHub Copilot, Claude Code, Cursor, Codex, and Gemini in one command.
 
 ### Universal one-liner (all agents)
 
@@ -59,18 +56,16 @@ Installs the skill across GitHub Copilot, Claude Code, Cursor, Codex, and Gemini
 npx skills add AzureCosmosDB/cosmosdb-agent-kit
 ```
 
-This drops the skill catalog into whichever agent you're using.
-
 ### GitHub Copilot CLI
 
-```
+```text
 /plugin marketplace add AzureCosmosDB/cosmosdb-agent-kit
 /plugin install cosmosdb@cosmosdb-agent-kit
 ```
 
 ### Claude Code
 
-```
+```text
 /plugin install cosmosdb@claude-plugins-official
 ```
 
@@ -82,76 +77,74 @@ gemini extensions install https://github.com/AzureCosmosDB/cosmosdb-agent-kit
 
 ### Per-agent plugin directories
 
-The repository includes ready-made plugin manifests:
-
 | Agent | Manifest |
 |-------|----------|
-| Claude Code | `.claude-plugin/plugin.json` |
-| OpenAI Codex | `.codex-plugin/plugin.json` |
-| Cursor | `.cursor-plugin/plugin.json` |
-| Gemini CLI | `gemini-extension.json` + `GEMINI.md` |
-| GitHub Copilot | `skills/cosmosdb-best-practices/SKILL.md` (auto-detected) |
+| Claude Code | .claude-plugin/plugin.json |
+| OpenAI Codex | .codex-plugin/plugin.json |
+| Cursor | .cursor-plugin/plugin.json |
+| Gemini CLI | gemini-extension.json + GEMINI.md |
+| GitHub Copilot | skills/*/SKILL.md (auto-detected) |
 
-## Website
+## Build and Validate
 
-A project website is available in `docs/` and is designed for GitHub Pages publishing.
-
-- Main page: `docs/index.html`
-- Styles: `docs/styles.css`
-- Interactions + survey flow: `docs/app.js`
-
-The website includes a feedback survey that opens a prefilled GitHub issue so users can share improvements for Agent Kit without requiring a backend service.
-
-### Preview locally
+Compile all skills:
 
 ```bash
-# Option 1: VS Code Live Server
-# open docs/index.html with Live Server
-
-# Option 2: Python static server
-python -m http.server 8080 --directory docs
+npm run build
 ```
 
-Then open `http://localhost:8080`.
+Compile one skill:
 
-### Publish with GitHub Pages
+```bash
+npm run build:skill -- cosmosdb-sdk
+```
 
-In repository settings, set Pages source to `Deploy from a branch`, branch `main`, folder `/docs`.
+Validate all rules:
+
+```bash
+npm run validate
+```
+
+Validate one skill:
+
+```bash
+npm run validate:skill -- cosmosdb-sdk
+```
 
 ## Usage
 
-Skills are automatically available once installed. The agent will use them when relevant tasks are detected.
+Skills are automatically available once installed. The agent will choose the most relevant skill for the prompt.
 
-**Examples:**
-```
+Example prompts:
+
+```text
 Review my Cosmos DB data model
 ```
-```
+
+```text
 Help me choose a partition key for my orders collection
 ```
-```
+
+```text
 Optimize this Cosmos DB query
 ```
 
-## Skill Structure
+```text
+Set up vector search for my RAG app in Cosmos DB
+```
+
+## Skill Package Layout
 
 Each skill contains:
-- `SKILL.md` - Instructions for the agent (triggers activation)
-- `AGENTS.md` - Compiled rules (what agents read)
-- `rules/` - Individual rule files
-- `metadata.json` - Version and metadata
 
-## Compatibility
+- SKILL.md: trigger and guidance index
+- AGENTS.md: compiled guidance output
+- rules/: individual rule files (source of truth)
+- metadata.json: skill metadata and version info
 
-Works with Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other Agent Skills-compatible tools.
+## Evaluation (Local)
 
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
-
-## Evaluation (Local Only)
-
-This project includes a [Waza](https://github.com/microsoft/waza) eval framework for local skill testing. Evals are not enforced in CI today (the mock executor cannot validate response content), but you can run them locally to sanity-check your changes:
+This project uses [Waza](https://github.com/microsoft/waza) for local evaluation runs.
 
 ```bash
 # Install waza (one-time)
@@ -165,45 +158,31 @@ waza run evals/cosmosdb-best-practices/eval.yaml -v
 waza check skills/cosmosdb-best-practices
 ```
 
-**Looking for a way to help?** Check out our [good first issues](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) or browse the [Discussions](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/discussions) board to share ideas.
+## Website
 
-## Contributors
+A project website is available in docs/ and is designed for GitHub Pages publishing.
 
-Thanks to everyone who has contributed rules, fixes, and ideas!
+- Main page: docs/index.html
+- Styles: docs/styles.css
+- Interactions + survey flow: docs/app.js
 
-<!-- ALL-CONTRIBUTORS-LIST:START -->
-<!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
-<!-- markdownlint-restore -->
-<!-- prettier-ignore-end -->
-<!-- ALL-CONTRIBUTORS-LIST:END -->
-
-Contributions of any kind welcome! See the [contributing guide](CONTRIBUTING.md) to get started.
-
-## Evaluation with Waza
-
-This project uses [Waza](https://github.com/microsoft/waza) to evaluate skill quality — testing that the agent produces correct Cosmos DB guidance across data modeling, partitioning, queries, SDK usage, and throughput scenarios.
+Preview locally:
 
 ```bash
-# Install waza
-irm https://raw.githubusercontent.com/microsoft/waza/main/install.ps1 | iex  # Windows
-curl -fsSL https://raw.githubusercontent.com/microsoft/waza/main/install.sh | bash  # macOS/Linux
-
-# Run evaluations (mock executor, no API key needed)
-waza run evals/cosmosdb-best-practices/eval.yaml -v
-
-# Check skill readiness
-waza check skills/cosmosdb-best-practices
-
-# Run with a real model (requires Copilot auth)
-waza run evals/cosmosdb-best-practices/eval.yaml --executor copilot-sdk --model claude-sonnet-4.6
+python -m http.server 8080 --directory docs
 ```
+
+Then open http://localhost:8080.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+
+Looking for a place to help? Check [good first issues](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) or join [Discussions](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/discussions).
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for a dated history of updates to the agent kit, including the `cosmosdb-best-practices` skill and the testing framework. Each entry links to the PR that introduced the change.
-
-When you merge a PR, add a new dated entry at the top of `CHANGELOG.md`.
+See [CHANGELOG.md](CHANGELOG.md) for a dated history of updates.
 
 ## License
 
