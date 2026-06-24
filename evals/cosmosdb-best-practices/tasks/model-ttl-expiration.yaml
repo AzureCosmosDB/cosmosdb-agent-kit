@@ -1,0 +1,14 @@
+id: model-ttl-expiration
+name: Data Modeling - Use TTL for automatic data expiration
+description: |
+  Test that the skill recommends Cosmos DB TTL instead of scheduled cleanup
+  jobs for data with a natural retention window.
+tags:
+  - modeling
+  - ttl
+  - retention
+inputs:
+  prompt: "I store short-lived session tokens and temporary cache entries in Cosmos DB. Should I run a nightly job to delete expired records, or is there a built-in way to expire them automatically?"
+expected:
+  outcomes:
+    - type: task_completed
