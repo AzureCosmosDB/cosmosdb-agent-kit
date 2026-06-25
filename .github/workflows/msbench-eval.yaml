@@ -14,8 +14,9 @@ on:
         description: 'Pass rate threshold (0-1)'
         default: '0.9'
       model:
-        description: 'Model to use (optional)'
+        description: 'Model to use'
         required: false
+        default: 'claude-opus-4-8'
 
 jobs:
   evaluate:
