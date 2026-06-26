@@ -145,6 +145,19 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 11.4 [Configure Vector Indexes in Indexing Policy](#114-configure-vector-indexes-in-indexing-policy)
    - 11.5 [Normalize Embeddings for Cosine Similarity](#115-normalize-embeddings-for-cosine-similarity)
    - 11.6 [Implement Repository Pattern for Vector Search](#116-implement-repository-pattern-for-vector-search)
+12. [Full-Text Search](#12-full-text-search) — **HIGH**
+   - 12.1 [Add Full-Text Index in the Indexing Policy](#121-add-full-text-index-in-the-indexing-policy)
+   - 12.2 [Define Full-Text Policy on the Container](#122-define-full-text-policy-on-the-container)
+   - 12.3 [Enable Full-Text Search Capability on Account](#123-enable-full-text-search-capability-on-account)
+   - 12.4 [Combine FTS predicates with range or equality filters for hybrid queries](#124-combine-fts-predicates-with-range-or-equality-filters-for-hybrid-queries)
+   - 12.5 [Use FullTextContains for keyword matching on indexed text fields](#125-use-fulltextcontains-for-keyword-matching-on-indexed-text-fields)
+   - 12.6 [Use FullTextScore with ORDER BY RANK for BM25 relevance ranking](#126-use-fulltextscore-with-order-by-rank-for-bm25-relevance-ranking)
+13. [Security](#13-security) — **HIGH**
+   - 13.1 [Enable Continuous Backup for Point-in-Time Restore](#131-enable-continuous-backup-for-point-in-time-restore)
+   - 13.2 [Disable Local Authentication (Keys)](#132-disable-local-authentication-keys-)
+   - 13.3 [Use Managed Identity with DefaultAzureCredential](#133-use-managed-identity-with-defaultazurecredential)
+   - 13.4 [Restrict Network Access](#134-restrict-network-access)
+   - 13.5 [Assign Minimum RBAC Roles with Narrow Scope](#135-assign-minimum-rbac-roles-with-narrow-scope)
 
 ---
 
@@ -4851,6 +4864,462 @@ public class DocumentRepository
 ```
 
 > Cross-ref: See `query-parameterize` for parameterized queries.
+
+---
+
+## 12. Full-Text Search
+
+**Impact: HIGH**
+
+### 12.1 Add Full-Text Index in the Indexing Policy
+
+**Impact: HIGH** (without the index, FTS functions fall back to a full scan)
+
+## Add Full-Text Index in the Indexing Policy
+
+**Impact: HIGH (without the index, FTS functions fall back to a full scan)**
+
+The `fullTextIndexes` array in the `indexingPolicy` tells Cosmos DB to build an inverted index for the corresponding path. This is separate from the range index — a field can have both. Fields covered by a full-text index should **not** also appear in `excludedPaths`.
+
+**Incorrect (field excluded from range index but no FTS index — slow scan):**
+
+```bicep
+excludedPaths: [
+  { path: '/description/?' }   // excluded from range index...
+]                               // ...but no fullTextIndexes entry → full scan
+```
+
+**Correct (Bicep):**
+
+```bicep
+indexingPolicy: {
+  indexingMode: 'consistent'
+  includedPaths: [
+    { path: '/name/?' }
+    { path: '/userid/?' }
+  ]
+  excludedPaths: [
+    { path: '/*' }             // root wildcard
+    // description NOT listed here — managed by FTS index below
+  ]
+  #disable-next-line BCP037
+  fullTextIndexes: [
+    { path: '/description' }   // inverted index — case-insensitive, tokenized
+  ]
+}
+```
+
+> A field under `fullTextIndexes` incurs **extra write RU** for index maintenance. Only index fields that are actually queried with `FullTextContains` or `FullTextScore`.
+
+Reference: [Indexing policy for full-text search](https://learn.microsoft.com/azure/cosmos-db/gen-ai/full-text-search)
+
+### 12.2 Define Full-Text Policy on the Container
+
+**Impact: HIGH** (required for tokenizer and stop-word configuration)
+
+## Define Full-Text Policy on the Container
+
+**Impact: HIGH (required for tokenizer and stop-word configuration)**
+
+The `fullTextPolicy` declares which paths are full-text searchable and their language. Supported languages: `en-US`, `de-DE` (preview), `fr-FR` (preview), `it-IT` (preview), `pt-BR` (preview), `pt-PT` (preview), `es-ES` (preview). Language codes are **case-sensitive** — use the exact casing shown (e.g., `en-US` not `en-us`).
+
+**Incorrect (wrong language casing causes ARM BadRequest):**
+
+```bicep
+fullTextPolicy: {
+  defaultLanguage: 'en-us'       // ❌ lowercase — rejected by ARM
+  fullTextPaths: [
+    { path: '/description', language: 'en-us' }  // ❌
+  ]
+}
+```
+
+**Correct (Bicep):**
+
+```bicep
+#disable-next-line BCP037
+fullTextPolicy: {
+  defaultLanguage: 'en-US'       // ✅ exact casing required
+  fullTextPaths: [
+    {
+      path: '/description'
+      language: 'en-US'          // ✅
+    }
+  ]
+}
+```
+
+**Correct — Java SDK (container creation):**
+
+```java
+FullTextPolicy ftsPolicy = new FullTextPolicy()
+    .setDefaultLanguage("en-US")
+    .setFullTextPaths(List.of(
+        new FullTextPath().setPath("/description").setLanguage("en-US")
+    ));
+
+CosmosContainerProperties props = new CosmosContainerProperties("videos", "/videoid");
+props.setFullTextPolicy(ftsPolicy);
+database.createContainerIfNotExists(props).block();
+```
+
+Reference: [Configure full-text policy](https://learn.microsoft.com/azure/cosmos-db/gen-ai/full-text-search)
+
+### 12.3 Enable Full-Text Search Capability on Account
+
+**Impact: HIGH** (prerequisite — FTS SQL functions fail without it)
+
+## Enable Full-Text Search Capability on Account
+
+**Impact: HIGH (prerequisite — FTS SQL functions fail without it)**
+
+Full-text search is an opt-in account-level capability. The SQL functions `FullTextContains`, `FullTextContainsAll`, `FullTextContainsAny`, and `FullTextScore` all return an error if this capability is not enabled.
+
+**Incorrect (capability absent — FTS queries fail at runtime):**
+
+```sql
+-- This query fails with "Function 'FullTextContains' is not supported"
+-- when EnableNoSQLFullTextSearch capability is missing on the account
+SELECT * FROM c WHERE FullTextContains(c.description, 'cosmos')
+```
+
+**Correct — enable via Azure CLI:**
+
+```bash
+az cosmosdb update \
+  --resource-group <rg> \
+  --name <account-name> \
+  --capabilities EnableNoSQLFullTextSearch
+```
+
+**Correct — enable via Bicep (account resource):**
+
+```bicep
+resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
+  name: cosmosAccountName
+  properties: {
+    // ... other properties ...
+    capabilities: [
+      { name: 'EnableNoSQLFullTextSearch' }
+    ]
+  }
+}
+```
+
+> **Note:** As of Bicep type library v0.41, `fullTextIndexes` and `fullTextPolicy` may emit `BCP037` warnings. Suppress with `#disable-next-line BCP037` — the properties are valid at the ARM REST API level.
+
+Reference: [Full-text search in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/gen-ai/full-text-search)
+
+### 12.4 Combine FTS predicates with range or equality filters for hybrid queries
+
+**Impact: MEDIUM** (avoids full-container scans when combined with equality/range filters)
+
+## Combine FTS predicates with range or equality filters for hybrid queries
+
+**Impact: MEDIUM (avoids full-container scans when combined with equality/range filters)**
+
+FTS predicates can be combined with standard SQL predicates. Cosmos DB uses the most selective predicate first.
+
+**Incorrect (FTS-only query — no range filters, scans all partitions):**
+
+```sql
+-- ❌ No equality filter — Cosmos DB must scan every partition before ranking
+SELECT * FROM c
+WHERE FullTextContains(c.description, @q)
+ORDER BY RANK FullTextScore(c.description, @q)
+```
+
+**Correct — filter by partition + FTS:**
+
+
+```sql
+SELECT * FROM c
+WHERE c.type = 'video'
+  AND c.userid = @userid
+  AND FullTextContains(c.description, @q)
+ORDER BY RANK FullTextScore(c.description, @q)
+```
+
+```java
+// Hybrid: exact field filters narrow partition, FTS ranks within results
+String sql = "SELECT * FROM c " +
+    "WHERE c.type = 'video' " +
+    "AND FullTextContains(c.description, @q) " +
+    "ORDER BY RANK FullTextScore(c.description, @q)";
+
+```
+
+### 12.5 Use FullTextContains for keyword matching on indexed text fields
+
+**Impact: HIGH** (replaces expensive CONTAINS(LOWER(...)) string scans with O(log n) inverted index lookup)
+
+## Use FullTextContains for keyword matching on indexed text fields
+
+**Impact: HIGH (replaces expensive CONTAINS(LOWER(...)) string scans with O(log n) inverted index lookup)**
+
+`FullTextContains(path, term)` performs a single-keyword lookup against the inverted index and is case-insensitive by design. It is dramatically faster than `CONTAINS(LOWER(c.field), @q)` on large containers because it does an `O(log n)` index lookup instead of a full document scan.
+
+**Incorrect (scan-based — avoid for long text fields with FTS index):**
+
+```sql
+-- Full document scan, case folding at query time
+SELECT * FROM c
+WHERE CONTAINS(LOWER(c.description), @q)
+```
+
+**Correct:**
+
+
+```sql
+-- Inverted index lookup — no LOWER() needed, FTS tokenizer handles casing
+SELECT * FROM c
+WHERE FullTextContains(c.description, @q)
+```
+
+```java
+// Java SDK — parameterized query with FullTextContains
+String sql = "SELECT * FROM c WHERE c.type = 'video' " +
+    "AND (CONTAINS(LOWER(c.name), @q) " +          // short field — range index OK
+    "OR FullTextContains(c.description, @q) " +    // long text — FTS index
+    "OR EXISTS(SELECT VALUE t FROM t IN c.tags WHERE CONTAINS(LOWER(t), @q)))";
+
+```
+
+> Cross-ref: See `query-parameterize` for parameterized queries.
+
+### 12.6 Use FullTextScore with ORDER BY RANK for BM25 relevance ranking
+
+**Impact: MEDIUM-HIGH** (enables BM25-based ranked results instead of arbitrary order)
+
+## Use FullTextScore for Relevance Ranking
+
+**Impact: MEDIUM-HIGH (enables BM25-based ranked results instead of arbitrary order)**
+
+`FullTextScore(path, term)` returns a BM25 relevance score. Use it in `ORDER BY` to surface the most relevant documents first. It **requires** `FullTextContains` in the WHERE clause on the same path.
+
+**Incorrect (FullTextScore without FullTextContains — parse error):**
+
+```sql
+SELECT * FROM c
+ORDER BY FullTextScore(c.description, 'cosmos')  -- ❌ missing WHERE FullTextContains
+```
+
+**Correct:**
+
+```sql
+SELECT c.name, c.description, c.addedDate
+FROM c
+WHERE FullTextContains(c.description, @q)
+ORDER BY RANK FullTextScore(c.description, @q)
+```
+
+```java
+String sql = "SELECT c.name, c.description, c.addedDate FROM c " +
+    "WHERE FullTextContains(c.description, @q) " +
+    "ORDER BY RANK FullTextScore(c.description, @q)";
+
+SqlQuerySpec querySpec = new SqlQuerySpec(sql, new SqlParameter("@q", searchTerm));
+```
+
+> `RANK FullTextScore(...)` is cross-partition — Cosmos DB merges and re-ranks results from all partitions before returning the page.
+
+Reference: [FullTextScore function](https://learn.microsoft.com/azure/cosmos-db/nosql/query/fulltextscore)
+
+---
+
+## 13. Security
+
+**Impact: HIGH**
+
+### 13.1 Enable Continuous Backup for Point-in-Time Restore
+
+**Impact: MEDIUM** (enables recovery from accidental data loss)
+
+## Enable Continuous Backup for Point-in-Time Restore
+
+**Impact: MEDIUM (enables recovery from accidental data loss)**
+
+Data loss is more often caused by mistakes than by attackers. Enable continuous backup (7 or 30 days) to allow point-in-time restore.
+
+**Incorrect (relying on default periodic backup):**
+
+```bash
+# Default periodic backup:
+# - 4 hour intervals between backups
+
+az cosmosdb create \
+  --name myaccount \
+  --resource-group myrg
+```
+
+**Correct (continuous backup enabled):**
+
+
+```bash
+# Enable at account creation (preferred)
+az cosmosdb create \
+  --name myaccount \
+  --resource-group myrg \
+  --backup-policy-type Continuous \
+  --continuous-tier Continuous7Days
+```
+
+```bash
+# Restore to a specific point in time (self-service, no support ticket)
+az cosmosdb restore \
+  --account-name myaccount \
+  --resource-group myrg \
+  --target-database-account-name myaccount-restored \
+  --restore-timestamp "2026-05-29T10:00:00Z" \
+```
+
+### 13.2 Disable Local Authentication (Keys)
+
+**Impact: CRITICAL** (eliminates credential leakage risk)
+
+## Disable Local Authentication (Keys)
+
+**Impact: CRITICAL (eliminates credential leakage risk)**
+
+Disable local authentication (shared keys and connection strings) on your Cosmos DB account. Keys are bearer tokens — anyone who has one can read, modify, or delete all data.
+
+**Incorrect (using connection string with keys):**
+
+```csharp
+// WRONG: Connection string contains a master key
+// If this leaks via source control, logs, or config, all data is exposed
+var connectionString = "AccountEndpoint=https://myaccount.documents.azure.com:443/;AccountKey=abc123...==;";
+var client = new CosmosClient(connectionString);
+
+// Risks:
+```
+
+**Correct (disable keys, use Entra ID exclusively):**
+
+
+```bash
+# Disable local authentication on the account
+az cosmosdb update \
+  --name <your-account> \
+  --resource-group <your-rg> \
+  --disable-local-auth true
+```
+
+```csharp
+// Connect using Entra ID — no keys or connection strings needed
+using Azure.Identity;
+using Microsoft.Azure.Cosmos;
+
+var client = new CosmosClient(
+    accountEndpoint: "https://myaccount.documents.azure.com:443/",
+```
+
+### 13.3 Use Managed Identity with DefaultAzureCredential
+
+**Impact: CRITICAL** (zero-secret authentication for all environments)
+
+## Use Managed Identity with DefaultAzureCredential
+
+**Impact: CRITICAL (zero-secret authentication for all environments)**
+
+Authenticate to Cosmos DB using managed identity and `DefaultAzureCredential`. This provides a single code path that works in local development (via `az login`), Azure compute (via system-assigned managed identity), and CI/CD (via service principal or federated identity) — with no secrets in code or configuration.
+
+**Incorrect (hard-coded keys or environment-specific auth):**
+
+```csharp
+// WRONG: Key stored in configuration
+var client = new CosmosClient(
+    "https://myaccount.documents.azure.com:443/",
+    "abc123masterkey=="
+);
+
+```
+
+**Correct (DefaultAzureCredential everywhere):**
+
+
+```csharp
+using Azure.Identity;
+using Microsoft.Azure.Cosmos;
+
+// Same code works in all environments:
+// - Local dev: uses az login / Visual Studio / VS Code credentials
+var client = new CosmosClient(
+```
+
+```python
+from azure.identity import DefaultAzureCredential
+from azure.cosmos import CosmosClient
+
+credential = DefaultAzureCredential()
+client = CosmosClient("https://myaccount.documents.azure.com:443/", credential)
+```
+
+### 13.4 Restrict Network Access
+
+**Impact: HIGH** (reduces attack surface from public internet)
+
+## Restrict Network Access
+
+**Impact: HIGH (reduces attack surface from public internet)**
+
+By default, a Cosmos DB endpoint is publicly reachable from anywhere on the internet. If a credential leaks, nothing stands between an attacker and your data.
+
+**Incorrect (unrestricted public access):**
+
+```bash
+# WRONG: Default configuration — account is accessible from any IP address worldwide
+# No --ip-range-filter means open to the internet
+
+az cosmosdb create \
+  --name myaccount \
+  --resource-group myrg
+```
+
+**Correct (restrict to known IPs as baseline):**
+
+
+```bash
+# Restrict access to known IP addresses (office, CI/CD egress, developer IPs)
+az cosmosdb update \
+  --name myaccount \
+  --resource-group myrg \
+  --ip-range-filter "203.0.113.10,198.51.100.0/24"
+
+```
+
+### 13.5 Assign Minimum RBAC Roles with Narrow Scope
+
+**Impact: HIGH** (limits blast radius of compromised identities)
+
+## Assign Minimum RBAC Roles with Narrow Scope
+
+**Impact: HIGH (limits blast radius of compromised identities)**
+
+Grant each identity only the Cosmos DB data plane role it needs, scoped to the narrowest resource level possible. Avoid account-wide contributor access when an app only reads from a single container.
+
+**Incorrect (over-privileged access):**
+
+```bash
+# WRONG: Granting full Contributor at account scope to an app that only reads data
+az cosmosdb sql role assignment create \
+  --account-name myaccount \
+  --resource-group myrg \
+  --role-definition-id "00000000-0000-0000-0000-000000000002" \
+  --principal-id <app-principal-id> \
+```
+
+**Correct (least privilege, narrowly scoped):**
+
+
+```bash
+# Built-in data plane roles:
+# Cosmos DB Built-in Data Reader:      00000000-0000-0000-0000-000000000001
+
+# Read-only app: grant Reader scoped to specific container
+az cosmosdb sql role assignment create \
+  --account-name myaccount \
+```
 
 ---
 
