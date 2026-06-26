@@ -20,19 +20,10 @@ import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
 const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
   endpoint: process.env.COSMOS_ENDPOINT,
   credential,
-  databaseName: "mydb",
-  containerName: "docs",
-});
-
-// FAILS: "Full-text search is not enabled" or similar runtime error
-const results = await store.similaritySearch("query", 10, {
-  searchType: "Hybrid",
-});
 ```
 
 **Correct (container configured with full-text policy and indexes):**
 
-First, configure the container (via ARM/Bicep/Terraform or CLI):
 
 ```json
 {
@@ -41,37 +32,7 @@ First, configure the container (via ARM/Bicep/Terraform or CLI):
     "partitionKey": { "paths": ["/tenantId"], "kind": "Hash" },
     "fullTextPolicy": {
       "defaultLanguage": "en-US",
-      "fullTextPaths": [
-        { "path": "/content", "language": "en-US" },
-        { "path": "/title", "language": "en-US" }
-      ]
-    },
-    "indexingPolicy": {
-      "includedPaths": [{ "path": "/*" }],
-      "excludedPaths": [{ "path": "/embedding/*" }],
-      "fullTextIndexes": [
-        { "path": "/content" },
-        { "path": "/title" }
-      ],
-      "vectorIndexes": [
-        { "path": "/embedding", "type": "diskANN" }
-      ]
-    },
-    "vectorEmbeddingPolicy": {
-      "vectorEmbeddings": [
-        {
-          "path": "/embedding",
-          "dataType": "float32",
-          "distanceFunction": "cosine",
-          "dimensions": 1536
-        }
-      ]
-    }
-  }
-}
 ```
-
-Then use hybrid search in your application:
 
 ```typescript
 import { AzureCosmosDBNoSQLVectorStore } from "@langchain/azure-cosmosdb";
@@ -80,25 +41,4 @@ import { DefaultAzureCredential } from "@azure/identity";
 
 const embeddings = new AzureOpenAIEmbeddings({
   azureOpenAIApiDeploymentName: "text-embedding-3-small",
-});
-
-const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
-  endpoint: process.env.COSMOS_ENDPOINT,
-  credential: new DefaultAzureCredential(),
-  databaseName: "mydb",
-  containerName: "docs",  // container has fullTextPolicy + fullTextIndexes
-});
-
-// Now hybrid search works — combines vector similarity with BM25 keyword matching
-const results = await store.similaritySearch("specific keyword plus semantic meaning", 10, {
-  searchType: "Hybrid",
-});
 ```
-
-**Checklist before enabling full-text/hybrid search:**
-1. Account has full-text search capability enabled (`az cosmosdb update --capabilities EnableNoSQLFullTextSearch`)
-2. Container has `fullTextPolicy` with paths and languages defined
-3. Container indexing policy has `fullTextIndexes` for the same paths
-4. Container has `vectorEmbeddingPolicy` and `vectorIndexes` (for hybrid)
-
-Reference: [Azure Cosmos DB Full-Text Search](https://learn.microsoft.com/azure/cosmos-db/nosql/query/full-text-search)

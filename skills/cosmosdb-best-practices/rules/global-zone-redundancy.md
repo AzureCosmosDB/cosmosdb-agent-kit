@@ -14,24 +14,14 @@ Enable zone redundancy to protect against availability zone failures. Zone-redun
 ```json
 // Single-region account without zone redundancy
 // If an availability zone fails:
-// - Potential data loss
-// - Availability loss until recovery
-// - SLA: 99.99%
 {
     "type": "Microsoft.DocumentDB/databaseAccounts",
     "properties": {
         "locations": [
-            {
-                "locationName": "East US",
-                "failoverPriority": 0,
-                "isZoneRedundant": false  // DEFAULT - no zone protection!
-            }
-        ]
-    }
-}
 ```
 
 **Correct (zone redundancy enabled):**
+
 
 ```json
 // ARM template with zone redundancy
@@ -40,20 +30,6 @@ Enable zone redundancy to protect against availability zone failures. Zone-redun
     "apiVersion": "2023-04-15",
     "name": "my-cosmos-account",
     "properties": {
-        "locations": [
-            {
-                "locationName": "East US",
-                "failoverPriority": 0,
-                "isZoneRedundant": true  // Enable zone redundancy!
-            },
-            {
-                "locationName": "West US",
-                "failoverPriority": 1,
-                "isZoneRedundant": true  // Enable in secondary too
-            }
-        ]
-    }
-}
 ```
 
 ```bicep
@@ -63,48 +39,4 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2023-04-15' = {
   location: 'East US'
   properties: {
     locations: [
-      {
-        locationName: 'East US'
-        failoverPriority: 0
-        isZoneRedundant: true  // Replicas spread across 3 AZs
-      }
-      {
-        locationName: 'West US'
-        failoverPriority: 1
-        isZoneRedundant: true
-      }
-    ]
-    enableAutomaticFailover: true
-  }
-}
 ```
-
-**SLA Improvements with Zone Redundancy:**
-
-| Configuration | Write SLA | Read SLA | Zone Failure | Regional Failure |
-|--------------|-----------|----------|--------------|------------------|
-| Single region, no ZR | 99.99% | 99.99% | Data/availability loss | Data/availability loss |
-| Single region + ZR | 99.995% | 99.995% | No loss | Data/availability loss |
-| Multi-region, no ZR | 99.99% | 99.999% | Data/availability loss | Dependent on consistency |
-| Multi-region + ZR | 99.995% | 99.999% | No loss | Dependent on consistency |
-| Multi-region writes + ZR | 99.999% | 99.999% | No loss | No loss (with conflicts) |
-
-**Cost Considerations:**
-
-- Zone redundancy adds **25% premium** to provisioned throughput
-- Premium is **waived** for:
-  - Multi-region write accounts
-  - Autoscale collections
-- Adding a region adds ~100% to existing bill
-
-**When to Enable Zone Redundancy:**
-
-1. **Always for single-region accounts** - Primary protection against AZ failures
-2. **Write regions in multi-region accounts** - Protects write availability
-3. **Production workloads** - Required for high SLA guarantees
-
-**Regions Supporting Zone Redundancy:**
-
-Check current availability: [Azure regions with availability zones](https://learn.microsoft.com/en-us/azure/reliability/availability-zones-service-support)
-
-Reference: [High availability in Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/reliability/reliability-cosmos-db-nosql#availability-zone-support)

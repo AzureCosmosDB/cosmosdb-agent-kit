@@ -19,27 +19,10 @@ Exclude paths from indexing that you never query. Every indexed path adds write 
     "automatic": true,
     "includedPaths": [
         {
-            "path": "/*"  // Indexes everything including unused fields
-        }
-    ],
-    "excludedPaths": []
-}
-
-// Document with large unused fields gets indexed unnecessarily
-{
-    "id": "order-123",
-    "customerId": "cust-1",          // Queried
-    "status": "shipped",             // Queried
-    "items": [...],                  // Not queried
-    "internalNotes": "...",          // Not queried
-    "auditLog": [...]                // Large array, never queried!
-}
-// Write cost includes indexing auditLog array - wasted RU
 ```
 
-> ⚠️ **CreateContainerIfNotExists warning:** Custom indexing policies supplied to `CreateContainerIfNotExists` (or `createIfNotExists`) are applied only when the container is created. If the container already exists, the call succeeds, the indexing policy argument is ignored, and the existing indexing policy remains unchanged. To apply new included or excluded paths to an existing container, update the container's `IndexingPolicy` and replace the container resource using the SDK's container replace operation. After deployment, read the container definition back and verify that the expected included and excluded paths are present.
-
 **Correct (exclude-all-first, then include back):**
+
 
 ```csharp
 // Exclude everything, then include only what you query
@@ -49,24 +32,6 @@ var indexingPolicy = new IndexingPolicy
     Automatic = true,
     
     // Start with exclude all — no field is indexed by default
-    ExcludedPaths = { new ExcludedPath { Path = "/*" } },
-    
-    // Explicitly include only what you query
-    IncludedPaths =
-    {
-        new IncludedPath { Path = "/customerId/?" },
-        new IncludedPath { Path = "/status/?" },
-        new IncludedPath { Path = "/orderDate/?" },
-        new IncludedPath { Path = "/total/?" }
-    }
-};
-
-var containerProperties = new ContainerProperties
-{
-    Id = "orders",
-    PartitionKeyPath = "/customerId",
-    IndexingPolicy = indexingPolicy
-};
 ```
 
 ```json
@@ -77,48 +42,4 @@ var containerProperties = new ContainerProperties
     "excludedPaths": [
         { "path": "/*" }
     ],
-    "includedPaths": [
-        { "path": "/customerId/?" },
-        { "path": "/status/?" },
-        { "path": "/orderDate/?" },
-        { "path": "/total/?" }
-    ]
-}
 ```
-
-⚠️ **Alternative (less optimal — indexes all paths by default):**
-
-```csharp
-// Selectively include and exclude paths
-// WARNING: any new fields added to documents are auto-indexed
-var indexingPolicy = new IndexingPolicy
-{
-    IndexingMode = IndexingMode.Consistent,
-    Automatic = true,
-    
-    // Only include paths you actually query
-    IncludedPaths =
-    {
-        new IncludedPath { Path = "/customerId/?" },
-        new IncludedPath { Path = "/status/?" },
-        new IncludedPath { Path = "/orderDate/?" },
-        new IncludedPath { Path = "/total/?" }
-    },
-    
-    // Exclude known unused paths (but new fields still auto-indexed)
-    ExcludedPaths =
-    {
-        new ExcludedPath { Path = "/items/*" },         // Embedded array
-        new ExcludedPath { Path = "/internalNotes/?" },
-        new ExcludedPath { Path = "/auditLog/*" },      // Large array
-        new ExcludedPath { Path = "/_etag/?" }          // System field
-    }
-};
-```
-
-Monitor and adjust:
-- Review query patterns periodically
-- Use Query Stats to see index utilization
-- Balance write cost reduction vs query flexibility
-
-Reference: [Indexing policies](https://learn.microsoft.com/azure/cosmos-db/index-policy)

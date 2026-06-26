@@ -20,18 +20,8 @@ SqlQuerySpec spec = new SqlQuerySpec(
 );
 ```
 
-```python
-# ❌ Client picks "first" item from an unordered query
-query = "SELECT * FROM c WHERE c.userId = @uid"
-items = list(container.query_items(
-    query=query,
-    parameters=[{"name": "@uid", "value": user_id}],
-    enable_cross_partition_query=True
-))
-latest = items[0] if items else None
-```
-
 **Correct (explicit timestamp sort + TOP 1):**
+
 
 ```java
 // ✅ Deterministic latest item by timestamp
@@ -40,10 +30,6 @@ String sql = """
     WHERE c.deviceId = @deviceId AND IS_DEFINED(c.timestamp)
     ORDER BY c.timestamp DESC
     """;
-SqlQuerySpec spec = new SqlQuerySpec(
-    sql,
-    List.of(new SqlParameter("@deviceId", deviceId))
-);
 ```
 
 ```python
@@ -53,14 +39,4 @@ SELECT TOP 1 * FROM c
 WHERE c.userId = @uid AND IS_DEFINED(c.createdAt)
 ORDER BY c.createdAt DESC
 """
-items = list(container.query_items(
-    query=query,
-    parameters=[{"name": "@uid", "value": user_id}],
-    enable_cross_partition_query=True
-))
-latest = items[0] if items else None
 ```
-
-If the query can span partitions, define the needed index policy for your filter + sort pattern (for example, a composite index when required by your query shape).
-
-Reference: [ORDER BY in Azure Cosmos DB for NoSQL](https://learn.microsoft.com/azure/cosmos-db/nosql/query/order-by) | [TOP keyword](https://learn.microsoft.com/azure/cosmos-db/nosql/query/keywords#top)
