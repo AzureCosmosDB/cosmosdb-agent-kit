@@ -48,17 +48,15 @@ jobs:
         with:
           python-version: '3.11'
 
-      # Configure pip to read packages from the Azure Artifacts feed by using an access token
-      # obtained from the authenticated Azure CLI session.
-      - name: Configure pip for Azure Artifacts
+      # Install the MSBench CLI from the Azure Artifacts feed. The access token is passed
+      # via environment variable to avoid persisting credentials in pip config.
+      - name: Install msbench-cli
         run: |
           ACCESS_TOKEN=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv)
-          pip config set global.extra-index-url "https://build:${ACCESS_TOKEN}@pkgs.dev.azure.com/devdiv/_packaging/MicrosoftSweBench/pypi/simple/"
-          pip config set global.trusted-host "pkgs.dev.azure.com"
-
-      # Install the MSBench CLI from the configured package indexes.
-      - name: Install msbench-cli
-        run: pip install msbench-cli
+          echo "::add-mask::$ACCESS_TOKEN"
+          pip install msbench-cli \
+            --extra-index-url "https://build:${ACCESS_TOKEN}@pkgs.dev.azure.com/devdiv/_packaging/MicrosoftSweBench/pypi/simple/" \
+            --trusted-host pkgs.dev.azure.com
 
       # Run the evaluation script. The script is expected to exit with code 1 if the pass
       # threshold is not met, which will mark the job as failed and trigger the issue step below.
@@ -73,10 +71,10 @@ jobs:
             ${{ inputs.model && format('--model {0}', inputs.model) || '' }} \
             --output results.json
 
-      # If the evaluation step fails (including threshold failures), create a GitHub issue
+      # If the evaluation step fails and a results file was produced, create a GitHub issue
       # summarizing the results so the regression can be tracked.
       - name: Create issue if threshold not met
-        if: failure()
+        if: failure() && hashFiles('results.json') != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

@@ -242,6 +242,11 @@ def wait_for_completion(run_id: str, args: argparse.Namespace) -> None:
 
 
 def normalize_rate(value: Any) -> float | None:
+    """Normalize a pass rate to a 0.0–1.0 float.
+
+    Handles: bool, numeric (0-1 as fraction, >1 as percentage), and strings
+    with optional '%' suffix. A '%' suffix always means the number is a percentage.
+    """
     if isinstance(value, bool):
         return 1.0 if value else 0.0
     if isinstance(value, (int, float)):
@@ -252,12 +257,15 @@ def normalize_rate(value: Any) -> float | None:
             return rate
         return None
     if isinstance(value, str):
+        is_percent = value.strip().endswith("%")
         stripped = value.strip().rstrip("%")
         try:
             parsed = float(stripped)
         except ValueError:
             return None
-        return normalize_rate(parsed if not value.strip().endswith("%") else parsed)
+        if is_percent:
+            return parsed / 100.0
+        return normalize_rate(parsed)
     return None
 
 
@@ -435,7 +443,6 @@ def main() -> int:
             f"\n{len(failing)} instance(s) fell below the {args.threshold * 100:.1f}% threshold.",
             file=sys.stderr,
         )
-        invoke_issue_creator(output_path, dry_run=False)
         return 1
 
     print("\nAll instances met the configured threshold.")

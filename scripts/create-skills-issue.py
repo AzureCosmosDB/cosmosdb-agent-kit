@@ -571,20 +571,29 @@ def create_issue(repo: str, title: str, body: str) -> None:
         repo,
         "--title",
         title,
-        "--label",
-        "msbench-eval",
-        "--label",
-        "skills-gap",
         "--body-file",
         "-",
     ]
+    # Attempt with labels first; retry without if labels don't exist in the repo.
+    label_args = ["--label", "msbench-eval", "--label", "skills-gap"]
     completed = subprocess.run(
-        command,
-        check=True,
+        command + label_args,
         text=True,
         capture_output=True,
         input=body,
     )
+    if completed.returncode != 0 and "label" in completed.stderr.lower():
+        # Labels don't exist — create issue without them.
+        completed = subprocess.run(
+            command,
+            check=True,
+            text=True,
+            capture_output=True,
+            input=body,
+        )
+    elif completed.returncode != 0:
+        print(completed.stderr, file=sys.stderr)
+        raise SystemExit(completed.returncode)
     stdout = completed.stdout.strip()
     if stdout:
         print(stdout)
