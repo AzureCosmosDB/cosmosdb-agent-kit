@@ -1,0 +1,8 @@
+# Place this file at:
+#   msbench-benchmarks/benchmarks/skillsbench/cosmos-sdk-skills/benchmark_loaders.toml
+#
+# See https://github.com/devdiv-microsoft/MicrosoftSweBench/wiki/4.-Bring-Your-Own-Benchmark-Repository
+
+[benchmark]
+name = "cosmos-sdk-skills"
+path = "dataset.jsonl"

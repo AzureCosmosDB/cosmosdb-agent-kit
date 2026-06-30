@@ -1,0 +1,60 @@
+name: Publish Benchmark
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'benchmarks/**'
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Rebuild all task images even if unchanged'
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    name: Build & publish benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install msbench-cli
+        run: |
+          ACCESS_TOKEN=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv)
+          echo "::add-mask::$ACCESS_TOKEN"
+          pip install msbench-cli \
+            --extra-index-url "https://build:${ACCESS_TOKEN}@pkgs.dev.azure.com/devdiv/_packaging/MicrosoftSweBench/pypi/simple/" \
+            --trusted-host pkgs.dev.azure.com
+
+      - name: Build task images
+        working-directory: benchmarks/cosmos-sdk-skills
+        run: |
+          ARGS="--benchmark cosmos-sdk-skills"
+          if [ "${{ inputs.force_rebuild }}" = "true" ]; then
+            ARGS="$ARGS --force"
+          fi
+          msbench-cli build $ARGS
+
+      - name: Push to MSBench registry
+        working-directory: benchmarks/cosmos-sdk-skills
+        run: msbench-cli push --benchmark cosmos-sdk-skills
+
+      - name: Validate registration
+        working-directory: benchmarks/cosmos-sdk-skills
+        run: msbench-cli validate --benchmark cosmos-sdk-skills

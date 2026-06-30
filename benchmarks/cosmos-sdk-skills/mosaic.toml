@@ -1,0 +1,27 @@
+# harbor-format-curation configuration for cosmos-sdk-skills-bench.
+# See https://github.com/devdiv-microsoft/MicrosoftSweBench/wiki/3.-Adding-a-Benchmark-to-MSBench
+
+[benchmark]
+name = "cosmos-sdk-skills"
+version = "0.0.1"
+description = """
+Measures whether a coding agent obeys a loaded Cosmos DB best-practices
+skill set when building a 4-endpoint user-profile service across five
+SDKs (Python, .NET, Java, Node.js, Go). One Harbor task per SDK.
+"""
+
+[import]
+from = "local"
+path = "./tasks"
+
+[build]
+staging-folder = "${TEMP}/harborcuration/cosmos-sdk-skills"
+
+[profiles.local]
+container-registry = "localhost:5000"
+push = false
+
+[profiles.prod]
+# Set this to whatever ACR your team uses.
+container-registry = "codeexecservice.azurecr.io"
+push = true
