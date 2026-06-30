@@ -11,6 +11,9 @@ on:
         description: 'Rebuild all task images even if unchanged'
         type: boolean
         default: false
+      profile:
+        description: 'Docker profile to use'
+        default: 'prod'
 
 permissions:
   id-token: write
@@ -30,31 +33,38 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Login to ACR
+        run: az acr login --name codeexecservice
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install msbench-cli
+      - name: Install harbor-format-curation
         run: |
           ACCESS_TOKEN=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv)
           echo "::add-mask::$ACCESS_TOKEN"
-          pip install msbench-cli \
-            --extra-index-url "https://build:${ACCESS_TOKEN}@pkgs.dev.azure.com/devdiv/_packaging/MicrosoftSweBench/pypi/simple/" \
+          pip install harbor-format-curation \
+            --index-url "https://build:${ACCESS_TOKEN}@pkgs.dev.azure.com/devdiv/_packaging/MicrosoftSweBench/pypi/simple/" \
             --trusted-host pkgs.dev.azure.com
 
-      - name: Build task images
+      - name: Import tasks
+        working-directory: benchmarks/cosmos-sdk-skills
+        run: harbor-format-curation import mosaic.toml
+
+      - name: Build Docker images
         working-directory: benchmarks/cosmos-sdk-skills
         run: |
-          ARGS="--benchmark cosmos-sdk-skills"
+          BUILD_ARGS="--profile ${{ inputs.profile || 'prod' }} mosaic.toml"
           if [ "${{ inputs.force_rebuild }}" = "true" ]; then
-            ARGS="$ARGS --force"
+            BUILD_ARGS="--skip-published-images $BUILD_ARGS"
           fi
-          msbench-cli build $ARGS
+          harbor-format-curation build $BUILD_ARGS
 
-      - name: Push to MSBench registry
+      - name: Update benchmark database
         working-directory: benchmarks/cosmos-sdk-skills
-        run: msbench-cli push --benchmark cosmos-sdk-skills
+        run: harbor-format-curation update-database --profile ${{ inputs.profile || 'prod' }} mosaic.toml
 
-      - name: Validate registration
+      - name: Publish images to ACR
         working-directory: benchmarks/cosmos-sdk-skills
-        run: msbench-cli validate --benchmark cosmos-sdk-skills
+        run: harbor-format-curation publish --profile ${{ inputs.profile || 'prod' }} mosaic.toml
