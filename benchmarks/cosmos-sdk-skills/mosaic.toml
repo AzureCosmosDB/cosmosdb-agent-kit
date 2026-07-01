@@ -1,0 +1,24 @@
+# harbor-format-curation configuration for cosmos-sdk-skills benchmark.
+# See https://github.com/devdiv-microsoft/MicrosoftSweBench/wiki/3.-Adding-a-Benchmark-to-MSBench
+
+[import]
+from = "path"
+# Points to the directory containing ONLY task folders (each with task.toml).
+path = "./tasks"
+staging-folder = "${TEMP}/harborcuration/cosmos-sdk-skills"
+
+[docker.local]
+registry = "localhost:5000"
+provider = "Docker localhost registry"
+benchmark = "cosmos-sdk-skills"
+type = "eval"
+architecture = "x86_64"
+version = "0.0.1"
+
+[docker.prod]
+registry = "codeexecservice.azurecr.io"
+provider = "Azure container registry"
+benchmark = "cosmos-sdk-skills"
+type = "eval"
+architecture = "x86_64"
+version = "0.0.1"

@@ -1,0 +1,7 @@
+{
+  "instance_id": "mosaic-go",
+  "problem_statement": "Build a Mosaic user-profile service in Go that uses Azure Cosmos DB for storage. See /instruction.md inside the container for the full task description, API contract, build/run conventions, and grading criteria.",
+  "is_harbor_task": true,
+  "image_tag": "cosmos-sdk-skills.eval.x86_64.mosaic-go:msbench-0.0.1",
+  "benchmark": "cosmos-sdk-skills"
+}

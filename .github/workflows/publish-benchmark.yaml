@@ -1,0 +1,70 @@
+name: Publish Benchmark
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'benchmarks/**'
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Rebuild all task images even if unchanged'
+        type: boolean
+        default: false
+      profile:
+        description: 'Docker profile to use'
+        default: 'prod'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    name: Build & publish benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to ACR
+        run: az acr login --name codeexecservice
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install harbor-format-curation
+        run: |
+          ACCESS_TOKEN=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv)
+          echo "::add-mask::$ACCESS_TOKEN"
+          pip install harbor-format-curation \
+            --index-url "https://build:${ACCESS_TOKEN}@pkgs.dev.azure.com/devdiv/_packaging/MicrosoftSweBench/pypi/simple/" \
+            --trusted-host pkgs.dev.azure.com
+
+      - name: Import tasks
+        working-directory: benchmarks/cosmos-sdk-skills
+        run: harbor-format-curation import mosaic.toml
+
+      - name: Build Docker images
+        working-directory: benchmarks/cosmos-sdk-skills
+        run: |
+          BUILD_ARGS="--profile ${{ inputs.profile || 'prod' }} mosaic.toml"
+          if [ "${{ inputs.force_rebuild }}" = "true" ]; then
+            BUILD_ARGS="--skip-published-images $BUILD_ARGS"
+          fi
+          harbor-format-curation build $BUILD_ARGS
+
+      - name: Update benchmark database
+        working-directory: benchmarks/cosmos-sdk-skills
+        run: harbor-format-curation update-database --profile ${{ inputs.profile || 'prod' }} mosaic.toml
+
+      - name: Publish images to ACR
+        working-directory: benchmarks/cosmos-sdk-skills
+        run: harbor-format-curation publish --profile ${{ inputs.profile || 'prod' }} mosaic.toml
