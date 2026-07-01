@@ -35,8 +35,9 @@ cosmos-sdk-skills-bench/
 │   └── verifier/                    # grader library copied into every task image
 │       ├── conftest.py
 │       ├── check_api.py
+│       ├── check_behavior.py         # concrete emulator+request behavioral suite
 │       ├── check_cosmos.py
-│       ├── check_source.py
+│       ├── check_source.py           # STATIC client-config signals (see docstring)
 │       ├── check_advanced_source.py
 │       ├── check_skills.py
 │       └── runner.sh
@@ -78,31 +79,43 @@ mosaic-<sdk>/
 
 ## What gets evaluated
 
-Per the spec, the grader scores six categories (see
+Per the spec, the grader scores these categories (see
 [Coverage matrix](#coverage-matrix) for which categories run on which SDK):
 
-1. **API conformance** — live HTTP probes of `/health`, `POST /users`,
+1. **Live behavior (primary, hard to game)** — `check_behavior.py` builds
+   and starts the app, drives the HTTP API, then **independently reads the
+   Cosmos emulator with the verifier's own client** and asserts the two
+   agree: every created user is a real Cosmos document (an in-memory /
+   SQLite store that never writes to Cosmos fails here), the API read/list
+   paths match the persisted documents, the partition-key value equals the
+   user id, a duplicate `POST` is rejected without creating a second
+   document, and the city filter returns exactly the matching rows. This is
+   the defensible core — it proves runtime behavior, not source tokens.
+2. **API conformance** — live HTTP probes of `/health`, `POST /users`,
    `GET /users/{id}`, `GET /users?city=...`. Right status codes, right
    payload shapes, right round-trip values.
-2. **Cosmos data shape** — partition keys are userId-shaped (not `/id`,
+3. **Cosmos data shape** — partition keys are userId-shaped (not `/id`,
    not `/city`), indexing policy present, throughput configured,
    documents carry a type discriminator + schemaVersion + ISO-8601
    `createdAt` + `interests` as a string array.
-3. **Source-code best practices** — singleton client, preferred regions
-   (where the local rule covers the SDK), Direct connection mode for
-   .NET and Java only, retry/resilience configured, diagnostics
-   enabled, lifecycle/disposal handled.
-4. **Skills compliance** — no hardcoded account keys, endpoint read from
+4. **Source-code best practices (secondary, static)** — singleton client,
+   preferred regions (where the local rule covers the SDK), Direct
+   connection mode for .NET and Java only, retry/resilience configured,
+   diagnostics enabled, lifecycle/disposal handled. These are client-side
+   configuration a single-node local emulator **cannot** prove
+   behaviorally (lessons doc §15/§16), so they stay as source signals and
+   are clearly labeled as such in `check_source.py`.
+5. **Skills compliance** — no hardcoded account keys, endpoint read from
    env, no Python `ConnectionPolicy` mutation, no abandoned
    `Azure.Cosmos` preview package in .NET, latest non-deprecated SDK
    used in every SDK.
-5. **Missing-guidance transparency** — for the Go task, the local skill
+6. **Missing-guidance transparency** — for the Go task, the local skill
    set has no Go-specific guidance, so the agent must either ask for
    clarification or explicitly say in the README "borrowed from X SDK"
    / "no SDK-specific local guidance, applied general retry
    guidance". Silent guessing fails. Fabricated certainty (claiming
    "official Go SDK best practice" without sourcing) is also penalised.
-6. **Anti-gaming hygiene** — comments are stripped before the
+7. **Anti-gaming hygiene** — comments are stripped before the
    source-code regex checks, and required patterns demand real SDK
    identifiers, not just keywords.
 

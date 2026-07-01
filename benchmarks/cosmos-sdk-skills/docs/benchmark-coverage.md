@@ -40,17 +40,22 @@ and runs for every SDK.
 
 ## 3. Coverage detail
 
-### Layer 1 — Functional correctness *(applies to all 5 SDKs)*
+### Layer 1 — Functional correctness & persistence *(applies to all 5 SDKs)*
 
-Runs against the agent's live service.
+Runs against the agent's live service, then **independently re-reads the Cosmos
+emulator with the verifier's own client** to confirm the app truly persisted to
+Cosmos (not an in-memory / SQLite fake) and that its API agrees with stored state.
 
 | Check | What it verifies | Why it matters |
 | --- | --- | --- |
 | Health endpoint | `GET /health` returns `200` + a status body | Confirms the service started and is reachable |
 | Create persists fields | A created user is stored with name, email, city, and interests intact (including order) | Confirms writes work and nothing is dropped or reordered |
+| Persisted in Cosmos | Every created user exists as a real document read directly from the emulator | Catches apps that answer HTTP but never write to Cosmos |
+| API read matches emulator | `GET /users/{id}` returns exactly what is stored in Cosmos | The read path must serve the persisted document, not a drifted cache |
 | Get existing user | `GET /users/{id}` returns `200` for a known user | Core read path works |
 | Get unknown user | `GET /users/{id}` returns `404` for a missing user | Correct not-found handling, not a crash or empty `200` |
-| List by city | `GET /users?city=Seattle` returns only Seattle users | Query/filter path works and is correctly scoped |
+| Duplicate create rejected | Re-`POST`ing an id returns `409` and leaves exactly one document in Cosmos | Conditional-create behavior proven by state, not by scanning for `IfNoneMatch` |
+| List by city | `GET /users?city=Seattle` returns the same id set as the emulator's own query | Query/filter path actually hits Cosmos and is correctly scoped |
 | List with no match | Filtering on an unknown city returns an empty array | Empty results handled cleanly |
 
 ### Layer 2 — Data modeling *(applies to all 5 SDKs)*
@@ -72,9 +77,12 @@ Inspects the actual documents and container settings the agent created.
 | Interests as string array | The interests field is a proper array of strings | Correct, queryable shape |
 | Email & city are strings | Core fields have the expected types | Guards against type drift |
 
-### Layer 3 — SDK configuration best practices *(language-aware)*
+### Layer 3 — SDK configuration best practices *(language-aware, STATIC)*
 
-Scans the agent's source for the recommended client setup. Each row notes which languages it applies to.
+Scans the agent's source for the recommended client setup. These rules are
+client-side configuration a single-node local emulator **cannot** prove
+behaviorally (lessons doc §15/§16), so they remain source-code signals. Each row
+notes which languages it applies to.
 
 | Check | What it verifies | Applies to |
 | --- | --- | --- |
@@ -139,5 +147,5 @@ benchmark rewards honesty about that rather than penalizing a missing setting.*
 
 ---
 
-*Coverage source of truth: `shared/verifier/check_api.py`, `check_cosmos.py`, `check_source.py`,
-`check_skills.py`, plus per-task `tasks/mosaic-*/tests/checks.py`.*
+*Coverage source of truth: `shared/verifier/check_api.py`, `check_behavior.py`, `check_cosmos.py`,
+`check_source.py`, `check_skills.py`, plus per-task `tasks/mosaic-*/tests/checks.py`.*

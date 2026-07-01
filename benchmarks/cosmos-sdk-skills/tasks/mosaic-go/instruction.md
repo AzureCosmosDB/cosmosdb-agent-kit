@@ -56,7 +56,15 @@ city-filtered lists.
    `9080`). The verifier waits up to 90s for `GET /health` → `200`.
 
 ## How you will be graded
-
+- **Live behavior (primary)** — the verifier builds and starts your
+  service, drives the HTTP API, then **independently reads the Cosmos
+  emulator with its own client** to confirm what you persisted: every
+  created user is a real Cosmos document (an in-memory store fails
+  here), API read/list paths agree with the stored documents, the
+  partition-key value equals the user id, a duplicate `POST` is rejected
+  without creating a second document, and the city filter returns
+  exactly the matching rows. These behavioral checks are the same for
+  every SDK.
 - API conformance and Cosmos data shape (partition key, indexing,
   throughput, document shape) are scored directly like the other SDKs.
 - A small number of Go-specific source-code checks: singleton client,

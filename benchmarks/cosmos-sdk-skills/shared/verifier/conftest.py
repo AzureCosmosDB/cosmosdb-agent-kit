@@ -71,6 +71,44 @@ def seeded_users(api):
     return USERS
 
 
+def emulator_docs_for_id(container, user_id: str) -> list[dict]:
+    """Fetch every persisted document with this id straight from the
+    emulator, using the verifier's OWN Cosmos client — never the agent's
+    API. Partition-key-agnostic (cross-partition query by id), so it works
+    regardless of which pk path the agent chose. Returns [] when nothing
+    was persisted, which is the signal that the app used an in-memory /
+    SQLite store that never touched Cosmos."""
+    return list(container.query_items(
+        query="SELECT * FROM c WHERE c.id = @id",
+        parameters=[{"name": "@id", "value": user_id}],
+        enable_cross_partition_query=True,
+    ))
+
+
+@pytest.fixture(scope="session")
+def persisted_docs(cosmos_users_container, seeded_users) -> dict:
+    """{user_id: stored_document} read independently from the emulator.
+
+    This is the backbone of the behavioral suite (check_behavior.py): it
+    proves the agent's app actually wrote to Cosmos and lets checks compare
+    the persisted bytes against both the API responses and the contract.
+    A missing entry (None) means the document was never persisted.
+    """
+    out: dict = {}
+    for u in seeded_users:
+        rows = emulator_docs_for_id(cosmos_users_container, u["id"])
+        out[u["id"]] = rows[0] if rows else None
+    return out
+
+
+@pytest.fixture(scope="session")
+def users_partition_key_field(cosmos_users_container) -> str:
+    """The container's partition-key field name (leading '/' stripped),
+    e.g. 'userId', 'id', 'pk'. Read from the live container metadata."""
+    paths = cosmos_users_container.read().get("partitionKey", {}).get("paths", [])
+    return paths[0].lstrip("/") if paths else ""
+
+
 def _norm_sdk(raw: str) -> str:
     return SDK_ALIASES.get(raw.strip().lower(), raw.strip().lower())
 

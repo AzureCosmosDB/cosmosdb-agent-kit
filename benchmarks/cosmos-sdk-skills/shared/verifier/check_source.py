@@ -1,8 +1,23 @@
-"""Source-code best-practice checks.
+"""Source-code best-practice checks — STATIC (client-config) signals.
 
-These run regex/keyword scans over the agent's source code (with
-comments stripped — see _strip_comments in conftest.py). The rules
-asserted here come from cosmosdb-agent-kit/skills/cosmosdb-best-practices.
+IMPORTANT: these are regex/keyword scans over the agent's source (comments
+stripped — see _strip_comments in conftest.py). They are deliberately the
+*weaker* half of the grader. Per the MSBench lessons doc (§15/§16), the
+rules asserted here — singleton client, preferred regions, Direct mode,
+429 retry, diagnostics, client lifecycle, end-to-end timeouts, provision-
+once — are **client-side configuration that a single-node local emulator
+cannot prove behaviorally**. They change nothing about what gets persisted
+or what the API returns; they only matter against real multi-region Azure
+Cosmos DB. So we keep them as source signals (to retain skill coverage for
+the A/B comparison) but do NOT pretend they are behavioral.
+
+The concrete, hard-to-game behavioral grading lives in check_behavior.py
+(and check_cosmos.py / check_api.py): build the app, drive its HTTP API,
+and independently read the emulator. Prefer adding new rules there whenever
+the behavior is observable; only fall back to a static check here when it
+genuinely is not.
+
+The rules asserted here come from cosmosdb-agent-kit/skills/cosmosdb-best-practices.
 
 Each check is language-gated by the `sdk` fixture; tests for other SDKs
 are skipped with a clear reason. This keeps one file per category

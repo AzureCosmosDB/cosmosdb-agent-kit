@@ -200,10 +200,13 @@ else
     echo "[runner] COSMOS_ENDPOINT pinned to $COSMOS_ENDPOINT for pytest"
 fi
 
-# Run all shared checks + the task-specific checks. The task's checks.py
-# may add more SDK-specific assertions; if absent, only the shared ones
-# run.
-PYTEST_TARGETS=("/verifier/check_api.py" "/verifier/check_cosmos.py" "/verifier/check_source.py" "/verifier/check_skills.py")
+# Run all shared checks + the task-specific checks. Order reflects intent:
+# check_behavior.py is the concrete emulator+request suite (the defensible
+# core); check_source.py / check_skills.py remain STATIC signals for
+# client-side configuration the single-node emulator cannot prove. The
+# task's checks.py may add more SDK-specific assertions; if absent, only the
+# shared ones run.
+PYTEST_TARGETS=("/verifier/check_api.py" "/verifier/check_behavior.py" "/verifier/check_cosmos.py" "/verifier/check_source.py" "/verifier/check_skills.py")
 if [ -f "/tests/checks.py" ]; then
     PYTEST_TARGETS+=("/tests/checks.py")
 fi

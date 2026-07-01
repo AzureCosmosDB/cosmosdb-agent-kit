@@ -61,14 +61,22 @@ The verifier expects:
    for `GET http://localhost:$APP_PORT/health` → `200`.
 
 ## How you will be graded
-
+- **Live behavior (primary)** — the verifier builds and starts your
+  service, drives the HTTP API, then **independently reads the Cosmos
+  emulator with its own client** to confirm what you persisted: every
+  created user is a real Cosmos document (an in-memory store fails
+  here), the API read/list paths agree with the stored documents, the
+  partition-key value equals the user id, a duplicate `POST` is rejected
+  without creating a second document, and the city filter returns
+  exactly the matching rows.
 - **API conformance** — four endpoints, right status codes, payloads.
 - **Cosmos data shape** — partition key, indexing policy, throughput,
   document shape (`type`, `schemaVersion`, ISO-8601 `createdAt`,
   `interests` as string array).
-- **.NET SDK best practices** — your skill set covers these. The
-  grader inspects your source code (comments stripped) for the
-  expected patterns.
+- **.NET SDK best practices (secondary, static)** — rules that a
+  single-node emulator can't prove behaviorally (retry, preferred
+  regions, Direct mode, diagnostics) are checked by scanning your
+  source (comments stripped). These apply equally to every submission.
 - **Skills compliance** — no hardcoded account keys, endpoint from
   env or `appsettings`, no deprecated package usage.
 
