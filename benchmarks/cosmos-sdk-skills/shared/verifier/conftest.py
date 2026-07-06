@@ -325,39 +325,6 @@ def source_text(source_files: list[Path], sdk: str) -> str:
     return "\n".join(chunks)
 
 
-@pytest.fixture(scope="session")
-def source_text_with_comments(source_files: list[Path]) -> str:
-    """Raw concatenated source (comments retained). Used by the
-    transparency rubric, which intentionally reads comments and docs."""
-    chunks: list[str] = []
-    for p in source_files:
-        try:
-            chunks.append(p.read_text(encoding="utf-8", errors="ignore"))
-        except OSError:
-            pass
-    return "\n".join(chunks)
-
-
-@pytest.fixture(scope="session")
-def docs_text(workdir: Path) -> str:
-    """README + markdown + plain-text files concatenated. Used by the
-    transparency / borrowed-from rubric."""
-    chunks: list[str] = []
-    if not workdir.exists():
-        return ""
-    for p in workdir.rglob("*"):
-        if not p.is_file():
-            continue
-        if any(part in SKIP_DIRS for part in p.parts):
-            continue
-        if p.suffix.lower() in {".md", ".markdown", ".txt", ".rst"}:
-            try:
-                if p.stat().st_size <= 512 * 1024:
-                    chunks.append(p.read_text(encoding="utf-8", errors="ignore"))
-            except OSError:
-                pass
-    return "\n".join(chunks)
-
 
 # -----------------------------------------------------------------------
 # Per-check log helper

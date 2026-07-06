@@ -109,13 +109,7 @@ Per the spec, the grader scores these categories (see
    env, no Python `ConnectionPolicy` mutation, no abandoned
    `Azure.Cosmos` preview package in .NET, latest non-deprecated SDK
    used in every SDK.
-6. **Missing-guidance transparency** — for the Go task, the local skill
-   set has no Go-specific guidance, so the agent must either ask for
-   clarification or explicitly say in the README "borrowed from X SDK"
-   / "no SDK-specific local guidance, applied general retry
-   guidance". Silent guessing fails. Fabricated certainty (claiming
-   "official Go SDK best practice" without sourcing) is also penalised.
-7. **Anti-gaming hygiene** — comments are stripped before the
+6. **Anti-gaming hygiene** — comments are stripped before the
    source-code regex checks, and required patterns demand real SDK
    identifiers, not just keywords.
 
@@ -125,9 +119,8 @@ Each task's `tests/test.sh` writes `0` or `1` to
 `/logs/verifier/reward.txt`, per the Harbor contract. A run scores `1`
 only when **every** mandatory check passes. The pytest run is
 **verbose** even on success — the `/logs/verifier/` directory holds a
-per-check log (`api.log`, `cosmos.log`, `source.log`, `skills.log`,
-`transparency.log`) so a failing run is debuggable by inspecting which
-check rejected it.
+per-check log (`api.log`, `cosmos.log`, `source.log`, `skills.log`) so a
+failing run is debuggable by inspecting which check rejected it.
 
 > **Note:** If MSBench accepts graded float rewards (this is documented
 > as a future direction in the wiki), the runner is easy to switch over.
@@ -135,7 +128,7 @@ check rejected it.
 
 ## Coverage matrix
 
-D = directly scored. T = transparency rubric. N/A = explicitly out of
+D = directly scored. N/A = explicitly out of
 scope for this SDK in this benchmark.
 
 | Category                              | Python | .NET | Java | Node.js | Go  |
@@ -151,16 +144,14 @@ scope for this SDK in this benchmark.
 | `interests[]` stored as string array  | D      | D    | D    | D       | D   |
 | Latest SDK package / version          | D      | D    | D    | D       | D   |
 | Singleton client                      | D      | D    | D    | D       | D   |
-| Preferred regions                     | D      | D    | D    | D       | T   |
+| Preferred regions                     | D      | D    | D    | D       | N/A |
 | Direct connection mode                | N/A    | D    | D    | N/A     | N/A |
-| Retry / resilience                    | D      | D    | D    | D       | T   |
-| Diagnostics / logging                 | D      | D    | D    | D       | T   |
+| Retry / resilience                    | D      | D    | D    | D       | N/A |
+| Diagnostics / logging                 | D      | D    | D    | D       | N/A |
 | Lifecycle / disposal                  | D      | D    | D    | N/A     | N/A |
 | No hardcoded account key              | D      | D    | D    | D       | D   |
 | Endpoint from env                     | D      | D    | D    | D       | D   |
 | Forbidden anti-patterns               | D      | D    | N/A  | N/A     | N/A |
-| Transparency / borrow rubric          | N/A    | N/A  | N/A  | N/A     | T   |
-| Fabricated-certainty negative check   | N/A    | N/A  | N/A  | N/A     | T   |
 
 ## Container architecture
 

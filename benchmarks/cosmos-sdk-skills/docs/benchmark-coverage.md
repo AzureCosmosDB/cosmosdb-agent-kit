@@ -96,9 +96,9 @@ notes which languages it applies to.
 | Client lifecycle | Properly closes/disposes the client (or relies on DI to) | Python, .NET, Java |
 | End-to-end timeout | Enforces a hard deadline across retries, not just per-attempt | .NET, Java |
 
-### Layer 4 — Anti-patterns & honesty *(language-aware)*
+### Layer 4 — Anti-patterns *(language-aware)*
 
-Catches known mistakes and checks that the agent is transparent when guidance doesn't exist.
+Catches known mistakes in the submitted source.
 
 | Check | What it verifies | Applies to |
 | --- | --- | --- |
@@ -109,22 +109,6 @@ Catches known mistakes and checks that the agent is transparent when guidance do
 | No preview package | Doesn't reference the abandoned preview package | .NET |
 | No sync-over-async blocking | No `.Result` / `.Wait()` blocking on async Cosmos calls | .NET |
 | No reactive blocking | No `.block()` collapsing a reactive pipeline | Java |
-| No fabricated guidance | Doesn't claim "official" Node-specific best practices that don't exist | Node.js |
-| Guidance transparency | Where no Go-specific guidance exists, the agent says what it borrowed or asks — no silent guessing | Go |
-| No overstated certainty | Doesn't fabricate "official" Go-specific recommendations | Go |
-
-### Layer 5 — Skill engagement *(applies to all 5 SDKs)*
-
-Reads the agent's own session transcript to confirm it actually consulted the bundled
-best-practices skill. Layers 1–4 measure the *quality of the result*; this layer measures whether
-the agent *used the guidance we gave it* — so a strong model can't quietly skip the skill and still
-look compliant by luck.
-
-| Check | What it verifies | Why it matters |
-| --- | --- | --- |
-| Session transcript captured | The agent's session log was recorded for review | Without it we can't verify skill usage (flags an infrastructure gap, not the agent) |
-| Read the skill index | The agent opened the skill's top-level `SKILL.md` guide | The index is the entry point that routes to the right detailed rules |
-| Read at least one rule | The agent opened at least one specific rule file (e.g. partitioning, retries) | The concrete, actionable guidance lives in the rule files — opening the index alone isn't enough |
 
 ---
 
