@@ -75,12 +75,7 @@ The verifier expects:
 ## How you will be graded
 
 - **API conformance** — five endpoints, right status codes, payloads.
-- **Cosmos data shape** — partition key, indexing policy, throughput,
-  and document shape for device / reading records.
-- **.NET SDK best practices** — your skill set covers these. The
-  grader inspects your source code (comments stripped) for the
-  expected patterns.
-- **Skills compliance** — no hardcoded account keys, endpoint from
-  env or `appsettings`, no deprecated package usage.
+- **Data persistence** — the data your service returns matches what is
+  actually stored in the Cosmos emulator.
 
 Binary reward (`1` or `0`) lands in `/logs/verifier/reward.txt`.

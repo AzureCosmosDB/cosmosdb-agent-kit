@@ -61,11 +61,8 @@ city-filtered lists.
   service, drives the HTTP API, then independently reads the Cosmos
   emulator with its own client to confirm what you persisted: real
   Cosmos documents (not in-memory), API reads/lists matching stored
-  docs, partition-key value == user id, duplicate `POST` rejected
-  without a second document, and correct city filtering.
-- API conformance, Cosmos data shape, Java SDK best practices —
-  secondary static source checks for rules the emulator can't prove
-  (from your skill set), skills compliance (no hardcoded keys, env-based
-  config, no legacy `com.microsoft.azure:azure-documentdb`).
+  docs, duplicate `POST` rejected without a second document, and correct
+  city filtering.
+- **API conformance** — four endpoints, right status codes, payloads.
 
 Binary reward to `/logs/verifier/reward.txt`.

@@ -95,19 +95,13 @@ Both scripts will be `chmod +x`'d by the verifier if needed.
 
 ## How you will be graded
 
-A pytest-based verifier runs after your service is up. It checks:
+A pytest-based verifier runs after your service is up. It drives the
+HTTP API and independently reads the Cosmos emulator to confirm that:
 
-- **API conformance** — all six endpoints behave per the contract
-  above, with the right status codes and payload shapes.
-- **Cosmos data shape** — partition key choice, indexing policy,
-  throughput, document fields (`type` discriminator, `schemaVersion`,
-  `createdAt` as an ISO-8601 string, and event / ticket fields that
-  match the contract above).
-- **Cosmos SDK best practices** — your loaded skill set covers these
-  for Python. The grader will look at your source code (with comments
-  stripped) for the relevant patterns.
-- **Skills compliance** — no hardcoded account keys, endpoint loaded
-  from env, no deprecated package usage.
+- all six endpoints behave per the API contract above, with the right
+  status codes and payload shapes, and
+- the data your service returns matches what is actually stored in
+  Cosmos.
 
 The grader writes a binary reward (`1` if everything passes, `0`
 otherwise) to `/logs/verifier/reward.txt`. Per-category logs land in

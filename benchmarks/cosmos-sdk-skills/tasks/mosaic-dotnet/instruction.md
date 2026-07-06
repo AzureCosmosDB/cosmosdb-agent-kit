@@ -65,19 +65,9 @@ The verifier expects:
   service, drives the HTTP API, then **independently reads the Cosmos
   emulator with its own client** to confirm what you persisted: every
   created user is a real Cosmos document (an in-memory store fails
-  here), the API read/list paths agree with the stored documents, the
-  partition-key value equals the user id, a duplicate `POST` is rejected
-  without creating a second document, and the city filter returns
-  exactly the matching rows.
+  here), the API read/list paths agree with the stored documents, a
+  duplicate `POST` is rejected without creating a second document, and
+  the city filter returns exactly the matching rows.
 - **API conformance** — four endpoints, right status codes, payloads.
-- **Cosmos data shape** — partition key, indexing policy, throughput,
-  document shape (`type`, `schemaVersion`, ISO-8601 `createdAt`,
-  `interests` as string array).
-- **.NET SDK best practices (secondary, static)** — rules that a
-  single-node emulator can't prove behaviorally (retry, preferred
-  regions, Direct mode, diagnostics) are checked by scanning your
-  source (comments stripped). These apply equally to every submission.
-- **Skills compliance** — no hardcoded account keys, endpoint from
-  env or `appsettings`, no deprecated package usage.
 
 Binary reward (`1` or `0`) lands in `/logs/verifier/reward.txt`.

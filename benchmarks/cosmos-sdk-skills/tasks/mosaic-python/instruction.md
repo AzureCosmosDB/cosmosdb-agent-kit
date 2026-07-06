@@ -74,28 +74,19 @@ Both scripts will be `chmod +x`'d by the verifier if needed.
 
 ## How you will be graded
 
-A pytest-based verifier runs after your service is up. It checks:
+A pytest-based verifier runs after your service starts. It builds and
+starts your service, drives the HTTP API, and then **independently reads
+the Cosmos emulator with its own client** to confirm what you actually
+persisted. It checks that:
 
-- **Live behavior (primary)** — the verifier builds and starts your
-  service, drives the HTTP API, and then **independently reads the
-  Cosmos emulator with its own client** to confirm what you actually
-  persisted. It checks that every created user is a real Cosmos
-  document (an in-memory or SQLite store that never writes to Cosmos
-  fails here), that the API read/list paths agree with the stored
-  documents, that the partition-key value matches the user id, that a
-  duplicate `POST` is rejected without creating a second document, and
-  that the city filter returns exactly the matching rows.
-- **API conformance** — all four endpoints behave per the contract
-  above, with the right status codes and payload shapes.
-- **Cosmos data shape** — partition key choice, indexing policy,
-  throughput, document fields (`type` discriminator, `schemaVersion`,
-  `createdAt` as an ISO-8601 string, `interests` as a string array).
-- **Cosmos SDK best practices (secondary, static)** — some rules (retry,
-  preferred regions, diagnostics, client reuse) can't be observed
-  against a single-node local emulator, so they are checked by scanning
-  your source. These apply equally to every submission.
-- **Skills compliance** — no hardcoded account keys, endpoint loaded
-  from env, no deprecated package usage.
+- every created user is a real Cosmos document (an in-memory or SQLite
+  store that never writes to Cosmos fails here),
+- the documents the API returns match what is actually stored,
+- a duplicate `POST` is rejected without creating a second document, and
+- the city filter returns exactly the matching rows.
+
+It also checks that all four endpoints behave per the API contract
+above, with the right status codes and payload shapes.
 
 The grader writes a binary reward (`1` if everything passes, `0`
 otherwise) to `/logs/verifier/reward.txt`. Per-category logs land in

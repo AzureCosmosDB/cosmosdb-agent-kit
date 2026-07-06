@@ -60,45 +60,10 @@ city-filtered lists.
   service, drives the HTTP API, then **independently reads the Cosmos
   emulator with its own client** to confirm what you persisted: every
   created user is a real Cosmos document (an in-memory store fails
-  here), API read/list paths agree with the stored documents, the
-  partition-key value equals the user id, a duplicate `POST` is rejected
-  without creating a second document, and the city filter returns
-  exactly the matching rows. These behavioral checks are the same for
-  every SDK.
-- API conformance and Cosmos data shape (partition key, indexing,
-  throughput, document shape) are scored directly like the other SDKs.
-- A small number of Go-specific source-code checks: singleton client,
-  latest SDK package id.
-- A **transparency rubric** specific to this task: be transparent in
-  `/app/README.md` about how you decided on best practices that aren't
-  covered by Go-specific guidance.
-
-That last point matters: the local skill set bundled with this
-benchmark has comprehensive Python / .NET / Java / Node.js guidance for
-preferred regions, retries, diagnostics, and connection mode, but **no
-Go-specific entries** for those topics. The verifier therefore expects
-you to either:
-
-- ask for clarification, or
-- explicitly state in `/app/README.md` which other SDK / cross-SDK
-  source you borrowed each non-Go-specific decision from (e.g.
-  "borrowed from the .NET preferred-regions rule", "inferred from the
-  general retry guidance"), or
-- explicitly say "no SDK-specific local guidance for X, used my own
-  judgement".
-
-The verifier looks for phrases like:
-
-- "borrowed from"
-- "adapted from"
-- "inferred from"
-- "no SDK-specific guidance"
-- "asked for clarification"
-- "general retry / resilience guidance"
-
-The verifier also penalises fabricated certainty: do **not** write
-things like "official Go SDK best practice recommends ..." for topics
-where there is no such official guidance.
+  here), the API read/list paths agree with the stored documents, a
+  duplicate `POST` is rejected without creating a second document, and
+  the city filter returns exactly the matching rows.
+- **API conformance** — four endpoints, right status codes, payloads.
 
 Binary reward to `/logs/verifier/reward.txt`.
 

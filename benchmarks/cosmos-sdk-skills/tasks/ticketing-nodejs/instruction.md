@@ -75,12 +75,7 @@ city-filtered lists.
 ## How you will be graded
 
 - **API conformance** — six endpoints, right status codes, payloads.
-- **Cosmos data shape** — partition key, indexing policy, throughput,
-  and document shape for event / ticket records.
-- **Node.js SDK best practices** — your skill set covers these. The
-  grader inspects your source code (comments stripped) for the expected
-  patterns.
-- **Skills compliance** — no hardcoded keys, env-based config, no
-  legacy `documentdb` npm package.
+- **Data persistence** — the data your service returns matches what is
+  actually stored in the Cosmos emulator.
 
 Binary reward to `/logs/verifier/reward.txt`.
