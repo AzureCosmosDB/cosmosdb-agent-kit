@@ -404,22 +404,32 @@ class TestAgentReadSkills:
 
     def test_session_transcript_captured(self):
         path = _transcript_path()
+        if not os.path.isfile(path):
+            pytest.skip(
+                f"No agent transcript at {path} — no Copilot agent ran (e.g. a "
+                "gold/fix_validation run). The skills_read gate only applies to "
+                "real agent runs."
+            )
         events = _load_transcript_events(path)
         assert events, (
-            f"No agent session transcript was found/parsed at {path}. The CES "
-            "runner writes the JSONL transcript here after the agent finishes; "
-            "without it the skills_read gate cannot verify the agent read the "
-            "skill files. If you see this in a real run, the transcript was not "
-            "captured (an infrastructure problem, not an agent failure)."
+            f"An agent session transcript exists at {path} but could not be "
+            "parsed into any events. The CES runner writes the JSONL transcript "
+            "here after the agent finishes; an empty/unparseable file is an "
+            "infrastructure problem, not an agent failure."
         )
 
     def test_agent_read_skill_index(self):
         path = _transcript_path()
+        if not os.path.isfile(path):
+            pytest.skip(
+                f"No agent transcript at {path} — no agent ran (gold run); "
+                "skill-index read is not applicable."
+            )
         events = _load_transcript_events(path)
         if not events:
             pytest.fail(
-                f"No transcript at {path}; cannot verify the agent read the "
-                "skill index (SKILL.md)."
+                f"Transcript at {path} is empty/unparseable; cannot verify the "
+                "agent read the skill index (SKILL.md). Infrastructure problem."
             )
         arg_strings = _tool_call_arg_strings(events)
         opened_index = any(
@@ -436,11 +446,16 @@ class TestAgentReadSkills:
 
     def test_agent_read_at_least_one_rule(self):
         path = _transcript_path()
+        if not os.path.isfile(path):
+            pytest.skip(
+                f"No agent transcript at {path} — no agent ran (gold run); "
+                "rule-file read is not applicable."
+            )
         events = _load_transcript_events(path)
         if not events:
             pytest.fail(
-                f"No transcript at {path}; cannot verify the agent read a rule "
-                "file (rules/*.md)."
+                f"Transcript at {path} is empty/unparseable; cannot verify the "
+                "agent read a rule file (rules/*.md). Infrastructure problem."
             )
         arg_strings = _tool_call_arg_strings(events)
         rule_files = set()

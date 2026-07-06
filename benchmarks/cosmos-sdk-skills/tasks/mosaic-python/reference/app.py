@@ -198,7 +198,6 @@ async def list_users_by_city(city: str = Query(..., min_length=1)):
         async for d in _users.query_items(
             query=query,
             parameters=params,
-            enable_cross_partition_query=True,
             logging_enable=True,
         ):
             out.append(_to_out(d))
