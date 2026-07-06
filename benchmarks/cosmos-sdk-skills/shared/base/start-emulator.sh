@@ -19,9 +19,61 @@ probe() {
         || curl -ks --max-time 2 "${PROTOCOL}://localhost:8081/" >/dev/null 2>&1
 }
 
+# The vnext emulator's gateway serves static endpoints (/, emulator.pem) BEFORE
+# the pgcosmos data-plane extension has finished initializing. During that window
+# any real Cosmos operation returns HTTP 503 "pgcosmos extension is still starting;
+# retry request shortly". Eager SDK clients (dotnet/java/nodejs/go) that open a
+# connection at process start crash on that 503, so the port-only probe above is
+# not a sufficient readiness signal. dataplane_ready() issues a signed GET /dbs
+# and only reports success once the data plane answers (non-5xx).
+COSMOS_KEY_WELL_KNOWN="C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
+dataplane_ready() {
+    COSMOS_KEY="${COSMOS_KEY:-$COSMOS_KEY_WELL_KNOWN}" PROTOCOL="$PROTOCOL" python3 - <<'PY'
+import os, sys, hmac, base64, hashlib, urllib.parse, urllib.request, urllib.error
+from email.utils import formatdate
+key = os.environ.get("COSMOS_KEY", "")
+protocol = os.environ.get("PROTOCOL", "http")
+date = formatdate(usegmt=True)
+# Cosmos master-key auth: sign "verb\nresourceType\nresourceId\ndate\n\n" (lowercased).
+text = "get\ndbs\n\n" + date.lower() + "\n\n"
+sig = base64.b64encode(
+    hmac.new(base64.b64decode(key), text.encode("utf-8"), hashlib.sha256).digest()
+).decode()
+auth = urllib.parse.quote("type=master&ver=1.0&sig=" + sig)
+req = urllib.request.Request(
+    protocol + "://localhost:8081/dbs",
+    headers={"Authorization": auth, "x-ms-date": date, "x-ms-version": "2018-12-31"},
+)
+try:
+    with urllib.request.urlopen(req, timeout=3) as r:
+        sys.exit(0 if r.status < 500 else 1)
+except urllib.error.HTTPError as e:
+    # 5xx (esp. 503 "still starting") => not ready. Any 4xx means the data
+    # plane is live and responding, which is all we need to gate on.
+    sys.exit(1 if e.code >= 500 else 0)
+except Exception:
+    sys.exit(1)
+PY
+}
+
+wait_dataplane() {
+    local secs="${DATAPLANE_WAIT_SECS:-300}"
+    echo -n "[start-emulator] waiting up to ${secs}s for pgcosmos data plane "
+    for _ in $(seq 1 "$secs"); do
+        if dataplane_ready; then
+            echo " ok"
+            return 0
+        fi
+        sleep 1
+        echo -n "+"
+    done
+    echo " FAILED: data plane (pgcosmos) not ready"
+    return 1
+}
+
 if probe; then
     echo "[start-emulator] emulator already responding on 8081"
-    exit 0
+    if wait_dataplane; then exit 0; else exit 1; fi
 fi
 
 # The vnext-preview image launches the emulator via
@@ -121,7 +173,7 @@ for i in $(seq 1 "$EMULATOR_WAIT_SECS"); do
         for pid in $(pgrep -f health_check_server 2>/dev/null); do
             kill "$pid" 2>/dev/null || true
         done
-        exit 0
+        if wait_dataplane; then exit 0; else dump_emulator_log; exit 1; fi
     fi
     if ! kill -0 "$EMU_PID" 2>/dev/null; then
         echo " FAILED: emulator process exited"
