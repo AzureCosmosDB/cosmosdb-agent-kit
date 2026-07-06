@@ -67,7 +67,10 @@ class TestLatestSdk:
         )
         # Negative is enforced in check_skills.py::TestDotnetForbiddenPackage too,
         # but assert here as well for a single-place readable failure mode.
-        assert not re.search(r"\bAzure\.Cosmos\b", source_text), (
+        # The negative lookbehind keeps the GA id `Microsoft.Azure.Cosmos` from
+        # matching (the '.' before 'Azure' is a word boundary, so a bare
+        # \bAzure\.Cosmos\b would otherwise fire on the correct package id).
+        assert not re.search(r"(?<!Microsoft\.)\bAzure\.Cosmos\b", source_text), (
             "Found `Azure.Cosmos` reference. That is the abandoned preview package; the "
             "GA package is `Microsoft.Azure.Cosmos`. Rule sdk-dotnet-cosmos-package-id."
         )

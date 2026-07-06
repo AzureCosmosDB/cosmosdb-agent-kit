@@ -271,7 +271,7 @@ func listUsersByCity(w http.ResponseWriter, r *http.Request) {
 	opts := &azcosmos.QueryOptions{
 		QueryParameters: []azcosmos.QueryParameter{{Name: "@city", Value: city}},
 	}
-	pager := container.NewCrossPartitionQueryItemsPager(query, opts)
+	pager := container.NewQueryItemsPager(query, azcosmos.NewPartitionKey(), opts)
 	results := []UserDoc{}
 	for pager.More() {
 		page, err := pager.NextPage(r.Context())

@@ -11,6 +11,14 @@ FROM cosmos-mosaic-base:latest
 
 ENV SDK="java"
 
+# The azure-cosmos Java v4 SDK always negotiates TLS for its Gateway HTTP
+# client (unlike the JS/Python/Go/.NET SDKs, it will not talk plain HTTP to
+# the gateway). The vnext emulator defaults to HTTP on :8081, so run this
+# instance's emulator in HTTPS mode and point the app at the TLS endpoint.
+# run.sh trusts the emulator's self-signed cert before launching.
+ENV COSMOS_PROTOCOL="https" \
+    COSMOS_ENDPOINT="https://localhost:8081"
+
 # Copy the JDK + Maven from the provider stage. This is a single-shot
 # COPY and incurs no network at build time.
 COPY --from=jdk_provider /opt/java/openjdk /opt/jdk

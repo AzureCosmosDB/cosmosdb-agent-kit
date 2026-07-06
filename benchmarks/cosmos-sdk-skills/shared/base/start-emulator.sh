@@ -29,7 +29,7 @@ probe() {
 COSMOS_KEY_WELL_KNOWN="C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
 dataplane_ready() {
     COSMOS_KEY="${COSMOS_KEY:-$COSMOS_KEY_WELL_KNOWN}" PROTOCOL="$PROTOCOL" python3 - <<'PY'
-import os, sys, hmac, base64, hashlib, urllib.parse, urllib.request, urllib.error
+import os, sys, hmac, base64, hashlib, ssl, urllib.parse, urllib.request, urllib.error
 from email.utils import formatdate
 key = os.environ.get("COSMOS_KEY", "")
 protocol = os.environ.get("PROTOCOL", "http")
@@ -44,8 +44,11 @@ req = urllib.request.Request(
     protocol + "://localhost:8081/dbs",
     headers={"Authorization": auth, "x-ms-date": date, "x-ms-version": "2018-12-31"},
 )
+# The emulator's https gateway uses a self-signed cert; skip verification here
+# (this is only a readiness probe, not app traffic).
+ctx = ssl._create_unverified_context() if protocol == "https" else None
 try:
-    with urllib.request.urlopen(req, timeout=3) as r:
+    with urllib.request.urlopen(req, timeout=3, context=ctx) as r:
         sys.exit(0 if r.status < 500 else 1)
 except urllib.error.HTTPError as e:
     # 5xx (esp. 503 "still starting") => not ready. Any 4xx means the data

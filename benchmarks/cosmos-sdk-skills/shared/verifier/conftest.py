@@ -258,7 +258,7 @@ SOURCE_SUFFIXES = {
 }
 
 SKIP_DIRS = {
-    "node_modules", ".git", "bin", "obj", "target", "dist", "build",
+    "node_modules", ".git", "bin", "obj", "target", "dist", "build", "out",
     "__pycache__", ".pytest_cache", ".venv", "venv", "vendor", ".idea", ".vscode",
 }
 
@@ -268,6 +268,7 @@ SKIP_DIRS = {
 _HASH_LINE = re.compile(r"(?m)#.*$")
 _SLASH_LINE = re.compile(r"(?m)//.*$")
 _BLOCK_C = re.compile(r"/\*.*?\*/", re.DOTALL)
+_XML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 _TRIPLE_DOUBLE = re.compile(r'"""[\s\S]*?"""')
 _TRIPLE_SINGLE = re.compile(r"'''[\s\S]*?'''")
 
@@ -280,7 +281,10 @@ def _strip_comments(text: str, sdk: str) -> str:
     if sdk == "go":
         text = _BLOCK_C.sub("", text)
         return _SLASH_LINE.sub("", text)
-    # dotnet, java, nodejs all use C-style comments
+    # dotnet, java, nodejs all use C-style comments. dotnet (.csproj/.props)
+    # and java (pom.xml) also carry XML comments, which must be stripped so a
+    # warning like <!-- never use "Azure.Cosmos" --> can't trip a package check.
+    text = _XML_COMMENT.sub("", text)
     text = _BLOCK_C.sub("", text)
     return _SLASH_LINE.sub("", text)
 

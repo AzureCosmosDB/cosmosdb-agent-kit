@@ -42,42 +42,65 @@ public class MosaicUsersApplication {
         SpringApplication.run(MosaicUsersApplication.class, args);
     }
 
-    // Singleton CosmosClient (rule sdk-singleton-client). One @Bean,
-    // owned by the Spring context.
-    @Bean
-    public CosmosClient cosmosClient(
-            @Value("${COSMOS_ENDPOINT}") String endpoint,
-            @Value("${COSMOS_KEY}") String key) {
+    // Singleton CosmosClient (rule sdk-singleton-client), produced by a
+    // dedicated @Configuration bean below. Keeping the @Bean factory OUT of
+    // the @SpringBootApplication class avoids a bean cycle: the app class
+    // @Autowires UserStore, UserStore needs CosmosClient, and if the app class
+    // also produced CosmosClient that would be a cycle Spring Boot rejects by
+    // default.
+    @org.springframework.context.annotation.Configuration
+    public static class CosmosConfig {
+        @Bean
+        public CosmosClient cosmosClient(
+                @Value("${COSMOS_ENDPOINT}") String endpoint,
+                @Value("${COSMOS_KEY}") String key) {
 
-        String preferred = Optional.ofNullable(System.getenv("COSMOS_PREFERRED_REGIONS"))
-                .orElse("West US 2,East US 2");
-        List<String> regions = new ArrayList<>();
-        for (String r : preferred.split(",")) {
-            String t = r.trim();
-            if (!t.isEmpty()) regions.add(t);
+            String preferred = Optional.ofNullable(System.getenv("COSMOS_PREFERRED_REGIONS"))
+                    .orElse("West US 2,East US 2");
+            List<String> regions = new ArrayList<>();
+            for (String r : preferred.split(",")) {
+                String t = r.trim();
+                if (!t.isEmpty()) regions.add(t);
+            }
+
+            ThrottlingRetryOptions retry = new ThrottlingRetryOptions()
+                    .setMaxRetryAttemptsOnThrottledRequests(9)
+                    .setMaxRetryWaitTime(Duration.ofSeconds(30));
+
+            // Rule sdk-end-to-end-timeouts: cap the whole operation, not
+            // just a single attempt.
+            CosmosEndToEndOperationLatencyPolicyConfig e2e =
+                    new CosmosEndToEndOperationLatencyPolicyConfigBuilder(Duration.ofSeconds(5))
+                            .enable(true)
+                            .build();
+
+            CosmosClientBuilder builder = new CosmosClientBuilder()
+                    .endpoint(endpoint)
+                    .key(key)
+                    .throttlingRetryOptions(retry)
+                    .endToEndOperationLatencyPolicyConfig(e2e)
+                    .userAgentSuffix("mosaic-users")
+                    .consistencyLevel(ConsistencyLevel.SESSION);
+
+            // Rule sdk-connection-mode: Java production default is Direct mode.
+            // The vnext Cosmos emulator only speaks the Gateway protocol (no
+            // rntbd/Direct backend endpoints), so use Gateway against a local
+            // emulator and Direct for real accounts.
+            //
+            // The single-region emulator also advertises no regional endpoints,
+            // so global endpoint discovery + preferredRegions makes the SDK try
+            // to resolve region-suffixed hosts (e.g. "localhost-WestUS2") that do
+            // not exist. Disable endpoint discovery and skip preferredRegions for
+            // the emulator; keep the multi-region setup for real accounts.
+            boolean isEmulator = endpoint.contains("localhost") || endpoint.contains("127.0.0.1");
+            if (isEmulator) {
+                builder.gatewayMode().endpointDiscoveryEnabled(false);
+            } else {
+                builder.preferredRegions(regions)
+                        .directMode(DirectConnectionConfig.getDefaultConfig());
+            }
+            return builder.buildClient();
         }
-
-        ThrottlingRetryOptions retry = new ThrottlingRetryOptions()
-                .setMaxRetryAttemptsOnThrottledRequests(9)
-                .setMaxRetryWaitTime(Duration.ofSeconds(30));
-
-        // Rule sdk-end-to-end-timeouts: cap the whole operation, not
-        // just a single attempt.
-        CosmosEndToEndOperationLatencyPolicyConfig e2e =
-                new CosmosEndToEndOperationLatencyPolicyConfigBuilder(Duration.ofSeconds(5))
-                        .enable(true)
-                        .build();
-
-        return new CosmosClientBuilder()
-                .endpoint(endpoint)
-                .key(key)
-                .directMode(DirectConnectionConfig.getDefaultConfig())
-                .preferredRegions(regions)
-                .throttlingRetryOptions(retry)
-                .endToEndOperationLatencyPolicyConfig(e2e)
-                .userAgentSuffix("mosaic-users")
-                .consistencyLevel(ConsistencyLevel.SESSION)
-                .buildClient();
     }
 
     @Autowired

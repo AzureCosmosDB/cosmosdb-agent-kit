@@ -17,16 +17,21 @@ var preferred = (Environment.GetEnvironmentVariable("COSMOS_PREFERRED_REGIONS") 
 
 // Rule sdk-singleton-client: one CosmosClient registered as a singleton.
 // Rule sdk-connection-mode: Direct is the production default for .NET.
+//   The vnext Cosmos emulator only speaks the Gateway protocol (it has no
+//   rntbd/Direct backend endpoints), so fall back to Gateway when pointed at
+//   a local emulator while keeping Direct for real accounts.
 // Rule sdk-preferred-regions: ApplicationPreferredRegions tells the SDK
 //   which region(s) to prefer for reads/writes.
 // Rule sdk-retry-throttled: tune retry attempts + wait time on 429s.
 // Rule sdk-diagnostics: ApplicationName tags telemetry; this is the
 //   minimal hook the diagnostics rule requires.
+var isEmulator = endpoint.Contains("localhost", StringComparison.OrdinalIgnoreCase)
+                 || endpoint.Contains("127.0.0.1", StringComparison.OrdinalIgnoreCase);
 builder.Services.AddSingleton<CosmosClient>(_ =>
 {
     var options = new CosmosClientOptions
     {
-        ConnectionMode = ConnectionMode.Direct,
+        ConnectionMode = isEmulator ? ConnectionMode.Gateway : ConnectionMode.Direct,
         ApplicationName = "mosaic-users",
         ApplicationPreferredRegions = preferred,
         MaxRetryAttemptsOnRateLimitedRequests = 9,
