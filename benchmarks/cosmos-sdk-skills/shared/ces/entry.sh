@@ -14,8 +14,14 @@ export OUTPUT_DIR="/output"         # Where to write results (eval.json, etc.)
 export METADATA_PATH="/drop/metadata.json"
 export EVAL_SCRIPT_PATH="/tests/test.sh"
 
-# Instance identifier — read from metadata so this script is task-agnostic.
-export INSTANCE_ID="$(python3 -c "import json; print(json.load(open('${METADATA_PATH}'))['instance_id'])")"
+# Instance identifier — prefer the instanceId env var (set by the MSBench local
+# Docker backend), fall back to /drop/metadata.json (CES backend contract), and
+# default to "unknown" so a missing/renamed key never aborts the run under set -e.
+export INSTANCE_ID="${instanceId:-}"
+if [ -z "$INSTANCE_ID" ]; then
+    INSTANCE_ID="$(python3 -c "import json; print(json.load(open('${METADATA_PATH}')).get('instance_id','unknown'))" 2>/dev/null || echo unknown)"
+fi
+export INSTANCE_ID
 
 # Ensure output directory exists
 mkdir -p "$OUTPUT_DIR"
