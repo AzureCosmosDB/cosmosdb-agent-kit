@@ -1,68 +1,98 @@
-"""API conformance checks.
+"""API conformance checks — contract-driven.
 
-These run against the agent's live HTTP server, which test.sh has
-already started and waited on. The contract is the same for every SDK:
+Runs against the agent's live HTTP server (already started by runner.sh).
+Every assertion is derived from the active scenario contract
+(/verifier/contracts/<scenario>.json), so the same engine grades mosaic
+(users), ticketing (events) and iot (devices) without code changes.
 
-    GET  /health                  -> 200, {"status": "ok"}
-    POST /users                   -> 201, returns the user
-    GET  /users/{id}              -> 200 or 404
-    GET  /users?city=<city>       -> 200, array of users matching city
+For each declared *root* entity the contract may define:
 
-Test users are deterministic (no faker, no random) and live in conftest.py
-so that check_cosmos.py can also rely on the same seeded fixtures.
+    create  -> POST <path>                (required)
+    get     -> GET  <path with {id}>      (optional; iot devices have none)
+    list    -> GET  <path>?<param>=<v>    (optional; iot devices have none)
+
+Deterministic seed data lives in the contract; seed_roots (conftest)
+POSTs it through the agent's own API before these checks read it back.
+
+Child entities (tickets, readings) and scenario-specific endpoints are
+graded by each task's /tests/checks.py, not here.
 """
 from __future__ import annotations
 
 import pytest
 
-from conftest import USERS  # re-exported for backwards compat
+from conftest import CONTRACT, ROOTS, fmt_path, root_ids
 
 
 class TestHealth:
     def test_health_returns_200(self, api):
-        r = api.api("GET", "/health")
-        assert r.status_code == 200
+        path = CONTRACT.get("health_path", "/health")
+        r = api.api("GET", path)
+        assert r.status_code == 200, r.text
         body = r.json()
         assert isinstance(body, dict)
         assert body.get("status") in ("ok", "OK", "healthy", "Healthy"), body
 
 
-class TestCreateUser:
-    def test_post_user_returns_201_and_persists_fields(self, seeded_users, api):
-        u = seeded_users[0]
-        r = api.api("GET", f"/users/{u['id']}")
+@pytest.mark.parametrize("root", ROOTS, ids=root_ids)
+class TestRootApi:
+    """Create/read/list conformance for each aggregate-root entity."""
+
+    def test_create_persists_fields(self, root, seed_roots, api):
+        get = root.get("get")
+        if not get:
+            pytest.skip(f"{root['name']} has no GET-by-id endpoint")
+        row = root["seed"][0]
+        r = api.api("GET", fmt_path(get["path"], id=row["id"]))
         assert r.status_code == 200, r.text
         body = r.json()
-        assert body["name"] == u["name"]
-        assert body["email"] == u["email"]
-        assert body["city"] == u["city"]
-        assert body["interests"] == u["interests"], (
-            f"interests order changed: expected {u['interests']}, got {body['interests']}"
-        )
+        for field in root.get("compare_fields", []):
+            assert body.get(field) == row.get(field), (
+                f"{root['name']} {row['id']}: field {field!r} = {body.get(field)!r}, "
+                f"expected {row.get(field)!r} (order must round-trip for arrays)."
+            )
 
-
-class TestGetUser:
-    def test_get_existing_user_200(self, seeded_users, api):
-        r = api.api("GET", f"/users/{seeded_users[1]['id']}")
+    def test_get_existing_returns_200(self, root, seed_roots, api):
+        get = root.get("get")
+        if not get:
+            pytest.skip(f"{root['name']} has no GET-by-id endpoint")
+        row = root["seed"][-1]
+        r = api.api("GET", fmt_path(get["path"], id=row["id"]))
         assert r.status_code == 200, r.text
 
-    def test_get_unknown_user_404(self, seeded_users, api):
-        r = api.api("GET", "/users/u-does-not-exist")
-        assert r.status_code == 404, f"Expected 404 for missing user, got {r.status_code}"
+    def test_get_unknown_returns_404(self, root, seed_roots, api):
+        get = root.get("get")
+        if not get:
+            pytest.skip(f"{root['name']} has no GET-by-id endpoint")
+        r = api.api("GET", fmt_path(get["path"], id="does-not-exist-zzz"))
+        assert r.status_code == 404, (
+            f"Expected 404 for missing {root['name']}, got {r.status_code}"
+        )
 
-
-class TestListByCity:
-    def test_list_users_by_city_returns_array(self, seeded_users, api):
-        r = api.api("GET", "/users", params={"city": "Seattle"})
+    def test_list_by_filter_returns_matching(self, root, seed_roots, api):
+        lst = root.get("list")
+        if not lst:
+            pytest.skip(f"{root['name']} has no list endpoint")
+        field = lst["filter_field"]
+        value = root["seed"][0][field]
+        r = api.api("GET", lst["path"], params={lst["filter_param"]: value})
         assert r.status_code == 200, r.text
         body = r.json()
         assert isinstance(body, list), f"Expected list, got {type(body).__name__}"
-        ids = {u["id"] for u in body}
-        assert "u-alpha" in ids and "u-bravo" in ids
-        # All returned users must actually be in Seattle.
-        assert all(u["city"] == "Seattle" for u in body), body
+        expected_ids = {row["id"] for row in root["seed"] if row.get(field) == value}
+        got_ids = {item["id"] for item in body}
+        assert expected_ids <= got_ids, (
+            f"GET {lst['path']}?{lst['filter_param']}={value} returned {sorted(got_ids)}; "
+            f"expected it to include {sorted(expected_ids)}."
+        )
+        assert all(item.get(field) == value for item in body), (
+            f"Every returned {root['name']} must have {field}={value!r}: {body}"
+        )
 
-    def test_list_users_by_city_no_match_empty_array(self, seeded_users, api):
-        r = api.api("GET", "/users", params={"city": "NoSuchCity"})
+    def test_list_no_match_returns_empty(self, root, seed_roots, api):
+        lst = root.get("list")
+        if not lst:
+            pytest.skip(f"{root['name']} has no list endpoint")
+        r = api.api("GET", lst["path"], params={lst["filter_param"]: "no-such-value-zzz"})
         assert r.status_code == 200, r.text
-        assert r.json() == []
+        assert r.json() == [], "A filter value with no matches must return an empty array."

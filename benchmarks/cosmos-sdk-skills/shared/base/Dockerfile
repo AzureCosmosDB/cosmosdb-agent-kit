@@ -68,6 +68,10 @@ RUN python3 -m venv /opt/verifier-venv && \
 # Shared verifier library + emulator helper. Both are owned by the
 # image, not by the agent — the agent's /app/ cannot modify these.
 COPY shared/verifier/ /verifier/
+# Scenario contracts drive the contract-driven verifier. The active
+# scenario is selected at runtime by the SCENARIO env var (set per task
+# image); conftest.py loads /verifier/contracts/<scenario>.json.
+COPY shared/contracts/ /verifier/contracts/
 COPY shared/base/start-emulator.sh /usr/local/bin/start-emulator
 RUN chmod +x /usr/local/bin/start-emulator
 
@@ -135,6 +139,7 @@ COPY .cosmosdb-best-practices-skills /opt/cosmosdb-agent-kit/skills/cosmosdb-bes
 # from a hardcoded literal in source.
 ENV COSMOS_ENDPOINT="http://localhost:8081" \
     COSMOS_KEY="C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==" \
+    SCENARIO="mosaic" \
     COSMOS_DATABASE="mosaic" \
     COSMOS_USERS_CONTAINER="users" \
     APP_PORT="9080" \

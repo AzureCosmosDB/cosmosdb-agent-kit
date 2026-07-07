@@ -54,7 +54,8 @@ esac
 if [ "$LIVE_MODE" = "1" ]; then
     # Per-SDK database isolation. Overrides the image's baked default so
     # both the agent's app and the verifier target the same unique db.
-    export COSMOS_DATABASE="${COSMOS_DATABASE_PREFIX:-mosaic}-${SDK}"
+    # Prefix defaults to the scenario database baked into the image.
+    export COSMOS_DATABASE="${COSMOS_DATABASE_PREFIX:-${COSMOS_DATABASE:-mosaic}}-${SDK}"
     # Per-SDK listener port. The app must honour $APP_PORT (verifier
     # contract), and the verifier reads the same APP_PORT, so they stay
     # aligned. Distinct ports keep co-located instances from fighting.

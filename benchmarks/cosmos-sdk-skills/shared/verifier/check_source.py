@@ -440,12 +440,16 @@ class TestCacheMetadata:
         if not pat:
             pytest.skip(f"No provision pattern registered for {sdk}")
         hits = re.findall(pat, source_text)
-        # We allow up to 2 hits to accommodate one CreateDatabase + one
-        # CreateContainer call. >2 means the agent is almost certainly
-        # re-provisioning per request.
-        assert len(hits) <= 2, (
-            f"Found {len(hits)} calls to create*IfNotExists in source. "
-            "Rule sdk-cache-metadata: provision the database and container exactly "
+        # Startup provisioning is one database + one call per declared
+        # container. More than that means the agent is almost certainly
+        # re-provisioning per request. Derive the bound from the contract
+        # so multi-container scenarios (e.g. events+tickets) are allowed.
+        from conftest import CHILDREN, ROOTS
+        allowed = 1 + len(ROOTS) + len(CHILDREN)
+        assert len(hits) <= allowed, (
+            f"Found {len(hits)} calls to create*IfNotExists in source (allowed "
+            f"{allowed}: one database + one per container). "
+            "Rule sdk-cache-metadata: provision the database and containers exactly "
             "once at startup (FastAPI lifespan / Spring @PostConstruct / .NET startup "
             "/ Node top-level await / Go init) and cache the handle. Re-calling "
             "createIfNotExists per request consumes from the system-reserved RU "

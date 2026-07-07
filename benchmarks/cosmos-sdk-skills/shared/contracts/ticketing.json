@@ -1,0 +1,49 @@
+{
+  "scenario": "ticketing",
+  "database_env": "COSMOS_DATABASE",
+  "database_default": "ticketwave",
+  "health_path": "/health",
+  "roots": [
+    {
+      "name": "event",
+      "container_env": "COSMOS_EVENTS_CONTAINER",
+      "container_default": "events",
+      "create": { "path": "/events", "duplicate_status": 409 },
+      "get": { "path": "/events/{id}" },
+      "list": { "path": "/events", "filter_param": "city", "filter_field": "city" },
+      "compare_fields": ["title", "description", "city", "date", "venue", "capacity"],
+      "ordered_array_fields": [],
+      "string_array_fields": [],
+      "string_fields": ["title", "description", "city", "date", "venue"],
+      "int_fields": ["capacity"],
+      "partition": { "value_equals_id": true, "forbid_paths": ["/city"] },
+      "modeling": { "type_discriminator": true, "schema_version": true, "timestamp_field": "createdAt" },
+      "indexing": { "require_non_default": true, "require_excludes": false },
+      "throughput": { "required": true },
+      "seed": [
+        { "id": "evt-summer-night", "title": "Summer Night Market", "description": "Food trucks, live music, and local makers.", "city": "Seattle",  "date": "2026-08-14T19:00:00Z", "venue": "Pier Plaza",       "capacity": 1200 },
+        { "id": "evt-jazz-loft",    "title": "Jazz Loft Session",   "description": "Intimate late-night jazz.",                   "city": "Seattle",  "date": "2026-09-02T20:00:00Z", "venue": "Loft 9",           "capacity": 200 },
+        { "id": "evt-food-fest",    "title": "Portland Food Fest",  "description": "Regional food and drink festival.",           "city": "Portland", "date": "2026-07-20T11:00:00Z", "venue": "Waterfront Park",  "capacity": 5000 }
+      ]
+    }
+  ],
+  "children": [
+    {
+      "name": "ticket",
+      "container_env": "COSMOS_TICKETS_CONTAINER",
+      "container_default": "tickets",
+      "parent": "event",
+      "partition_field": "eventId",
+      "create": { "path": "/events/{parentId}/tickets", "duplicate_status": 409 },
+      "delete": { "path": "/events/{parentId}/tickets/{id}", "success_status": 204, "etag_mismatch_status": 412 },
+      "compare_fields": ["userId", "purchaseDate", "status", "seatNumber"],
+      "string_fields": ["userId", "purchaseDate", "status", "seatNumber"],
+      "modeling": { "type_discriminator": true, "schema_version": true, "timestamp_field": "createdAt" },
+      "seed": [
+        { "parentId": "evt-summer-night", "id": "t-1001", "userId": "u-42", "purchaseDate": "2026-08-01T10:15:00Z", "status": "active", "seatNumber": "A-12" },
+        { "parentId": "evt-summer-night", "id": "t-1002", "userId": "u-43", "purchaseDate": "2026-08-01T10:16:00Z", "status": "active", "seatNumber": "A-13" },
+        { "parentId": "evt-jazz-loft",    "id": "t-2001", "userId": "u-50", "purchaseDate": "2026-08-05T09:00:00Z", "status": "active", "seatNumber": "B-1" }
+      ]
+    }
+  ]
+}

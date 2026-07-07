@@ -1,186 +1,167 @@
 """Behavioral checks — the concrete, hard-to-game core of the grader.
 
-Unlike check_source.py / check_advanced_source.py (which regex-scan the
-agent's source and therefore prove nothing about runtime behavior), every
-test here follows the pattern the MSBench lessons doc calls the only
-defensible one:
+Contract-driven. For every declared *root* entity we:
 
-    1. The app has already been built and started by runner.sh.
-    2. We exercise the public HTTP API (the `api` fixture).
-    3. We independently read persisted state straight from the Cosmos
-       emulator with the verifier's OWN client (never the agent's API).
-    4. We assert the two agree AND match the contract.
+    1. Seed deterministic rows through the agent's public HTTP API
+       (seed_roots, in conftest).
+    2. Independently read the persisted documents straight from the
+       Cosmos emulator with the verifier's OWN client (root_persisted).
+    3. Assert the API, the persisted bytes and the contract all agree.
 
-This catches the failure modes regex cannot: an app that compiles and
-answers HTTP but stores nothing in Cosmos (in-memory dict / SQLite), a
-wrong partition-key value, a city filter that returns the wrong rows, or a
-"create" that silently overwrites duplicates. These map to the Cosmos data
-rules (partition-*, model-*, sdk-conditional-create-etag) but are proven by
-behavior, not by token matching.
+This catches what regex cannot: an app that answers HTTP but stores
+nothing in Cosmos (in-memory dict / SQLite), a wrong partition-key value,
+a filter that returns the wrong rows, or a "create" that silently
+overwrites duplicates.
 
-SDK-agnostic: these tests carry no SDK token in their names, so
-pytest_collection_modifyitems keeps them for every SDK instance.
+SDK-agnostic: no SDK token in the test names, so these run for every SDK.
 """
 from __future__ import annotations
 
+import pytest
 from azure.cosmos import exceptions as cosmos_exc
 
-from conftest import emulator_docs_for_id
+from conftest import ROOTS, emulator_docs_for_id, fmt_path, partition_key_field, root_ids
 
 
-# ---------------------------------------------------------------------
-# Persistence really happens (the anti-"in-memory fake" gate)
-# ---------------------------------------------------------------------
-
+@pytest.mark.parametrize("root", ROOTS, ids=root_ids)
 class TestPersistenceIsReal:
-    """Every user POSTed through the API must exist as a real document in
-    the Cosmos emulator. If the agent backed the service with a dict, a
-    list, or SQLite, these reads return nothing and the check fails."""
+    """Every row POSTed through the API must exist as a real document in
+    the emulator. An in-memory / SQLite backend makes these reads empty."""
 
-    def test_every_seeded_user_is_persisted_in_cosmos(self, seeded_users, persisted_docs):
-        missing = [u["id"] for u in seeded_users if persisted_docs.get(u["id"]) is None]
+    def test_every_seeded_row_is_persisted(self, root, seed_roots, root_persisted):
+        docs = root_persisted[root["name"]]
+        missing = [row["id"] for row in root["seed"] if docs.get(row["id"]) is None]
         assert not missing, (
-            f"These users were accepted by the API but are NOT in the Cosmos "
-            f"emulator: {missing}. The service must persist through the Cosmos "
-            "SDK — an in-memory or SQLite store that never writes to Cosmos "
-            "fails this gate."
+            f"These {root['name']} rows were accepted by the API but are NOT in "
+            f"Cosmos: {missing}. The service must persist through the Cosmos SDK — "
+            "an in-memory or SQLite store that never writes to Cosmos fails this gate."
         )
 
-    def test_persisted_fields_match_the_input(self, seeded_users, persisted_docs):
-        for u in seeded_users:
-            doc = persisted_docs[u["id"]]
-            assert doc is not None, f"{u['id']} not persisted"
-            assert doc.get("name") == u["name"], f"{u['id']}: name mismatch in Cosmos"
-            assert doc.get("email") == u["email"], f"{u['id']}: email mismatch in Cosmos"
-            assert doc.get("city") == u["city"], f"{u['id']}: city mismatch in Cosmos"
-            assert doc.get("interests") == u["interests"], (
-                f"{u['id']}: interests changed on persist. Expected {u['interests']}, "
-                f"stored {doc.get('interests')!r} — order must round-trip exactly."
-            )
+    def test_persisted_fields_match_input(self, root, seed_roots, root_persisted):
+        docs = root_persisted[root["name"]]
+        for row in root["seed"]:
+            doc = docs[row["id"]]
+            assert doc is not None, f"{row['id']} not persisted"
+            for field in root.get("compare_fields", []):
+                assert doc.get(field) == row.get(field), (
+                    f"{root['name']} {row['id']}: {field!r} stored as {doc.get(field)!r}, "
+                    f"expected {row.get(field)!r} (arrays must round-trip in order)."
+                )
 
 
-# ---------------------------------------------------------------------
-# Round-trip integrity: API read == persisted document
-# ---------------------------------------------------------------------
-
+@pytest.mark.parametrize("root", ROOTS, ids=root_ids)
 class TestRoundTripIntegrity:
-    """GET /users/{id} must return what is actually stored in Cosmos, not a
-    cached copy that has drifted from the persisted document."""
+    """GET must return what is actually stored in Cosmos, not a cached
+    copy that has drifted from the persisted document."""
 
-    def test_api_read_matches_emulator(self, seeded_users, persisted_docs, api):
-        u = seeded_users[0]
-        stored = persisted_docs[u["id"]]
-        assert stored is not None, f"{u['id']} not persisted; cannot compare"
-
-        r = api.api("GET", f"/users/{u['id']}")
+    def test_api_read_matches_emulator(self, root, seed_roots, root_persisted, api):
+        get = root.get("get")
+        if not get:
+            pytest.skip(f"{root['name']} has no GET-by-id endpoint")
+        row = root["seed"][0]
+        stored = root_persisted[root["name"]][row["id"]]
+        assert stored is not None, f"{row['id']} not persisted; cannot compare"
+        r = api.api("GET", fmt_path(get["path"], id=row["id"]))
         assert r.status_code == 200, r.text
         body = r.json()
-        for field in ("name", "email", "city", "interests"):
+        for field in root.get("compare_fields", []):
             assert body.get(field) == stored.get(field), (
-                f"GET /users/{u['id']} field {field!r} = {body.get(field)!r} but the "
-                f"persisted Cosmos document has {stored.get(field)!r}. The read path "
-                "must serve the document from Cosmos."
+                f"GET {row['id']} field {field!r} = {body.get(field)!r} but the persisted "
+                f"Cosmos document has {stored.get(field)!r}. Reads must serve from Cosmos."
             )
 
 
-# ---------------------------------------------------------------------
-# Conditional create / duplicate rejection (sdk-conditional-create-etag)
-# ---------------------------------------------------------------------
-
+@pytest.mark.parametrize("root", ROOTS, ids=root_ids)
 class TestDuplicateRejection:
-    """POSTing an already-used id must be rejected (409) AND must not create
-    a second document. This is the observable contract of a conditional
-    create (If-None-Match) — proven by behavior instead of scanning source
-    for `IfNoneMatchEtag`."""
+    """POSTing an already-used id must be rejected AND must not create a
+    second document — the observable contract of a conditional create
+    (If-None-Match), proven by behavior instead of scanning source."""
 
-    def test_duplicate_post_returns_409(self, seeded_users, api):
-        u = seeded_users[0]
-        r = api.api("POST", "/users", json=u)
-        assert r.status_code == 409, (
-            f"Re-POSTing existing id {u['id']!r} returned {r.status_code}, expected 409. "
-            "Creates that must be unique should reject duplicates atomically "
-            "(rule sdk-conditional-create-etag), not overwrite or 500."
+    def test_duplicate_post_is_rejected(self, root, seed_roots, api):
+        dup = root["create"].get("duplicate_status")
+        if dup is None:
+            pytest.skip(f"{root['name']} does not require duplicate rejection")
+        row = root["seed"][0]
+        r = api.api("POST", root["create"]["path"], json=row)
+        assert r.status_code == dup, (
+            f"Re-POSTing existing {root['name']} id {row['id']!r} returned "
+            f"{r.status_code}, expected {dup}. Unique creates must reject duplicates "
+            "atomically (rule sdk-conditional-create-etag), not overwrite or 500."
         )
 
-    def test_duplicate_post_does_not_create_second_doc(self, seeded_users, api, cosmos_users_container):
-        u = seeded_users[0]
-        # Attempt the duplicate (idempotent 409) then count what Cosmos holds.
-        api.api("POST", "/users", json=u)
-        rows = emulator_docs_for_id(cosmos_users_container, u["id"])
+    def test_duplicate_post_does_not_create_second_doc(self, root, seed_roots, api, root_containers):
+        dup = root["create"].get("duplicate_status")
+        if dup is None:
+            pytest.skip(f"{root['name']} does not require duplicate rejection")
+        row = root["seed"][0]
+        api.api("POST", root["create"]["path"], json=row)
+        rows = emulator_docs_for_id(root_containers[root["name"]], row["id"])
         assert len(rows) == 1, (
-            f"Expected exactly 1 persisted document for id {u['id']!r}, found {len(rows)}. "
-            "A duplicate create must not add or overwrite a second copy."
+            f"Expected exactly 1 persisted {root['name']} for id {row['id']!r}, found "
+            f"{len(rows)}. A duplicate create must not add or overwrite a second copy."
         )
 
 
-# ---------------------------------------------------------------------
-# Partition-key correctness (partition-* rules), proven against Cosmos
-# ---------------------------------------------------------------------
-
+@pytest.mark.parametrize("root", ROOTS, ids=root_ids)
 class TestPartitionKeyCorrectness:
-    def test_stored_partition_value_equals_user_id(
-        self, seeded_users, persisted_docs, users_partition_key_field
-    ):
-        pk = users_partition_key_field
-        assert pk, "users container has no partition key path"
-        # /id is trivially the user id. Any other pk path must carry the
-        # user id as its value so single-user lookups hit one partition.
+    def test_stored_partition_value_equals_id(self, root, seed_roots, root_persisted, root_containers):
+        if not root.get("partition", {}).get("value_equals_id"):
+            pytest.skip(f"{root['name']} partition key is not id-shaped")
+        pk = partition_key_field(root_containers[root["name"]])
+        assert pk, f"{root['name']} container has no partition key path"
         if pk == "id":
             return
-        for u in seeded_users:
-            doc = persisted_docs[u["id"]]
-            assert doc is not None, f"{u['id']} not persisted"
-            assert doc.get(pk) == u["id"], (
-                f"Partition key is /{pk} but {u['id']}'s stored value is "
-                f"{doc.get(pk)!r}. The pk value must equal the user id so a point "
-                "read targets exactly one logical partition."
+        docs = root_persisted[root["name"]]
+        for row in root["seed"]:
+            doc = docs[row["id"]]
+            assert doc is not None, f"{row['id']} not persisted"
+            assert doc.get(pk) == row["id"], (
+                f"Partition key is /{pk} but {row['id']}'s stored value is {doc.get(pk)!r}. "
+                "The pk value must equal the id so a point read targets one partition."
             )
 
-    def test_point_read_by_partition_succeeds(
-        self, seeded_users, persisted_docs, users_partition_key_field, cosmos_users_container
-    ):
-        pk = users_partition_key_field
-        u = seeded_users[0]
-        doc = persisted_docs[u["id"]]
-        assert doc is not None, f"{u['id']} not persisted"
-        pk_value = u["id"] if pk in ("", "id") else doc.get(pk, u["id"])
+    def test_point_read_by_partition_succeeds(self, root, seed_roots, root_persisted, root_containers):
+        if not root.get("partition", {}).get("value_equals_id"):
+            pytest.skip(f"{root['name']} partition key is not id-shaped")
+        container = root_containers[root["name"]]
+        pk = partition_key_field(container)
+        row = root["seed"][0]
+        doc = root_persisted[root["name"]][row["id"]]
+        assert doc is not None, f"{row['id']} not persisted"
+        pk_value = row["id"] if pk in ("", "id") else doc.get(pk, row["id"])
         try:
-            got = cosmos_users_container.read_item(item=u["id"], partition_key=pk_value)
+            got = container.read_item(item=row["id"], partition_key=pk_value)
         except cosmos_exc.CosmosResourceNotFoundError:
             raise AssertionError(
-                f"Point read of ({u['id']!r}, pk={pk_value!r}) failed. A single-user "
-                "read must be a single-partition point read; the stored id and pk "
-                "value are inconsistent."
+                f"Point read of ({row['id']!r}, pk={pk_value!r}) failed. A single-entity "
+                "read must be a single-partition point read; the stored id and pk value "
+                "are inconsistent."
             )
-        assert got["id"] == u["id"]
+        assert got["id"] == row["id"]
 
 
-# ---------------------------------------------------------------------
-# City filter correctness, cross-checked against the emulator's own query
-# ---------------------------------------------------------------------
-
-class TestCityQueryCorrectness:
-    def test_api_city_list_matches_emulator(self, seeded_users, api, cosmos_users_container):
-        city = "Seattle"
-        r = api.api("GET", "/users", params={"city": city})
+@pytest.mark.parametrize("root", ROOTS, ids=root_ids)
+class TestFilterQueryCorrectness:
+    def test_api_filter_matches_emulator(self, root, seed_roots, api, root_containers):
+        lst = root.get("list")
+        if not lst:
+            pytest.skip(f"{root['name']} has no list endpoint")
+        field = lst["filter_field"]
+        value = root["seed"][0][field]
+        r = api.api("GET", lst["path"], params={lst["filter_param"]: value})
         assert r.status_code == 200, r.text
-        api_ids = {row["id"] for row in r.json()}
+        api_ids = {item["id"] for item in r.json()}
 
         emulator_ids = {
-            row["id"]
-            for row in cosmos_users_container.query_items(
-                query="SELECT c.id FROM c WHERE c.city = @city",
-                parameters=[{"name": "@city", "value": city}],
+            item["id"]
+            for item in root_containers[root["name"]].query_items(
+                query=f"SELECT c.id FROM c WHERE c.{field} = @v",
+                parameters=[{"name": "@v", "value": value}],
                 enable_cross_partition_query=True,
             )
         }
         assert api_ids == emulator_ids, (
-            f"GET /users?city={city} returned {sorted(api_ids)} but the emulator holds "
-            f"{sorted(emulator_ids)} for that city. The list endpoint must query Cosmos "
+            f"GET {lst['path']}?{lst['filter_param']}={value} returned {sorted(api_ids)} but "
+            f"the emulator holds {sorted(emulator_ids)}. The list endpoint must query Cosmos "
             "and return exactly the matching rows (no extras, no misses)."
         )
-
-    def test_unknown_city_returns_empty(self, seeded_users, api):
-        r = api.api("GET", "/users", params={"city": "NoSuchCity"})
-        assert r.status_code == 200, r.text
-        assert r.json() == [], "A city with no users must return an empty array."

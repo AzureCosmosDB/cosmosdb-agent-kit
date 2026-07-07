@@ -1,0 +1,31 @@
+{
+  "scenario": "mosaic",
+  "database_env": "COSMOS_DATABASE",
+  "database_default": "mosaic",
+  "health_path": "/health",
+  "roots": [
+    {
+      "name": "user",
+      "container_env": "COSMOS_USERS_CONTAINER",
+      "container_default": "users",
+      "create": { "path": "/users", "duplicate_status": 409 },
+      "get": { "path": "/users/{id}" },
+      "list": { "path": "/users", "filter_param": "city", "filter_field": "city" },
+      "compare_fields": ["name", "email", "city", "interests"],
+      "ordered_array_fields": ["interests"],
+      "string_array_fields": ["interests"],
+      "string_fields": ["email", "city"],
+      "int_fields": [],
+      "partition": { "value_equals_id": true, "forbid_paths": ["/city"] },
+      "modeling": { "type_discriminator": true, "schema_version": true, "timestamp_field": "createdAt" },
+      "indexing": { "require_non_default": true, "require_excludes": true },
+      "throughput": { "required": true },
+      "seed": [
+        { "id": "u-alpha",   "name": "Alpha",   "email": "alpha@example.com",   "city": "Seattle",  "interests": ["climbing", "coffee"] },
+        { "id": "u-bravo",   "name": "Bravo",   "email": "bravo@example.com",   "city": "Seattle",  "interests": ["hiking"] },
+        { "id": "u-charlie", "name": "Charlie", "email": "charlie@example.com", "city": "Portland", "interests": ["cycling", "books", "tea"] }
+      ]
+    }
+  ],
+  "children": []
+}

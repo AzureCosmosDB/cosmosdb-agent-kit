@@ -1,32 +1,50 @@
 """Shared pytest fixtures for the cosmos-sdk-skills verifier.
 
-Every task's tests/checks.py imports from /verifier/. The fixtures here
-read everything from environment variables that the base image and the
+The verifier is **contract-driven**. Each task image bakes a scenario
+contract (shared/contracts/<scenario>.json, copied to
+/verifier/contracts/) and selects it with the SCENARIO env var. The
+contract declares, per scenario:
+
+  * the Cosmos database + container env vars and their defaults,
+  * the "root" entities (aggregate roots reachable via create/get/list),
+    their deterministic seed data, field shapes, partition-key rules and
+    modelling / indexing / throughput expectations, and
+  * the "child" entities (sub-resources such as tickets or readings) and
+    the scenario-specific endpoints that operate on them.
+
+The generic engine (check_api / check_behavior / check_cosmos) drives the
+root entities from the contract. Scenario-specific behaviour (ticket
+buy/cancel/ETag, iot reading ingest / time-range / summary) lives in each
+task's /tests/checks.py, which reads the same contract via the fixtures
+and helpers exported here.
+
+Everything is read from environment variables the base image and the
 per-task test.sh set up:
 
+    SCENARIO              -- mosaic | ticketing | iot (selects the contract)
     SDK                   -- one of python, dotnet, java, nodejs, go
     APP_PORT              -- port the agent's app should be listening on
     APP_WORKDIR           -- where the agent put its source code (/app)
-    COSMOS_ENDPOINT       -- https://localhost:8081
+    COSMOS_ENDPOINT       -- http(s)://localhost:8081
     COSMOS_KEY            -- well-known emulator key
-    COSMOS_DATABASE       -- mosaic
-    COSMOS_USERS_CONTAINER -- users
+    COSMOS_DATABASE       -- scenario database (mosaic | ticketwave | sensorgrid)
+    COSMOS_*_CONTAINER    -- per-entity container names
     VERIFIER_LOG_DIR      -- where per-check logs land
 
-The verifier does not own any test data — the API checks insert their
-own deterministic users.
+The verifier does not own any test data — the seed data lives in the
+contract and the checks insert it through the agent's own API.
 """
 from __future__ import annotations
 
 import json
 import os
 import re
-import urllib3
 from pathlib import Path
 from typing import Iterable
 
 import pytest
 import requests
+import urllib3
 from azure.cosmos import CosmosClient
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -46,68 +64,87 @@ SDK_ALIASES = {
     "golang": "go",
 }
 
-# Deterministic seed users. Shared across check_api.py and check_cosmos.py.
-USERS = [
-    {"id": "u-alpha",   "name": "Alpha",   "email": "alpha@example.com",   "city": "Seattle",  "interests": ["climbing", "coffee"]},
-    {"id": "u-bravo",   "name": "Bravo",   "email": "bravo@example.com",   "city": "Seattle",  "interests": ["hiking"]},
-    {"id": "u-charlie", "name": "Charlie", "email": "charlie@example.com", "city": "Portland", "interests": ["cycling", "books", "tea"]},
-]
+# ---------------------------------------------------------------------
+# Contract loading (module level so check_*.py can parametrize on it).
+# ---------------------------------------------------------------------
+
+CONTRACTS_DIR = Path(os.environ.get("CONTRACTS_DIR", "/verifier/contracts"))
 
 
-@pytest.fixture(scope="session")
-def seeded_users(api):
-    """Seed the agent's service with deterministic users via its own API.
+def load_contract() -> dict:
+    """Load the active scenario contract selected by the SCENARIO env var.
 
-    Shared by check_api.py (API conformance) and check_cosmos.py
-    (data-shape inspection). Idempotent: re-running with the same data
-    against a pre-seeded container returns 409 on each row, which we treat
-    as success.
+    Falls back to 'mosaic' so a bare invocation still works. Raises with a
+    clear message if the contract file is missing so a mis-wired task
+    image fails loudly instead of silently grading nothing.
     """
-    for u in USERS:
-        r = api.api("POST", "/users", json=u)
-        assert r.status_code in (201, 409), (
-            f"POST /users for {u['id']} returned {r.status_code}: {r.text[:300]}"
+    scenario = os.environ.get("SCENARIO", "mosaic").strip().lower()
+    path = CONTRACTS_DIR / f"{scenario}.json"
+    if not path.exists():
+        raise RuntimeError(
+            f"Contract for scenario {scenario!r} not found at {path}. "
+            f"The task image must bake shared/contracts/{scenario}.json into "
+            f"{CONTRACTS_DIR} and set SCENARIO={scenario}."
         )
-    return USERS
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
-def emulator_docs_for_id(container, user_id: str) -> list[dict]:
+# Loaded once at import. check_*.py parametrize their tests over
+# CONTRACT["roots"] / CONTRACT["children"].
+CONTRACT = load_contract()
+ROOTS = CONTRACT.get("roots", [])
+CHILDREN = CONTRACT.get("children", [])
+
+
+def root_ids(root: dict) -> str:
+    return root["name"]
+
+
+# ---------------------------------------------------------------------
+# Cosmos helpers (importable by scenario checks.py)
+# ---------------------------------------------------------------------
+
+def container_name(entity: dict) -> str:
+    """Resolve an entity's container name from its declared env var,
+    falling back to the contract default."""
+    return os.environ.get(entity["container_env"], entity["container_default"])
+
+
+def get_container(database, entity: dict):
+    """Container client for a declared entity (root or child)."""
+    return database.get_container_client(container_name(entity))
+
+
+def partition_key_field(container) -> str:
+    """The container's partition-key field name (leading '/' stripped)."""
+    paths = container.read().get("partitionKey", {}).get("paths", [])
+    return paths[0].lstrip("/") if paths else ""
+
+
+def emulator_docs_for_id(container, doc_id: str) -> list[dict]:
     """Fetch every persisted document with this id straight from the
-    emulator, using the verifier's OWN Cosmos client — never the agent's
+    emulator using the verifier's OWN Cosmos client — never the agent's
     API. Partition-key-agnostic (cross-partition query by id), so it works
     regardless of which pk path the agent chose. Returns [] when nothing
-    was persisted, which is the signal that the app used an in-memory /
-    SQLite store that never touched Cosmos."""
+    was persisted (the signal that the app used an in-memory / SQLite
+    store that never touched Cosmos)."""
     return list(container.query_items(
         query="SELECT * FROM c WHERE c.id = @id",
-        parameters=[{"name": "@id", "value": user_id}],
+        parameters=[{"name": "@id", "value": doc_id}],
         enable_cross_partition_query=True,
     ))
 
 
-@pytest.fixture(scope="session")
-def persisted_docs(cosmos_users_container, seeded_users) -> dict:
-    """{user_id: stored_document} read independently from the emulator.
-
-    This is the backbone of the behavioral suite (check_behavior.py): it
-    proves the agent's app actually wrote to Cosmos and lets checks compare
-    the persisted bytes against both the API responses and the contract.
-    A missing entry (None) means the document was never persisted.
-    """
-    out: dict = {}
-    for u in seeded_users:
-        rows = emulator_docs_for_id(cosmos_users_container, u["id"])
-        out[u["id"]] = rows[0] if rows else None
+def fmt_path(template: str, **kw) -> str:
+    out = template
+    for k, v in kw.items():
+        out = out.replace("{" + k + "}", str(v))
     return out
 
 
-@pytest.fixture(scope="session")
-def users_partition_key_field(cosmos_users_container) -> str:
-    """The container's partition-key field name (leading '/' stripped),
-    e.g. 'userId', 'id', 'pk'. Read from the live container metadata."""
-    paths = cosmos_users_container.read().get("partitionKey", {}).get("paths", [])
-    return paths[0].lstrip("/") if paths else ""
-
+# ---------------------------------------------------------------------
+# SDK detection + cross-SDK deselection
+# ---------------------------------------------------------------------
 
 def _norm_sdk(raw: str) -> str:
     return SDK_ALIASES.get(raw.strip().lower(), raw.strip().lower())
@@ -127,17 +164,9 @@ SDK_NAME_TOKENS = {
 
 def _test_sdk_owner(nodeid: str) -> str | None:
     """Return the SDK a test is dedicated to based on its name, or None
-    if the test is SDK-agnostic.
-
-    Inspects both the class name and the test method name so that
-    `TestDirectModeDotnet::test_uses_connection_mode_direct` is
-    correctly attributed to dotnet.
-    """
+    if the test is SDK-agnostic."""
     name = nodeid.lower()
-    # Strip the file path; keep only the part after "::" (class + method).
     qualified = name.split("::", 1)[-1] if "::" in name else name
-    # Sentinel-wrap each segment so token like "_go_" matches
-    # "test_go_foo" or "testgoo" but not "test_argo" / "test_django".
     haystack = "_" + qualified.replace("::", "_").replace(".", "_") + "_"
     for sdk_name, tokens in SDK_NAME_TOKENS.items():
         for tok in tokens:
@@ -147,13 +176,7 @@ def _test_sdk_owner(nodeid: str) -> str | None:
 
 
 def pytest_collection_modifyitems(config, items):
-    """Deselect tests that target an SDK other than the current one.
-
-    Tests with no SDK token in their name (e.g. `test_provision_only_once`,
-    `test_no_real_account_key_literal`) are kept — they either apply to
-    every SDK or use the `sdk` fixture + `_need(...)` to self-skip with
-    a clear reason.
-    """
+    """Deselect tests that target an SDK other than the current one."""
     raw = os.environ.get("SDK", "")
     if not raw:
         return
@@ -168,6 +191,15 @@ def pytest_collection_modifyitems(config, items):
     if drop:
         items[:] = keep
         config.hook.pytest_deselected(items=drop)
+
+
+# ---------------------------------------------------------------------
+# Environment / connection fixtures
+# ---------------------------------------------------------------------
+
+@pytest.fixture(scope="session")
+def contract() -> dict:
+    return CONTRACT
 
 
 @pytest.fixture(scope="session")
@@ -205,12 +237,10 @@ def cosmos_key() -> str:
 
 @pytest.fixture(scope="session")
 def cosmos_db_name() -> str:
-    return os.environ.get("COSMOS_DATABASE", "mosaic")
-
-
-@pytest.fixture(scope="session")
-def cosmos_users_container_name() -> str:
-    return os.environ.get("COSMOS_USERS_CONTAINER", "users")
+    return os.environ.get(
+        CONTRACT.get("database_env", "COSMOS_DATABASE"),
+        CONTRACT.get("database_default", "mosaic"),
+    )
 
 
 @pytest.fixture(scope="session")
@@ -228,8 +258,15 @@ def cosmos_database(cosmos_client: CosmosClient, cosmos_db_name: str):
 
 
 @pytest.fixture(scope="session")
-def cosmos_users_container(cosmos_database, cosmos_users_container_name: str):
-    return cosmos_database.get_container_client(cosmos_users_container_name)
+def root_containers(cosmos_database) -> dict:
+    """{entity_name: container_client} for every declared root entity."""
+    return {r["name"]: get_container(cosmos_database, r) for r in ROOTS}
+
+
+@pytest.fixture(scope="session")
+def child_containers(cosmos_database) -> dict:
+    """{entity_name: container_client} for every declared child entity."""
+    return {c["name"]: get_container(cosmos_database, c) for c in CHILDREN}
 
 
 @pytest.fixture(scope="session")
@@ -245,9 +282,54 @@ def api(base_url: str) -> requests.Session:
     return s
 
 
-# -----------------------------------------------------------------------
-# Source code scanning
-# -----------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Root-entity seeding + independent persistence read
+# ---------------------------------------------------------------------
+
+@pytest.fixture(scope="session")
+def seed_roots(api) -> dict:
+    """Seed every root entity's deterministic rows through the agent's
+    own API. Idempotent: a duplicate row returns the entity's declared
+    duplicate status (usually 409), which we treat as already-seeded.
+
+    Returns {entity_name: [seed_row, ...]}.
+    """
+    out: dict = {}
+    for root in ROOTS:
+        path = root["create"]["path"]
+        dup = root["create"].get("duplicate_status", 409)
+        ok = {201, 200}
+        if dup is not None:
+            ok.add(dup)
+        for row in root["seed"]:
+            r = api.api("POST", path, json=row)
+            assert r.status_code in ok, (
+                f"POST {path} for {root['name']} {row['id']!r} returned "
+                f"{r.status_code}: {r.text[:300]}"
+            )
+        out[root["name"]] = root["seed"]
+    return out
+
+
+@pytest.fixture(scope="session")
+def root_persisted(root_containers, seed_roots) -> dict:
+    """{entity_name: {id: stored_document_or_None}} read independently
+    from the emulator. The backbone of the behavioural suite."""
+    out: dict = {}
+    for root in ROOTS:
+        container = root_containers[root["name"]]
+        docs: dict = {}
+        for row in root["seed"]:
+            rows = emulator_docs_for_id(container, row["id"])
+            docs[row["id"]] = rows[0] if rows else None
+        out[root["name"]] = docs
+    return out
+
+
+# ---------------------------------------------------------------------
+# Source code scanning (used by check_source.py / check_skills.py).
+# Language-agnostic — unchanged from the mosaic-era verifier.
+# ---------------------------------------------------------------------
 
 SOURCE_SUFFIXES = {
     "python": {".py", ".toml", ".txt", ".cfg"},
@@ -262,9 +344,6 @@ SKIP_DIRS = {
     "__pycache__", ".pytest_cache", ".venv", "venv", "vendor", ".idea", ".vscode",
 }
 
-# Comment-stripping regexes per language family. Used by source-code
-# static checks so an agent cannot pass by writing keyword soup in
-# comments.
 _HASH_LINE = re.compile(r"(?m)#.*$")
 _SLASH_LINE = re.compile(r"(?m)//.*$")
 _BLOCK_C = re.compile(r"/\*.*?\*/", re.DOTALL)
@@ -281,9 +360,6 @@ def _strip_comments(text: str, sdk: str) -> str:
     if sdk == "go":
         text = _BLOCK_C.sub("", text)
         return _SLASH_LINE.sub("", text)
-    # dotnet, java, nodejs all use C-style comments. dotnet (.csproj/.props)
-    # and java (pom.xml) also carry XML comments, which must be stripped so a
-    # warning like <!-- never use "Azure.Cosmos" --> can't trip a package check.
     text = _XML_COMMENT.sub("", text)
     text = _BLOCK_C.sub("", text)
     return _SLASH_LINE.sub("", text)
@@ -325,10 +401,9 @@ def source_text(source_files: list[Path], sdk: str) -> str:
     return "\n".join(chunks)
 
 
-
-# -----------------------------------------------------------------------
+# ---------------------------------------------------------------------
 # Per-check log helper
-# -----------------------------------------------------------------------
+# ---------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
 def log_dir() -> Path:
