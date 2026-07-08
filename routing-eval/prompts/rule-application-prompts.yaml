@@ -1,0 +1,129 @@
+# Rule-application corpus (Angle 2 - transitional)
+# -------------------------------------------------
+# Each entry is a developer question that has ONE clear governing best-practice
+# rule. Angle 2 runs each prompt twice (monolith arm vs focused-split arm) and
+# checks whether the answer actually applies `expected_rule`. We compare the
+# rule-application rate between the two arms to see whether the monolith's large,
+# overloaded context causes the right rule to be missed and whether the focused
+# split surfaces it more reliably.
+#
+# Fields:
+#   id             stable identifier
+#   expected_skill split skill whose content is injected in the split arm
+#                  (directory name under skills/, = `name:` in its SKILL.md)
+#   expected_rule  single rule file basename under skills/<monolith>/rules/
+#                  (no .md) that a good answer must apply
+#   expected_rules list form of the above, for prompts that legitimately need
+#                  several rules applied together. A prompt counts as a hit only
+#                  if EVERY listed rule is applied. All rules in a multi-rule
+#                  prompt MUST belong to the same expected_skill so the split arm
+#                  has every needed rule and the A/B stays a fair dilution test.
+#   prompt         the developer question, phrased naturally
+#
+# The first block (one clear rule per prompt) keeps a baseline run cheap and the
+# judgement binary. The second block deliberately adds ambiguous and multi-rule
+# prompts: these stress the monolith's large context, where the right rule(s)
+# must be surfaced from 100+ competitors, versus the focused split where they
+# sit in a small, salient set. That is where any dilution gap should appear.
+
+prompts:
+  - id: ra-model-001
+    expected_skill: cosmosdb-data-and-queries
+    expected_rule: model-embed-related
+    prompt: "I have orders, and each order has a handful of line items that I always read together with the order. How should I structure these documents in Cosmos DB?"
+
+  - id: ra-partition-001
+    expected_skill: cosmosdb-data-and-queries
+    expected_rule: partition-avoid-hotspots
+    prompt: "Most of my writes are landing on a single physical partition and getting throttled while the rest sit idle. How do I design the partition key to spread the load?"
+
+  - id: ra-query-001
+    expected_skill: cosmosdb-data-and-queries
+    expected_rule: query-point-reads
+    prompt: "I already have both the id and the partition key value for the document I want. What is the cheapest possible way to retrieve it?"
+
+  - id: ra-sdk-001
+    expected_skill: cosmosdb-sdk
+    expected_rule: sdk-singleton-client
+    prompt: "In my .NET web API, should I construct the Cosmos DB client inside each request handler or somewhere else?"
+
+  - id: ra-index-001
+    expected_skill: cosmosdb-data-and-queries
+    expected_rule: index-exclude-unused
+    prompt: "My write RU charges are high, but my app only ever filters on two properties out of about thirty. How can I bring the write cost down?"
+
+  - id: ra-throughput-001
+    expected_skill: cosmosdb-operations
+    expected_rule: throughput-autoscale
+    prompt: "My traffic is busy during business hours and almost nothing overnight. How should I provision throughput so I am not paying peak rates all day?"
+
+  - id: ra-global-001
+    expected_skill: cosmosdb-operations
+    expected_rule: global-read-regions
+    prompt: "My users are spread across North America and Europe and complain about read latency. How do I bring the data closer to them in Cosmos DB?"
+
+  - id: ra-monitoring-001
+    expected_skill: cosmosdb-operations
+    expected_rule: monitoring-throttling
+    prompt: "I suspect my Cosmos DB workload is occasionally hitting rate limits in production. What should I monitor to confirm and quantify it?"
+
+  - id: ra-pattern-001
+    expected_skill: cosmosdb-data-and-queries
+    expected_rule: pattern-change-feed-materialized-views
+    prompt: "I need fast reads for several different query shapes over the same data, and recomputing them on the fly is too expensive. What pattern keeps precomputed views in sync?"
+
+  - id: ra-tooling-001
+    expected_skill: cosmosdb-sdk
+    expected_rule: tooling-emulator-setup
+    prompt: "I want to develop and test against Cosmos DB on my laptop without provisioning anything in Azure. What is the recommended local setup?"
+
+  - id: ra-vector-001
+    expected_skill: cosmosdb-ai-and-search
+    expected_rule: vector-index-type
+    prompt: "I am storing embeddings in Cosmos DB and want similarity search. How should I configure the vector index for it?"
+
+  - id: ra-fts-001
+    expected_skill: cosmosdb-ai-and-search
+    expected_rule: fts-enable-capability
+    prompt: "I want to run keyword text search over a description field in my Cosmos DB container. What do I need to turn on first?"
+
+  - id: ra-security-001
+    expected_skill: cosmosdb-operations
+    expected_rule: security-managed-identity
+    prompt: "I do not want to ship Cosmos DB account keys in my app configuration. What is the recommended way for my service to authenticate instead?"
+
+  # --- Ambiguous and multi-rule prompts (dilution stress block) ---------------
+
+  - id: ra-model-multi-001
+    expected_skill: cosmosdb-data-and-queries
+    expected_rules:
+      - model-embed-related
+      - model-reference-large
+    prompt: "I am modeling a social feed. Each post is almost always read together with its comments, but a viral post can accumulate thousands of comments that keep growing. How should I structure the post and comment documents in Cosmos DB?"
+
+  - id: ra-sdk-multi-001
+    expected_skill: cosmosdb-sdk
+    expected_rules:
+      - sdk-singleton-client
+      - sdk-retry-429
+    prompt: "My .NET service constructs a new Cosmos DB client on every incoming request, and under load it starts getting a lot of 429 responses. What should I change so it is both efficient and resilient?"
+
+  - id: ra-partition-multi-001
+    expected_skill: cosmosdb-data-and-queries
+    expected_rules:
+      - partition-avoid-hotspots
+      - partition-hierarchical
+    prompt: "I run a multi-tenant SaaS where a few tenants are enormous and most are tiny. Writes hot-spot on the big tenants, and I also need to query efficiently within a single tenant. How should I design the partition key?"
+
+  - id: ra-security-multi-001
+    expected_skill: cosmosdb-operations
+    expected_rules:
+      - security-disable-local-auth
+      - security-network-restrict
+      - security-rbac-least-privilege
+    prompt: "I am about to take a Cosmos DB account to production and want it locked down properly. How should I handle account keys, network exposure, and what each identity is allowed to do?"
+
+  - id: ra-index-ambig-001
+    expected_skill: cosmosdb-data-and-queries
+    expected_rule: index-composite
+    prompt: "My queries filter on a status field and then sort the results by a createdAt timestamp, and they are slow and expensive. What is the right way to make this efficient in Cosmos DB?"
