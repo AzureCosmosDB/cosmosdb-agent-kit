@@ -1,7 +1,10 @@
-# mosaic-go task image
 FROM cosmos-mosaic-base:latest
 
 ENV SDK="go"
+
+RUN tdnf install -y which zip unzip \
+    && printf '#!/bin/sh\nexec tdnf "$@"\n' > /usr/local/bin/dnf \
+    && chmod +x /usr/local/bin/dnf
 
 # Install Go 1.22 from the official tarball.
 ARG GO_URL="https://go.dev/dl/go1.22.8.linux-amd64.tar.gz"
@@ -15,15 +18,9 @@ ENV GOROOT=/opt/go \
     GOPATH=/root/go \
     PATH=/opt/go/bin:/root/go/bin:$PATH
 
-COPY tasks/mosaic-go/reference/     /reference/
-COPY tasks/mosaic-go/tests/         /tests/
-COPY tasks/mosaic-go/solution/      /solution/
-COPY tasks/mosaic-go/instruction.md /instruction.md
-COPY tasks/mosaic-go/metadata.json  /drop/metadata.json
+COPY reference /reference
 
 # Warm the Go module cache with the reference impl's dependencies.
 RUN cd /reference && go mod download
-
-RUN chmod +x /solution/solve.sh /tests/test.sh
 
 WORKDIR /app

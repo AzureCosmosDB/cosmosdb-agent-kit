@@ -14,9 +14,9 @@ on:
         description: 'Pass rate threshold (0-1)'
         default: '0.9'
       model:
-        description: 'Model to use'
+        description: 'Copilot model (blank = runner default claude-sonnet-4.6)'
         required: false
-        default: 'claude-opus-4-8'
+        default: ''
 
 jobs:
   evaluate:
@@ -60,9 +60,15 @@ jobs:
 
       # Run the evaluation script. The script is expected to exit with code 1 if the pass
       # threshold is not met, which will mark the job as failed and trigger the issue step below.
+      #
+      # GITHUB_TOKEN here must be a github.com PAT belonging to an account with a Copilot
+      # subscription — the in-container runner (shared/ces/runner.sh) uses it to authenticate
+      # the baked @github/copilot CLI. The default Actions token has no Copilot access, so a
+      # dedicated COPILOT_GITHUB_TOKEN secret is required. msbench-eval.py forwards it into the
+      # CES container via --encrypted-env GITHUB_TOKEN.
       - name: Run MSBench evaluation
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
         run: |
           python scripts/msbench-eval.py \
             --benchmark "${{ inputs.benchmark }}" \

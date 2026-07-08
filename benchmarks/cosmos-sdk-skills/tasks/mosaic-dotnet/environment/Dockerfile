@@ -1,7 +1,10 @@
-# mosaic-dotnet task image
 FROM cosmos-mosaic-base:latest
 
 ENV SDK="dotnet"
+
+RUN tdnf install -y which zip unzip \
+    && printf '#!/bin/sh\nexec tdnf "$@"\n' > /usr/local/bin/dnf \
+    && chmod +x /usr/local/bin/dnf
 
 # Install .NET 8 SDK. Mariner-based base needs the Microsoft repo or a
 # tarball install. Use the official install script for portability.
@@ -17,16 +20,10 @@ ENV DOTNET_ROOT=/usr/share/dotnet \
     DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 \
     NUGET_XMLDOC_MODE=skip
 
-COPY tasks/mosaic-dotnet/reference/     /reference/
-COPY tasks/mosaic-dotnet/tests/         /tests/
-COPY tasks/mosaic-dotnet/solution/      /solution/
-COPY tasks/mosaic-dotnet/instruction.md /instruction.md
-COPY tasks/mosaic-dotnet/metadata.json  /drop/metadata.json
+COPY reference /reference
 
 # Pre-restore the reference impl's NuGet packages so the build doesn't
 # hit the network at test time.
 RUN cd /reference && dotnet restore
-
-RUN chmod +x /solution/solve.sh /tests/test.sh
 
 WORKDIR /app

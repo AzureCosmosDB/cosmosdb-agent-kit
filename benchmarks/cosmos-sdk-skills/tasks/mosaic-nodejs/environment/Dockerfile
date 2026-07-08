@@ -1,7 +1,10 @@
-# mosaic-nodejs task image
 FROM cosmos-mosaic-base:latest
 
 ENV SDK="nodejs"
+
+RUN tdnf install -y which zip unzip \
+    && printf '#!/bin/sh\nexec tdnf "$@"\n' > /usr/local/bin/dnf \
+    && chmod +x /usr/local/bin/dnf
 
 # Install Node.js 20 via the official NodeSource binary tarball.
 ARG NODE_URL="https://nodejs.org/dist/v20.18.0/node-v20.18.0-linux-x64.tar.xz"
@@ -17,14 +20,8 @@ ENV NODE_HOME=/opt/node \
     PATH=/opt/node/bin:$PATH \
     NODE_TLS_REJECT_UNAUTHORIZED=0
 
-COPY tasks/mosaic-nodejs/reference/     /reference/
-COPY tasks/mosaic-nodejs/tests/         /tests/
-COPY tasks/mosaic-nodejs/solution/      /solution/
-COPY tasks/mosaic-nodejs/instruction.md /instruction.md
-COPY tasks/mosaic-nodejs/metadata.json  /drop/metadata.json
+COPY reference /reference
 
 RUN cd /reference && npm install --omit=dev
-
-RUN chmod +x /solution/solve.sh /tests/test.sh
 
 WORKDIR /app
