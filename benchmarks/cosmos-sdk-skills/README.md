@@ -2,18 +2,23 @@
 
 An MSBench benchmark that measures whether a coding agent obeys a loaded
 Cosmos DB best-practices skill set (`skills/cosmosdb-sdk`) when building
-services backed by Azure Cosmos DB. Three scenarios × five SDKs = **15
-Harbor tasks**.
+services backed by Azure Cosmos DB.
+
+> **Scope (current):** This benchmark is intentionally scoped to the single
+> **`mosaic-python`** task. The dataset, images, and weekly pipeline run and
+> grade only that one instance. The full three-scenario × five-SDK matrix
+> (15 Harbor tasks) is preserved on the `yumnahussain/all-15-tasks-backup`
+> branch and can be restored to expand coverage later. Sections below that
+> mention "five SDKs" or "15 tasks" describe that future full matrix.
 
 ## Scenarios
 
 | Scenario | Domain | Key Testing Angles |
 |----------|--------|-------------------|
 | **Mosaic** | User-profile CRUD (4 endpoints) | Singleton, preferred regions, retry, diagnostics |
-| **TicketWave** | Event ticketing (6 endpoints) | ETag concurrency, conditional creates, patch API |
-| **SensorGrid** | IoT telemetry ingest (5 endpoints) | Async API, write-heavy retry, diagnostics |
 
-Each scenario has 5 SDK variants: **Python**, **.NET**, **Java**, **Node.js**, **Go**.
+*(Future scenarios — TicketWave event ticketing, SensorGrid IoT telemetry —
+and the .NET/Java/Node.js/Go SDK variants live on the backup branch.)*
 
 Every instruction is deliberately silent about Cosmos-specific best
 practices; the agent is supposed to pick them up from its loaded skills,
@@ -27,7 +32,7 @@ cosmos-sdk-skills-bench/
 ├── mosaic.toml                      # harbor-format-curation config
 ├── msbench-registration/            # files to PR into msbench-benchmarks
 │   ├── benchmark_loaders.toml
-│   └── dataset.jsonl                # 15 rows (3 scenarios × 5 SDKs)
+│   └── dataset.jsonl                # 1 row (mosaic-python)
 ├── shared/
 │   ├── base/                        # shared base image (emulator + verifier deps)
 │   │   ├── Dockerfile
@@ -43,22 +48,12 @@ cosmos-sdk-skills-bench/
 │       └── runner.sh
 ├── runner-with-skills.sh            # Custom runner that loads cosmosdb-sdk skills
 └── tasks/
-    ├── mosaic-python/               # Scenario A: User profiles
-    ├── mosaic-dotnet/
-    ├── mosaic-java/
-    ├── mosaic-nodejs/
-    ├── mosaic-go/
-    ├── ticketing-python/            # Scenario B: Event ticketing
-    ├── ticketing-dotnet/
-    ├── ticketing-java/
-    ├── ticketing-nodejs/
-    ├── ticketing-go/
-    ├── iot-python/                  # Scenario C: IoT telemetry
-    ├── iot-dotnet/
-    ├── iot-java/
-    ├── iot-nodejs/
-    └── iot-go/
+    └── mosaic-python/               # Scenario A: User profiles (only shipped task)
 ```
+
+*(The other 14 task dirs — `mosaic-{dotnet,java,nodejs,go}`,
+`ticketing-*`, `iot-*` — are preserved on the
+`yumnahussain/all-15-tasks-backup` branch.)*
 
 Each `mosaic-<sdk>/` task is a Harbor-format task directory:
 
@@ -178,8 +173,8 @@ packages, `dotnet/sdk:8.0` layers, `eclipse-temurin:21-jdk`,
 
 ## Building locally (Harbor)
 
-The repository is laid out for `harbor-format-curation`. To build all
-five images locally:
+The repository is laid out for `harbor-format-curation`. To build the
+shipped image locally:
 
 ```bash
 cd cosmos-sdk-skills-bench
@@ -190,7 +185,7 @@ harbor-format-curation update-database --profile local mosaic.toml
 
 The vertical-slice walkthrough is documented in `tasks/mosaic-python/`.
 That task was built first end-to-end to prove the architecture; the
-other four follow the same pattern.
+backed-up SDK/scenario variants follow the same pattern.
 
 ## Validating before merging
 
@@ -221,7 +216,7 @@ A GitHub Actions workflow at `cosmosdb-agent-kit/.github/workflows/msbench-eval.
 automates the evaluation loop:
 
 ```bash
-# Single command runs all 15 instances × 3 independent attempts
+# Runs the single mosaic-python instance × 3 independent attempts
 msbench-cli run --benchmark cosmos-sdk-skills --repeat 3 --runner runner-with-skills.sh
 ```
 
@@ -229,9 +224,9 @@ msbench-cli run --benchmark cosmos-sdk-skills --repeat 3 --runner runner-with-sk
 1. Workflow is triggered manually via `workflow_dispatch`
 2. Authenticates to Azure (OIDC) and installs `msbench-cli`
 3. Runs `scripts/msbench-eval.py` which submits one `--repeat 3` run
-4. MSBench executes all 15 instances × 3 attempts = 45 tasks
+4. MSBench executes the mosaic-python instance × 3 attempts = 3 tasks
 5. Results are merged with `--merge pass_at_k` for per-instance reliability
-6. If any instance's average pass rate < 90%, `scripts/create-skills-issue.py` creates a GitHub issue mapping failures to specific `sdk-*` rules
+6. If the instance's average pass rate < 90%, `scripts/create-skills-issue.py` creates a GitHub issue mapping failures to specific `sdk-*` rules
 
 **Runner:** `runner-with-skills.sh` downloads and installs the `cosmosdb-sdk`
 skill set before invoking the agent, so the agent has access to all 29 rules.

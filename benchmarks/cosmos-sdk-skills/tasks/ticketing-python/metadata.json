@@ -1,9 +1,0 @@
-{
-  "instance_id": "ticketing-python",
-  "problem_statement": "Build a TicketWave event ticketing service in Python that uses Azure Cosmos DB for storage. See /instruction.md inside the container for the full task description, API contract, build/run conventions, and grading criteria.",
-  "is_harbor_task": true,
-  "image_tag": "cosmos-sdk-skills.eval.x86_64.ticketing-python:msbench-0.0.1",
-  "benchmark": "cosmos-sdk-skills",
-  "scenario": "ticketing",
-  "sdk": "python"
-}

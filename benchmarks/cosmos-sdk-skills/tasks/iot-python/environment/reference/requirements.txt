@@ -1,4 +1,0 @@
-fastapi==0.115.4
-uvicorn[standard]==0.32.0
-azure-cosmos==4.7.0
-aiohttp==3.10.10

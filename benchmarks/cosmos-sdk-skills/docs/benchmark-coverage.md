@@ -2,6 +2,12 @@
 
 *A plain-language overview of what this benchmark measures, for product and program stakeholders.*
 
+> **Scope (current):** The shipped benchmark runs only the **Python**
+> (`mosaic-python`) task, so only the Python column/rows below are exercised
+> today. The verifier retains its multi-language checks (gated per SDK); the
+> .NET/Java/Node.js/Go tasks are preserved on the
+> `yumnahussain/all-15-tasks-backup` branch for future expansion.
+
 ---
 
 ## 1. What this benchmark measures
