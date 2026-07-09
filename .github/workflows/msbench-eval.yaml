@@ -14,6 +14,7 @@ on:
         description: 'Pass rate threshold (0-1)'
         default: '0.9'
       model:
+        # Drives the in-container @github/copilot CLI via COPILOT_MODEL.
         description: 'Copilot model (blank = runner default claude-sonnet-4.6)'
         required: false
         default: ''

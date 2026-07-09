@@ -29,6 +29,7 @@ TEST_TO_RULE_MAP = {
     "TestDiagnostics": "sdk-diagnostics",
     "TestLifecycle": "sdk-singleton-client",
     "TestEndToEndTimeout": "sdk-async-api",
+    "TestNoBlockingInAsync": "sdk-async-api",
     "TestCacheMetadata": "sdk-singleton-client",
     "TestAsyncApi": "sdk-async-api",
     "TestAvailabilityStrategy": "sdk-availability-strategy",
@@ -118,19 +119,43 @@ def coerce_list(value: Any) -> list[Any]:
     return [value]
 
 
+def normalize_percent_rate(value: Any) -> float | None:
+    if not isinstance(value, (int, float)):
+        return None
+    rate = float(value)
+    if 0 <= rate <= 1:
+        return rate * 100
+    return rate
+
+
+def coerce_nonnegative_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return max(0, value)
+    if isinstance(value, float) and value.is_integer():
+        return max(0, int(value))
+    return None
+
+
 def extract_numeric_pass_rate(payload: Any) -> float | None:
     if isinstance(payload, dict):
         aggregate = payload.get("aggregate")
         if isinstance(aggregate, dict):
             pass_rate = aggregate.get("pass_rate")
-            if isinstance(pass_rate, dict) and isinstance(pass_rate.get("mean"), (int, float)):
-                return float(pass_rate["mean"])
+            if isinstance(pass_rate, dict):
+                normalized = normalize_percent_rate(pass_rate.get("mean"))
+                if normalized is not None:
+                    return normalized
         summary = payload.get("summary")
-        if isinstance(summary, dict) and isinstance(summary.get("pass_rate"), (int, float)):
-            return float(summary["pass_rate"])
+        if isinstance(summary, dict):
+            normalized = normalize_percent_rate(summary.get("pass_rate"))
+            if normalized is not None:
+                return normalized
         for key in ("pass_rate", "average_pass_rate", "avg_pass_rate"):
-            if isinstance(payload.get(key), (int, float)):
-                return float(payload[key])
+            normalized = normalize_percent_rate(payload.get(key))
+            if normalized is not None:
+                return normalized
     return None
 
 
@@ -214,17 +239,22 @@ def extract_tests_from_mapping(mapping: dict[str, Any]) -> list[dict[str, Any]]:
         for name, stats in consistency.items():
             if not isinstance(stats, dict):
                 continue
+            fail_count = coerce_nonnegative_int(stats.get("fail_count")) or 0
+            observed_count = coerce_nonnegative_int(stats.get("total_runs")) or 1
             records.append(
                 {
                     "name": name,
-                    "failed": int(stats.get("fail_count", 0)) > 0,
-                    "fail_count": int(stats.get("fail_count", 0)),
-                    "observed_count": int(stats.get("total_runs", 1)) or 1,
-                    "pass_rate": stats.get("pass_rate"),
+                    "failed": fail_count > 0,
+                    "fail_count": fail_count,
+                    "observed_count": observed_count,
+                    "pass_rate": normalize_percent_rate(stats.get("pass_rate")),
                     "stability": stats.get("stability"),
                 }
             )
         return records
+
+    source_total_runs = coerce_nonnegative_int(mapping.get("total_runs"))
+    source_failed_runs = coerce_nonnegative_int(mapping.get("failed_runs"))
 
     for key in ("tests", "test_results", "failing_tests", "failed_tests", "failures"):
         values = mapping.get(key)
@@ -241,14 +271,24 @@ def extract_tests_from_mapping(mapping: dict[str, Any]) -> list[dict[str, Any]]:
         for item in iterable:
             name = extract_test_name(item)
             failed = key in {"failing_tests", "failed_tests", "failures"} or is_failure(item)
-            record = {"name": name, "failed": failed, "fail_count": 1 if failed else 0, "observed_count": 1}
+            observed_count = source_total_runs or 1
+            fail_count = (
+                source_failed_runs if failed and source_failed_runs is not None else (1 if failed else 0)
+            )
+            record = {"name": name, "failed": failed, "fail_count": fail_count, "observed_count": observed_count}
             if isinstance(item, dict):
-                if isinstance(item.get("fail_count"), int):
-                    record["fail_count"] = item["fail_count"]
-                if isinstance(item.get("observed_count"), int):
-                    record["observed_count"] = max(1, item["observed_count"])
-                if isinstance(item.get("total_runs"), int):
-                    record["observed_count"] = max(1, item["total_runs"])
+                item_fail_count = coerce_nonnegative_int(item.get("fail_count"))
+                item_failed_runs = coerce_nonnegative_int(item.get("failed_runs"))
+                item_observed_count = coerce_nonnegative_int(item.get("observed_count"))
+                item_total_runs = coerce_nonnegative_int(item.get("total_runs"))
+                if item_fail_count is not None:
+                    record["fail_count"] = item_fail_count
+                elif item_failed_runs is not None:
+                    record["fail_count"] = item_failed_runs
+                if item_observed_count is not None:
+                    record["observed_count"] = max(1, item_observed_count)
+                if item_total_runs is not None:
+                    record["observed_count"] = max(1, item_total_runs)
             records.append(record)
         if records:
             return records
@@ -282,7 +322,16 @@ def normalize_run(mapping: dict[str, Any], context: dict[str, Any]) -> dict[str,
     sdk = str(run_context.get("sdk") or run_context.get("language") or run_context.get("lang") or "unknown")
     tests = extract_tests_from_mapping(mapping)
     pass_rate = extract_numeric_pass_rate(mapping)
-    return {"scenario": scenario, "sdk": sdk, "tests": tests, "pass_rate": pass_rate}
+    total_runs = coerce_nonnegative_int(mapping.get("total_runs")) or 1
+    failed_runs = coerce_nonnegative_int(mapping.get("failed_runs"))
+    return {
+        "scenario": scenario,
+        "sdk": sdk,
+        "tests": tests,
+        "pass_rate": pass_rate,
+        "total_runs": total_runs,
+        "failed_runs": failed_runs,
+    }
 
 
 def collect_runs(payload: Any, context: dict[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -323,13 +372,15 @@ def collect_runs(payload: Any, context: dict[str, Any] | None = None) -> list[di
         runs.append(normalize_run(payload, current_context))
 
     unique_runs: list[dict[str, Any]] = []
-    seen: set[tuple[str, str, tuple[tuple[str, int, int], ...], str]] = set()
+    seen: set[tuple[Any, ...]] = set()
     for run in runs:
         fingerprint = (
             run["scenario"],
             run["sdk"],
             tuple(sorted((t["name"], int(t.get("fail_count", 0)), int(t.get("observed_count", 1))) for t in run["tests"])),
             str(run["pass_rate"]),
+            int(run.get("total_runs", 1)),
+            str(run.get("failed_runs")),
         )
         if fingerprint not in seen:
             seen.add(fingerprint)
@@ -349,7 +400,9 @@ def analyze_runs(runs: list[dict[str, Any]], fallback_pass_rate: float | None) -
     unmapped_failures: set[str] = set()
 
     for run in runs:
-        total_runs += 1
+        run_total = int(run.get("total_runs", 1))
+        run_failed_runs = run.get("failed_runs")
+        total_runs += run_total
         if isinstance(run.get("pass_rate"), (int, float)):
             pass_rates.append(float(run["pass_rate"]))
 
@@ -368,7 +421,7 @@ def analyze_runs(runs: list[dict[str, Any]], fallback_pass_rate: float | None) -
                 "rules": set(),
             },
         )
-        bucket["runs"] += 1
+        bucket["runs"] += run_total
         if isinstance(run.get("pass_rate"), (int, float)):
             bucket["pass_rates"].append(float(run["pass_rate"]))
 
@@ -403,7 +456,7 @@ def analyze_runs(runs: list[dict[str, Any]], fallback_pass_rate: float | None) -
                 rule_stats[rule]["tests"].add(canonical_test or test_name)
 
         if run_has_mapped_failure:
-            bucket["failed_runs"] += 1
+            bucket["failed_runs"] += int(run_failed_runs) if isinstance(run_failed_runs, int) else 1
 
     avg_pass_rate = statistics.mean(pass_rates) if pass_rates else fallback_pass_rate
     instance_rows = []
@@ -464,6 +517,9 @@ def analyze_payload(payload: Any) -> dict[str, Any]:
             "sdk": payload.get("sdk") or payload.get("language") or "unknown",
             "failing_tests": payload.get("failing_tests") or payload.get("failed_tests"),
             "summary": payload.get("summary", {}),
+            "pass_rate": payload.get("pass_rate"),
+            "total_runs": payload.get("total_runs"),
+            "failed_runs": payload.get("failed_runs"),
         }
         runs = [normalize_run(wrapper, wrapper)]
     else:

@@ -45,16 +45,22 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_RUNNER = REPO_ROOT / "benchmarks" / "cosmos-sdk-skills" / "shared" / "ces" / "runner.sh"
 DEFAULT_DATASET = REPO_ROOT / "benchmarks" / "cosmos-sdk-skills" / "dataset.jsonl"
 DEFAULT_BACKEND = "ces-dev1"
-# Env var the runner needs in-container; forwarded with --encrypted-env when set.
+# Env vars the runner needs in-container; forwarded with --encrypted-env when set.
 RUNNER_TOKEN_ENV = "GITHUB_TOKEN"
+COPILOT_MODEL_ENV = "COPILOT_MODEL"
 # MSBench requires --agent alongside --runner. The runner overrides the launch
 # script so this plugin's agent-downloader (which fails on the Mariner image) is
 # never invoked; the named agent only supplies the host orchestration + model map.
 DEFAULT_RUNNER_AGENT = "github-copilot-cli"
 # The github-copilot-cli special agent requires --model even when a --runner
-# overrides the launch. This must be a key in the plugin's models map
-# (default | claude-sonnet-4-20250514 | gpt-4.1 | claude-sonnet-4.6). We pick the
-# value that also matches runner.sh's own COPILOT_MODEL default.
+# overrides the launch. This must be a key in the plugin's models map.
+RUNNER_PLUGIN_MODELS = {
+    "default",
+    "claude-sonnet-4-20250514",
+    "gpt-4.1",
+    "claude-sonnet-4.6",
+}
+# Use the key that also matches runner.sh's own COPILOT_MODEL default.
 DEFAULT_RUNNER_MODEL = "claude-sonnet-4.6"
 POLL_INTERVAL_SECONDS = 30
 MAX_POLLS = 120
@@ -102,7 +108,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--output", default=DEFAULT_OUTPUT, help="Report output JSON path")
     parser.add_argument("--agent", help="Optional msbench agent value")
-    parser.add_argument("--model", help="Optional msbench model value")
+    parser.add_argument(
+        "--model",
+        help=(
+            "Optional Copilot CLI model. Valid msbench plugin model keys are also "
+            "passed to msbench; other values are forwarded only as COPILOT_MODEL."
+        ),
+    )
     parser.add_argument(
         "--runner",
         default=str(DEFAULT_RUNNER),
@@ -158,14 +170,24 @@ def parse_args() -> argparse.Namespace:
     # MSBench requires --agent whenever --runner is used.
     if args.runner and not args.agent:
         args.agent = DEFAULT_RUNNER_AGENT
-    # The github-copilot-cli special agent additionally requires --model.
-    if args.runner and args.agent == DEFAULT_RUNNER_AGENT and not args.model:
-        args.model = DEFAULT_RUNNER_MODEL
-    if args.runner and not _resolve_encrypted_env(args):
+    args.copilot_model = None
+    # The workflow's --model selects the baked Copilot CLI model via COPILOT_MODEL.
+    # MSBench still requires --model to be a plugin model-map key, so unsupported
+    # Copilot model names fall back to a safe plugin key for host orchestration.
+    if args.runner and args.agent == DEFAULT_RUNNER_AGENT:
+        if args.model:
+            args.copilot_model = args.model
+            os.environ[COPILOT_MODEL_ENV] = args.copilot_model
+            if args.model not in RUNNER_PLUGIN_MODELS:
+                args.model = DEFAULT_RUNNER_MODEL
+        else:
+            args.model = DEFAULT_RUNNER_MODEL
+    encrypted_env = _resolve_encrypted_env(args)
+    if args.runner and RUNNER_TOKEN_ENV not in encrypted_env:
         print(
             f"WARNING: runner {args.runner} needs {RUNNER_TOKEN_ENV} in-container, but "
-            f"{RUNNER_TOKEN_ENV} is not set and no --encrypted-env was given. The agent "
-            "will fail to authenticate. Set a Copilot-enabled GITHUB_TOKEN.",
+            f"{RUNNER_TOKEN_ENV} is not set or forwarded. The agent will fail to "
+            "authenticate. Set a Copilot-enabled GITHUB_TOKEN.",
             file=sys.stderr,
         )
 
@@ -248,17 +270,13 @@ def extract_status(text: str) -> str | None:
 
 
 def _resolve_encrypted_env(args: argparse.Namespace) -> list[str]:
-    """Env var names to forward with --encrypted-env.
-
-    Explicit --encrypted-env wins. Otherwise default to forwarding
-    GITHUB_TOKEN when it is present in the environment (the runner needs it
-    to authenticate the baked @github/copilot CLI).
-    """
-    if args.encrypted_env:
-        return list(args.encrypted_env)
-    if os.getenv(RUNNER_TOKEN_ENV):
-        return [RUNNER_TOKEN_ENV]
-    return []
+    """Env var names to forward with --encrypted-env."""
+    env_names = list(args.encrypted_env or [])
+    if not env_names and os.getenv(RUNNER_TOKEN_ENV):
+        env_names.append(RUNNER_TOKEN_ENV)
+    if getattr(args, "copilot_model", None):
+        env_names.append(COPILOT_MODEL_ENV)
+    return list(dict.fromkeys(env_names))
 
 
 def _append_common_run_flags(command: list[str], args: argparse.Namespace) -> None:
@@ -729,26 +747,6 @@ def print_summary(results: list[dict[str, Any]], threshold: float) -> None:
     print("-+-".join("-" * width for width in widths))
     for row in rows:
         print(format_row(row))
-
-
-def invoke_issue_creator(output_path: Path, dry_run: bool) -> None:
-    issue_script = Path(__file__).resolve().with_name("create-skills-issue.py")
-    if not issue_script.exists():
-        print(
-            f"WARNING: Issue creator script not found at {issue_script}; skipping issue creation.",
-            file=sys.stderr,
-        )
-        return
-
-    command = [sys.executable, str(issue_script), "--results-file", str(output_path)]
-    repo = os.getenv("GITHUB_REPOSITORY")
-    if repo:
-        command.extend(["--repo", repo])
-
-    try:
-        run_command(command, dry_run=dry_run, check=True)
-    except MsbenchEvalError as exc:
-        print(f"WARNING: Issue creator failed: {exc}", file=sys.stderr)
 
 
 def main() -> int:
