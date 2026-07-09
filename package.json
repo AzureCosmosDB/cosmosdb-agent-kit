@@ -27,7 +27,8 @@
     "build:skill": "node scripts/compile.js",
     "validate": "node scripts/validate.js",
     "validate:skill": "node scripts/validate.js",
-    "version": "node scripts/version.js"
+    "version": "node scripts/version.js",
+    "postinstall": "cd telemetry && npm install --ignore-scripts && cd .. && node telemetry/report-usage.js --data \"{\\\"event\\\":\\\"skill_installed\\\",\\\"skillVersion\\\":\\\"1.1.0\\\"}\" || exit 0"
   },
   "devDependencies": {
     "glob": "^10.3.0",

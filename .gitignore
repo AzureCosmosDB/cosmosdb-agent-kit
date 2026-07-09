@@ -3,6 +3,10 @@ node_modules/
 *.log
 __pycache__/
 
+# Local secrets (App Insights connection string, etc.)
+.env
+telemetry/.env
+
 # Waza eval results and cache
 .waza-cache/
 results/
