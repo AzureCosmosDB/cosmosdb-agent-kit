@@ -33,6 +33,32 @@ echo "0" > "$REWARD_FILE"  # default to failure; success path overwrites at the 
 section() { echo; echo "============================================================"; echo "[runner] $*"; echo "============================================================"; }
 
 # ---------------------------------------------------------------------
+# COSMOS connection-string convenience.
+# A single env var `COSMOS` may carry a full Cosmos DB connection string,
+# e.g. "AccountEndpoint=https://acct.documents.azure.com:443/;AccountKey=<key>==;".
+# When set, split it into the discrete COSMOS_ENDPOINT / COSMOS_KEY vars
+# that the agent's app, the verifier (conftest) and the live-account
+# logic below all already consume. This lets a live account be supplied
+# as ONE encrypted env (e.g. `msbench-cli run --encrypted-env COSMOS`)
+# instead of two. Parsing runs BEFORE live-mode detection, so setting
+# COSMOS alone is enough to switch off the bundled emulator.
+# The AccountKey is base64 (chars A-Za-z0-9+/=) and never contains ';',
+# so splitting each field on ';' is safe and order-independent.
+# ---------------------------------------------------------------------
+if [ -n "${COSMOS:-}" ]; then
+    _cs_ep="$(printf '%s' "$COSMOS" | sed -n 's/.*[Aa]ccount[Ee]ndpoint=\([^;]*\).*/\1/p')"
+    _cs_key="$(printf '%s' "$COSMOS" | sed -n 's/.*[Aa]ccount[Kk]ey=\([^;]*\).*/\1/p')"
+    if [ -n "$_cs_ep" ] && [ -n "$_cs_key" ]; then
+        export COSMOS_ENDPOINT="$_cs_ep"
+        export COSMOS_KEY="$_cs_key"
+        echo "[runner] parsed COSMOS connection string -> COSMOS_ENDPOINT=$COSMOS_ENDPOINT (COSMOS_KEY hidden)"
+    else
+        echo "[runner] WARNING: COSMOS is set but AccountEndpoint/AccountKey could not be parsed; leaving COSMOS_ENDPOINT/COSMOS_KEY unchanged." >&2
+    fi
+    unset _cs_ep _cs_key
+fi
+
+# ---------------------------------------------------------------------
 # Live-account mode.
 # When COSMOS_ENDPOINT points at a real Azure Cosmos account (anything
 # that is not the in-container emulator on localhost), we:
