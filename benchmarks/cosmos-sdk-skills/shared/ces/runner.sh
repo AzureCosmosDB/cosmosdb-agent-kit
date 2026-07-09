@@ -26,11 +26,21 @@ if [ -z "${GITHUB_TOKEN:-}" ]; then
 fi
 
 export COPILOT_AUTO_UPDATE=false
-export COPILOT_CUSTOM_AGENT=cosmosdb-best-practices
 
 # -----------------------------------------------------------------------------
-# Stage the cosmosdb-best-practices custom agent into ~/.copilot/agents/.
-# Skill rules are baked into the image at /opt/cosmosdb-agent-kit/skills/.
+# Install the cosmosdb-best-practices skill as a normally discoverable skill.
+#
+# The skill is baked into the image at /opt/cosmosdb-agent-kit/skills/. We copy
+# it into ~/.copilot/skills/ — the personal skills directory the @github/copilot
+# CLI auto-discovers at startup. At startup the agent only sees each skill's
+# name + description (from SKILL.md frontmatter) and decides on its own whether
+# the skill is relevant and worth reading in full.
+#
+# IMPORTANT: This runner deliberately gives the agent NO hint to consult the
+# skill — no custom agent persona, no routing table, no mention in the prompt.
+# The default agent runs the task as-is. This keeps the benchmark an honest
+# measurement of the skill's organic effect: does an agent that merely has the
+# skill installed (as any user would) apply the Cosmos DB best practices?
 # -----------------------------------------------------------------------------
 SKILL_BASE="/opt/cosmosdb-agent-kit/skills/cosmosdb-best-practices"
 
@@ -39,52 +49,11 @@ if [ ! -d "$SKILL_BASE" ]; then
   exit 3
 fi
 
-mkdir -p "$HOME/.copilot/agents"
-cat > "$HOME/.copilot/agents/cosmosdb-best-practices.md" <<EOF
----
-name: cosmosdb-best-practices
-description: Azure Cosmos DB best practices agent — reviews code, generates optimized patterns, and advises on data modeling, partition keys, queries, SDK usage, indexing, throughput, global distribution, vector search, and full-text search. Use when writing, reviewing, or refactoring code that interacts with Azure Cosmos DB.
-tools: ["*"]
----
+mkdir -p "$HOME/.copilot/skills"
+rm -rf "$HOME/.copilot/skills/cosmosdb-best-practices"
+cp -r "$SKILL_BASE" "$HOME/.copilot/skills/cosmosdb-best-practices"
 
-# Cosmos DB Best Practices Agent
-
-You are a Cosmos DB best practices specialist. The full rule set is at:
-  $SKILL_BASE
-
-## Routing
-
-| User wants to... | Action |
-|---|---|
-| General best practices overview | Read \`$SKILL_BASE/SKILL.md\` |
-| Data modeling advice | Read relevant \`$SKILL_BASE/rules/model-*.md\` files |
-| Partition key design | Read relevant \`$SKILL_BASE/rules/partition-*.md\` files |
-| Query optimization | Read relevant \`$SKILL_BASE/rules/query-*.md\` files |
-| SDK usage patterns | Read relevant \`$SKILL_BASE/rules/sdk-*.md\` files |
-| Indexing strategies | Read relevant \`$SKILL_BASE/rules/index-*.md\` files |
-| Throughput and scaling | Read relevant \`$SKILL_BASE/rules/throughput-*.md\` files |
-| Global distribution | Read relevant \`$SKILL_BASE/rules/global-*.md\` files |
-| Monitoring and diagnostics | Read relevant \`$SKILL_BASE/rules/monitoring-*.md\` files |
-| Design patterns | Read relevant \`$SKILL_BASE/rules/pattern-*.md\` files |
-| Developer tooling | Read relevant \`$SKILL_BASE/rules/tooling-*.md\` files |
-| Vector search | Read relevant \`$SKILL_BASE/rules/vector-*.md\` files |
-| Full-text search | Read relevant \`$SKILL_BASE/rules/fts-*.md\` files |
-
-## How to Apply Rules
-
-1. Read \`$SKILL_BASE/SKILL.md\` to identify relevant categories
-2. Scan the code / task for patterns matching rule prefixes
-3. Read the specific rule files that apply
-4. Apply rules in generated code; cite rule IDs in comments for non-obvious choices
-
-## Key Constraints
-- Always read the specific rule file before citing it
-- Each rule file contains incorrect and correct code examples — use these
-- Rules cover C#, Python, Java, JavaScript, Go, and Rust — match the user's language
-- If a user's scenario doesn't match any rule, say so rather than inventing guidance
-EOF
-
-echo "[runner] Installed agent at \$HOME/.copilot/agents/cosmosdb-best-practices.md"
+echo "[runner] Installed discoverable skill at \$HOME/.copilot/skills/cosmosdb-best-practices"
 echo "[runner] Skill base: $SKILL_BASE"
 
 mkdir -p /logs/verifier
@@ -117,14 +86,13 @@ mkdir -p "$WORKDIR"
 
 echo "[runner] Invoking copilot:"
 echo "[runner]   model=$MODEL"
-echo "[runner]   agent=cosmosdb-best-practices"
+echo "[runner]   agent=default (skill installed but not hinted)"
 echo "[runner]   cwd=$WORKDIR"
 echo "[runner]   prompt: $(echo "$FULL_PROMPT" | head -c 200)..."
 
 set +e
 copilot \
   -p "$FULL_PROMPT" \
-  --agent cosmosdb-best-practices \
   --model "$MODEL" \
   --allow-all \
   --no-auto-update \
