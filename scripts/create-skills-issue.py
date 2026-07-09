@@ -39,6 +39,7 @@ TEST_TO_RULE_MAP = {
     "TestExcludedRegions": "sdk-excluded-regions",
     "TestPatchCounter": "sdk-patch-counter-increment",
     "TestPythonAsyncDeps": "sdk-python-async-deps",
+    "TestPythonAsyncClient": "sdk-python-async-deps",
     "TestSerializationEnums": "sdk-serialization-enums",
     "TestRequestOptionsPerCall": "sdk-request-options-per-call",
 }

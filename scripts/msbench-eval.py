@@ -353,7 +353,16 @@ def wait_for_completion(run_id: str, args: argparse.Namespace) -> str:
             print(f"Run {run_id} completed with status: {status}")
             return text
         if status in TERMINAL_FAILURE:
-            raise MsbenchEvalError(f"Run {run_id} finished with failure status: {status}")
+            # msbench-cli mis-parses harbor eval.json and can surface a bogus
+            # "error" status once the run finishes. Defer the real verdict to
+            # eval.json grading instead of aborting here; if the run genuinely
+            # failed with no gradable results, the downstream report fallback
+            # (check=True) still surfaces the error loudly.
+            print(
+                f"Run {run_id} reported terminal status '{status}'; "
+                "proceeding to authoritative eval.json grading."
+            )
+            return text
 
         print(
             f"Run {run_id} status after poll {attempt}/{MAX_POLLS}: {status or 'unknown'}; "
@@ -785,9 +794,15 @@ def main() -> int:
 
     initial_status = extract_status(combined_initial_output)
     resume_output = ""
-    if initial_status in TERMINAL_FAILURE:
-        raise MsbenchEvalError(f"Run {run_id} failed immediately with status: {initial_status}")
-    if initial_status not in TERMINAL_SUCCESS:
+    # `msbench-cli run` (without --no-wait) blocks until the run finishes, so the
+    # captured output already contains the full run log. That log includes
+    # msbench-cli's own report/analysis prose, which mis-parses harbor eval.json
+    # and can surface a bogus "error" failure token (see build_results_from_eval
+    # below). Treating a failure-looking status scraped from this blob as a hard
+    # abort would skip the authoritative eval.json grading entirely and crash the
+    # pipeline on every completed run. So we only use the status to decide whether
+    # additional polling is still required; the real verdict comes from eval.json.
+    if initial_status not in TERMINAL_SUCCESS and initial_status not in TERMINAL_FAILURE:
         resume_output = wait_for_completion(run_id, args)
 
     # Ensure results.zip archives are downloaded locally and capture the
