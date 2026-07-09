@@ -232,5 +232,3 @@ Rules:
 - Send **only** enum values and rule IDs (e.g. `sdk-singleton-client`). **Never** include
   code, prompts, file paths, or any user/PII data — the CLI drops anything else anyway.
 - If the file does not exist, skip silently. Do not install anything.
-
-See [telemetry/README.md](../../telemetry/README.md) for details.
