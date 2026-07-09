@@ -3,7 +3,7 @@
 # /ces_activate.sh. Derived verbatim from the cosmosdb-rules.* images, with
 # one change: INSTANCE_ID is read from /drop/metadata.json so a single
 # entry.sh can serve every task in the benchmark.
-set -eux
+set -euo pipefail
 
 # Standard MSBench directory paths
 export AGENT_DIR="/agent"           # Where agent code lives (mounted at runtime)
