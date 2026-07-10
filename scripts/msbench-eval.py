@@ -48,6 +48,12 @@ DEFAULT_BACKEND = "ces-dev1"
 # Env vars the runner needs in-container; forwarded with --encrypted-env when set.
 RUNNER_TOKEN_ENV = "GITHUB_TOKEN"
 COPILOT_MODEL_ENV = "COPILOT_MODEL"
+# Live Cosmos account credentials. When any of these are present in the
+# environment they are forwarded (encrypted) so the verifier grades against a
+# real account instead of the bundled emulator. The verifier (shared/verifier/
+# runner.sh) accepts EITHER a single COSMOS connection string OR a split
+# COSMOS_ENDPOINT/COSMOS_KEY pair; if none are set the run uses the emulator.
+LIVE_ACCOUNT_ENVS = ("COSMOS", "COSMOS_ENDPOINT", "COSMOS_KEY")
 # MSBench requires --agent alongside --runner. The runner overrides the launch
 # script so this plugin's agent-downloader (which fails on the Mariner image) is
 # never invoked; the named agent only supplies the host orchestration + model map.
@@ -272,8 +278,15 @@ def extract_status(text: str) -> str | None:
 def _resolve_encrypted_env(args: argparse.Namespace) -> list[str]:
     """Env var names to forward with --encrypted-env."""
     env_names = list(args.encrypted_env or [])
-    if not env_names and os.getenv(RUNNER_TOKEN_ENV):
-        env_names.append(RUNNER_TOKEN_ENV)
+    if not env_names:
+        # Default (workflow) path: forward the Copilot token plus any live Cosmos
+        # account credentials present in the environment. When no live-account
+        # vars are set the verifier falls back to the bundled emulator.
+        if os.getenv(RUNNER_TOKEN_ENV):
+            env_names.append(RUNNER_TOKEN_ENV)
+        for name in LIVE_ACCOUNT_ENVS:
+            if os.getenv(name):
+                env_names.append(name)
     if getattr(args, "copilot_model", None):
         env_names.append(COPILOT_MODEL_ENV)
     return list(dict.fromkeys(env_names))
@@ -290,8 +303,13 @@ def _append_common_run_flags(command: list[str], args: argparse.Namespace) -> No
         command.extend(["--dataset", args.dataset])
     if getattr(args, "backend", None):
         command.extend(["--backend", args.backend])
-    for var in _resolve_encrypted_env(args):
-        command.extend(["--encrypted-env", var])
+    # msbench-cli's --encrypted-env is nargs='+': all names MUST share one flag.
+    # Repeating the flag (--encrypted-env A --encrypted-env B) makes argparse keep
+    # only the LAST value, silently dropping the rest.
+    encrypted_env = _resolve_encrypted_env(args)
+    if encrypted_env:
+        command.append("--encrypted-env")
+        command.extend(encrypted_env)
 
 
 def build_run_command(args: argparse.Namespace) -> list[str]:

@@ -67,9 +67,14 @@ jobs:
       # the baked @github/copilot CLI. The default Actions token has no Copilot access, so a
       # dedicated COPILOT_GITHUB_TOKEN secret is required. msbench-eval.py forwards it into the
       # CES container via --encrypted-env GITHUB_TOKEN.
+      #
+      # COSMOS is an optional Cosmos DB connection string secret. When configured, the script
+      # forwards it (encrypted) so the verifier grades against a real Cosmos account instead of
+      # the bundled emulator. Leave the secret unset to run against the emulator.
       - name: Run MSBench evaluation
         env:
           GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          COSMOS: ${{ secrets.COSMOS }}
         run: |
           python scripts/msbench-eval.py \
             --benchmark "${{ inputs.benchmark }}" \
