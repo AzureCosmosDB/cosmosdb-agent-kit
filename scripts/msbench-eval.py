@@ -322,6 +322,12 @@ def build_run_command(args: argparse.Namespace) -> list[str]:
         str(args.repeat),
     ]
     _append_common_run_flags(command, args)
+    if getattr(args, "no_wait", False):
+        # Submit and return immediately with the server-assigned run_id instead of
+        # blocking until the agent run finishes. Used by the CES submit preflight to
+        # prove the calling identity can authenticate to CES and is entitled to
+        # create a run, without paying for a full grade.
+        command.append("--no-wait")
     return command
 
 
@@ -788,7 +794,25 @@ def main() -> int:
     initial = run_command(build_run_command(args), dry_run=args.dry_run, check=True)
 
     if args.no_wait:
-        print("Run submitted with --no-wait; skipping polling, report generation, and threshold checks.")
+        if args.dry_run:
+            print(
+                "Dry run: would submit with --no-wait and assert a server-assigned run_id."
+            )
+            return 0
+        combined_initial_output = f"{initial.stdout}\n{initial.stderr}"
+        run_id = extract_run_id(combined_initial_output)
+        if not run_id:
+            raise MsbenchEvalError(
+                "CES submit preflight FAILED: msbench-cli returned no run_id, so no run "
+                "was created on CES. The calling identity could not authenticate, is not "
+                "entitled to submit, or CES was unreachable. See the CLI output above for "
+                "the specific auth/entitlement/network error."
+            )
+        print(
+            f"CES submit preflight OK: CES assigned run_id={run_id}. A server-assigned "
+            "run_id confirms the calling identity authenticated to CES and is entitled to "
+            "create a run. Skipping polling, report generation, and threshold checks."
+        )
         return 0
 
     if args.dry_run:
