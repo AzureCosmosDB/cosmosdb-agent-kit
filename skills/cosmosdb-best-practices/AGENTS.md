@@ -87,12 +87,13 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 4.32 [Use the Patch API for atomic counter increments](#432-use-the-patch-api-for-atomic-counter-increments)
    - 4.33 [Configure Preferred Regions for Availability](#433-configure-preferred-regions-for-availability)
    - 4.34 [Include aiohttp When Using Python Async SDK](#434-include-aiohttp-when-using-python-async-sdk)
-   - 4.35 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#435-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
-   - 4.36 [Handle 429 Errors with Retry-After](#436-handle-429-errors-with-retry-after)
-   - 4.37 [Use consistent enum serialization between Cosmos SDK and application layer](#437-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
-   - 4.38 [Reuse CosmosClient as Singleton](#438-reuse-cosmosclient-as-singleton)
-   - 4.39 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#439-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
-   - 4.40 [Use CosmosRepository correctly and handle Iterable return types](#440-use-cosmosrepository-correctly-and-handle-iterable-return-types)
+   - 4.35 [Configure the Python Client with Keyword Arguments, Not ConnectionPolicy](#435-configure-the-python-client-with-keyword-arguments-not-connectionpolicy)
+   - 4.36 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#436-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
+   - 4.37 [Handle 429 Errors with Retry-After](#437-handle-429-errors-with-retry-after)
+   - 4.38 [Use consistent enum serialization between Cosmos SDK and application layer](#438-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
+   - 4.39 [Reuse CosmosClient as Singleton](#439-reuse-cosmosclient-as-singleton)
+   - 4.40 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#440-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
+   - 4.41 [Use CosmosRepository correctly and handle Iterable return types](#441-use-cosmosrepository-correctly-and-handle-iterable-return-types)
 5. [Indexing Strategies](#5-indexing-strategies) — **MEDIUM-HIGH**
    - 5.1 [Composite Index Directions Must Match ORDER BY](#51-composite-index-directions-must-match-order-by)
    - 5.2 [Use Composite Indexes for ORDER BY](#52-use-composite-indexes-for-order-by)
@@ -4269,7 +4270,7 @@ Capture and log diagnostics from Cosmos DB responses, especially for slow or fai
 
 `CosmosException.Diagnostics` (type `CosmosDiagnostics`) is a first-class structured signal the SDK provides for debugging failures (RU spend, latency tails, 429s, region selection, and channel reuse). Demonstrating the pattern is not enough — it must be applied at the point of failure.
 
-**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A bare swallow (`catch (CosmosException) { }`, `catch (CosmosException) { return null; }`, `return default;`, `return new T();`, etc., without first surfacing `.Diagnostics`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
+**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A catch block that swallows the exception (e.g., `catch (CosmosException) { }`, or returning `null` / `default` / `new T()`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
 
 **Incorrect (ignoring diagnostics):**
 
@@ -4427,7 +4428,7 @@ Key diagnostic fields:
 
 **Detector (mechanical check):** For each `catch` clause whose declared type binds to `Microsoft.Azure.Cosmos.CosmosException` (or a subclass), verify the block body contains a member access ending in `.Diagnostics` on the caught variable. If absent, flag the catch-block source range. This is expressible as a Roslyn analyzer or a regex over `.cs` files (excluding `bin/`, `obj/`, and test directories).
 
-**Why it matters:** `Diagnostics` carries the RU charge, activity ID, the region the call hit, and the per-channel timing breakdown. On a 429 it also contains the back-end retry hints. Without it, the operator loses exactly the information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
+**Why it matters:** `RequestCharge` and `ActivityId` provide immediate cost/correlation context, and `Diagnostics` provides the detailed timeline, regions contacted, and retry/transient-failure context (on a 429 it also includes retry details). Without diagnostics, the operator loses the detailed information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
 
 Reference: [Capture diagnostics — Troubleshoot .NET SDK](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-dotnet-sdk#capture-diagnostics)
 
@@ -7375,7 +7376,77 @@ from azure.cosmos import CosmosClient
 
 Reference: [Azure Cosmos DB Python SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-python)
 
-### 4.35 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
+### 4.35 Configure the Python Client with Keyword Arguments, Not ConnectionPolicy
+
+**Impact: MEDIUM** (avoids deprecated config surface, future-proofs the client)
+
+## Configure the Python Client with Keyword Arguments, Not ConnectionPolicy
+
+In the Python `azure-cosmos` v4 SDK, all `CosmosClient` configuration is passed as
+keyword arguments directly to the constructor — timeouts, retries, preferred
+regions, TLS verification, diagnostics, and more. Internally the client maps those
+kwargs onto a `ConnectionPolicy` via its own `_build_connection_policy()` helper, so
+you never construct that object yourself.
+
+Hand-building an `azure.cosmos.documents.ConnectionPolicy` and mutating its
+attributes (`RequestTimeout`, `PreferredLocations`, `DisableSSLVerification`, ...)
+before passing it via `connection_policy=` is a legacy pattern carried over from the
+old `pydocumentdb` / v3 SDK. It still works for backward compatibility, but it is
+undocumented as the v4 surface, easy to get wrong (for example `RequestTimeout` is in
+different units than the `connection_timeout` kwarg), and steers toward config knobs
+that are already deprecated. The related object/kwarg forms `retry_options=` and
+`connection_retry_policy=` emit `DeprecationWarning` at runtime and will be removed.
+Use the flat kwargs instead — they are the supported, documented API.
+
+**Incorrect (build a ConnectionPolicy object and mutate its attributes):**
+
+```python
+from azure.cosmos import CosmosClient
+from azure.cosmos import documents
+
+# Legacy v3 / pydocumentdb carry-over: agents commonly reach for this because
+# ConnectionPolicy has named, discoverable attributes.
+policy = documents.ConnectionPolicy()
+policy.RequestTimeout = 10000            # units differ from the connection_timeout kwarg
+policy.PreferredLocations = ["West US 2", "East US 2"]
+policy.DisableSSLVerification = True
+
+client = CosmosClient(
+    url,
+    credential=key,
+    connection_policy=policy,            # backward-compat escape hatch, not the v4 API
+)
+```
+
+**Correct (pass configuration as keyword arguments to CosmosClient):**
+
+```python
+from azure.cosmos import CosmosClient
+
+# The documented v4 surface. The SDK maps these kwargs onto its internal
+# ConnectionPolicy for you via _build_connection_policy().
+client = CosmosClient(
+    url,
+    credential=key,
+    connection_timeout=10,               # seconds (NOT the ms-based legacy request_timeout)
+    preferred_locations=["West US 2", "East US 2"],
+    retry_total=9,                       # azure-core throttle/retry, replaces RetryOptions
+    connection_verify=False,             # emulator self-signed cert; True in production
+    enable_diagnostics_logging=True,
+)
+```
+
+Best practices:
+- Prefer `connection_timeout=<seconds>` over the legacy `request_timeout=<ms>` kwarg.
+- Do not construct `documents.ConnectionPolicy` in application code; pass kwargs.
+- Avoid the deprecated `retry_options=` and `connection_retry_policy=` kwargs; use
+  the flat `retry_total`, `retry_backoff_max`, and related retry kwargs.
+- `SSLConfiguration` / `ProxyConfiguration` objects are still required for those
+  specific settings — this rule targets `ConnectionPolicy`, not those helpers.
+
+Reference: [azure.cosmos.CosmosClient](https://learn.microsoft.com/python/api/azure-cosmos/azure.cosmos.cosmosclient?view=azure-python)
+
+### 4.36 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
 
 **Impact: HIGH** (causes wrong partition key to be sent, producing silent data corruption or 400/404 errors)
 
@@ -7434,7 +7505,7 @@ usersContainer.createItem(
 
 Reference: [Java SDK createItem](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-get-started)
 
-### 4.36 Handle 429 Errors with Retry-After
+### 4.37 Handle 429 Errors with Retry-After
 
 **Impact: HIGH** (prevents cascading failures)
 
@@ -7551,7 +7622,7 @@ await Task.WhenAll(tasks);
 
 Reference: [Handle rate limiting](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-request-rate-too-large)
 
-### 4.37 Use consistent enum serialization between Cosmos SDK and application layer
+### 4.38 Use consistent enum serialization between Cosmos SDK and application layer
 
 **Impact: critical** (undefined)
 
@@ -7672,7 +7743,7 @@ await container.create_item(body=doc.model_dump(by_alias=True, mode="json"))
 - Point reads work but filtered queries don't
 - API returns different enum format than stored in Cosmos DB
 
-### 4.38 Reuse CosmosClient as Singleton
+### 4.39 Reuse CosmosClient as Singleton
 
 **Impact: CRITICAL** (prevents connection exhaustion)
 
@@ -7864,7 +7935,7 @@ async fn list_orders(
 
 Reference: [CosmosClient best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-dotnet)
 
-### 4.39 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
+### 4.40 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
 
 **Impact: CRITICAL** (prevents startup failures and data access errors in Spring Data Cosmos applications)
 
@@ -7980,7 +8051,7 @@ Add `@JsonIgnoreProperties(ignoreUnknown = true)` to every Cosmos entity class s
 
 Reference: [Spring Data Azure Cosmos DB annotations](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-spring-data)
 
-### 4.40 Use CosmosRepository correctly and handle Iterable return types
+### 4.41 Use CosmosRepository correctly and handle Iterable return types
 
 **Impact: HIGH** (prevents ClassCastException and query failures in Spring Data Cosmos repositories)
 
