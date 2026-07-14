@@ -212,7 +212,7 @@ def sdk() -> str:
 
 @pytest.fixture(scope="session")
 def app_port() -> int:
-    return int(os.environ.get("APP_PORT", "8080"))
+    return int(os.environ.get("APP_PORT", "9080"))
 
 
 @pytest.fixture(scope="session")

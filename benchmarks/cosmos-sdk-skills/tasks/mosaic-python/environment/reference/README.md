@@ -27,7 +27,7 @@ LLM in the loop.
   list is read from `COSMOS_PREFERRED_REGIONS` env so deployments can
   override it without code changes.
 - **Retry / throttling** — `retry_total=9, retry_backoff_max=30` on
-  the constructor. Rule `sdk-retry-throttled`.
+  the constructor. Rule `sdk-retry-429`.
 - **Diagnostics** — `logging_enable=True` on per-call operations so
   Cosmos request diagnostics flow into the configured logger. Rule
   `sdk-diagnostics`.

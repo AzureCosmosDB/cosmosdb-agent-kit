@@ -137,7 +137,8 @@ os.setuid(p.pw_uid)
 os.environ["HOME"] = p.pw_dir
 os.environ["USER"] = "cosmosdev"
 os.chdir(p.pw_dir)
-# Move emulator's own health endpoint off :8080 — the agent's app needs that port.
+# Move the emulator's own health endpoint off :8080 to keep the default port
+# range clear. The agent's app listens on $APP_PORT (9080, baked into the image).
 os.execvp("bash", ["bash", "-lc", f"bash {bin_path!r} --protocol {protocol} --health-port 8079"])
 PY
 elif command -v sudo >/dev/null 2>&1 && sudo -n -u cosmosdev true 2>/dev/null; then
@@ -171,8 +172,9 @@ for i in $(seq 1 "$EMULATOR_WAIT_SECS"); do
         echo " ok (after ${i}s)"
         # The emulator's docker_entrypoint.sh also spawns a `health_check_server`
         # binary on :8080 that we cannot disable via CLI flag in this image.
-        # Kill it so the agent's app (which binds :8080 per /instruction.md)
-        # can take the port. The data gateway on :8081 is unaffected.
+        # The agent's app listens on $APP_PORT (9080, baked into the image), not
+        # :8080, but we clear this stray server as hygiene so nothing squats near
+        # the app's port range. The data gateway on :8081 is unaffected.
         for pid in $(pgrep -f health_check_server 2>/dev/null); do
             kill "$pid" 2>/dev/null || true
         done

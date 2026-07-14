@@ -1,7 +1,7 @@
 # cosmos-sdk-skills-bench
 
 An MSBench benchmark that measures whether a coding agent obeys a loaded
-Cosmos DB best-practices skill set (`skills/cosmosdb-sdk`) when building
+Cosmos DB best-practices skill set (`skills/cosmosdb-best-practices`) when building
 services backed by Azure Cosmos DB.
 
 > **Scope (current):** This benchmark is intentionally scoped to the single
@@ -37,16 +37,16 @@ cosmos-sdk-skills-bench/
 │   ├── base/                        # shared base image (emulator + verifier deps)
 │   │   ├── Dockerfile
 │   │   └── start-emulator.sh
+│   ├── ces/                         # agent runner used by the CI pipeline
+│   │   └── runner.sh                # installs the skill (discoverable, un-hinted) + drives the agent
 │   └── verifier/                    # grader library copied into every task image
 │       ├── conftest.py
 │       ├── check_api.py
 │       ├── check_behavior.py         # concrete emulator+request behavioral suite
 │       ├── check_cosmos.py
 │       ├── check_source.py           # STATIC client-config signals (see docstring)
-│       ├── check_advanced_source.py
 │       ├── check_skills.py
-│       └── runner.sh
-├── runner-with-skills.sh            # Custom runner that loads cosmosdb-sdk skills
+│       └── runner.sh                 # pytest grader entrypoint (called by tests/test.sh)
 └── tasks/
     └── mosaic-python/               # Scenario A: User profiles (only shipped task)
 ```
@@ -217,16 +217,20 @@ automates the evaluation loop:
 
 ```bash
 # Runs the single mosaic-python instance × 3 independent attempts
-msbench-cli run --benchmark cosmos-sdk-skills --repeat 3 --runner runner-with-skills.sh
+msbench-cli run --benchmark cosmos-sdk-skills --repeat 3 --runner shared/ces/runner.sh
 ```
 
 **How it works:**
 1. Workflow is triggered manually via `workflow_dispatch`
-2. Authenticates to Azure (OIDC) and installs `msbench-cli`
+2. Authenticates to Azure as the person who triggered the run (`az login --use-device-code`), so MSBench submits under their own entitlement
 3. Runs `scripts/msbench-eval.py` which submits one `--repeat 3` run
 4. MSBench executes the mosaic-python instance × 3 attempts = 3 tasks
 5. Results are merged with `--merge pass_at_k` for per-instance reliability
 6. If the instance's average pass rate < 90%, `scripts/create-skills-issue.py` creates a GitHub issue mapping failures to specific `sdk-*` rules
 
-**Runner:** `runner-with-skills.sh` downloads and installs the `cosmosdb-sdk`
-skill set before invoking the agent, so the agent has access to all 29 rules.
+**Runner:** `shared/ces/runner.sh` copies the `cosmosdb-best-practices` skill
+into the agent's personal skills directory (`~/.copilot/skills/`) as a normally
+discoverable skill, then drives the **default** agent with **no hint** to use
+it. This keeps the benchmark an honest measurement of the skill's *organic*
+effect — does an agent that merely has the skill installed apply the Cosmos DB
+best practices? — rather than a hinted best case.

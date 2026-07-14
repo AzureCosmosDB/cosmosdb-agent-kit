@@ -24,7 +24,7 @@ fi
 export SDK
 LOG_DIR="${VERIFIER_LOG_DIR:-/logs/verifier}"
 APP_DIR="${APP_WORKDIR:-/app}"
-APP_PORT="${APP_PORT:-8080}"
+APP_PORT="${APP_PORT:-9080}"
 mkdir -p "$LOG_DIR"
 REWARD_FILE="$LOG_DIR/reward.txt"
 echo "0" > "$REWARD_FILE"  # default to failure; success path overwrites at the end
@@ -86,7 +86,7 @@ if [ "$LIVE_MODE" = "1" ]; then
     # contract), and the verifier reads the same APP_PORT, so they stay
     # aligned. Distinct ports keep co-located instances from fighting.
     case "$SDK" in
-        python) APP_PORT="${APP_PORT_PYTHON:-8080}" ;;
+        python) APP_PORT="${APP_PORT_PYTHON:-9080}" ;;
         dotnet) APP_PORT="${APP_PORT_DOTNET:-8082}" ;;
         java)   APP_PORT="${APP_PORT_JAVA:-8083}" ;;
         nodejs) APP_PORT="${APP_PORT_NODEJS:-8084}" ;;

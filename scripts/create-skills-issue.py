@@ -31,20 +31,10 @@ TEST_TO_RULE_MAP = {
     "TestEndToEndTimeout": "sdk-async-api",
     "TestNoBlockingInAsync": "sdk-async-api",
     "TestCacheMetadata": "sdk-singleton-client",
-    "TestAsyncApi": "sdk-async-api",
-    "TestAvailabilityStrategy": "sdk-availability-strategy",
-    "TestCircuitBreaker": "sdk-circuit-breaker",
-    "TestConditionalCreate": "sdk-conditional-create-etag",
-    "TestEtagConcurrency": "sdk-etag-concurrency",
-    "TestExcludedRegions": "sdk-excluded-regions",
-    "TestPatchCounter": "sdk-patch-counter-increment",
-    "TestPythonAsyncDeps": "sdk-python-async-deps",
     "TestPythonAsyncClient": "sdk-python-async-deps",
-    "TestSerializationEnums": "sdk-serialization-enums",
-    "TestRequestOptionsPerCall": "sdk-request-options-per-call",
 }
 
-PREFERRED_RULES_DIR = Path("skills/cosmosdb-sdk/rules")
+PREFERRED_RULES_DIR = Path("skills/cosmosdb-best-practices/rules")
 FALLBACK_RULES_DIR = Path("skills/cosmosdb-best-practices/rules")
 URL_KEYS = (
     "analysis_url",

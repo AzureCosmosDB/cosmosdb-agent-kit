@@ -1,7 +1,10 @@
-"""Source-code best-practice checks — STATIC (client-config) signals.
+r"""Source-code best-practice checks — STATIC (client-config) signals.
 
 IMPORTANT: these are regex/keyword scans over the agent's source (comments
-stripped — see _strip_comments in conftest.py). They are deliberately the
+stripped — see _strip_comments in conftest.py). String *literals* are NOT
+stripped, so patterns here should require code-adjacency (e.g. `foo\s*=` or
+`Foo\s*\(`) rather than a bare keyword that a log message or string constant
+could satisfy by accident. They are deliberately the
 *weaker* half of the grader. Per the MSBench lessons doc (§15/§16), the
 rules asserted here — singleton client, preferred regions, Direct mode,
 429 retry, diagnostics, client lifecycle, end-to-end timeouts, provision-
@@ -178,7 +181,9 @@ class TestSingletonClient:
 class TestPreferredRegions:
     def test_python_sets_preferred_locations(self, sdk, source_text):
         _need(sdk, "python")
-        assert "preferred_locations" in source_text, (
+        # Require the kwarg form so a bare "preferred_locations" in a string
+        # cannot satisfy the rule.
+        assert re.search(r"preferred_locations\s*=", source_text), (
             "Rule sdk-preferred-regions: pass `preferred_locations=[...]` to CosmosClient."
         )
 
@@ -242,12 +247,14 @@ class TestDirectModeJava:
 class TestRetry:
     def test_python_configures_retry(self, sdk, source_text):
         _need(sdk, "python")
+        # Require code-adjacency (kwarg `=` or constructor `(`) so a bare
+        # "RetryOptions" inside a log string cannot satisfy the rule.
         assert re.search(
-            r"retry_total|retry_throttle|RetryOptions|RetryPolicy",
+            r"retry_total\s*=|retry_backoff\w*\s*=|retry_throttle\w*\s*=|RetryOptions\s*[({]|RetryPolicy\s*[({]",
             source_text,
         ), (
-            "No retry configuration detected. Rule sdk-retry-throttled: configure "
-            "azure-core retry settings (retry_total / retry_throttle) on the client."
+            "No retry configuration detected. Rule sdk-retry-429: configure "
+            "azure-core retry settings (retry_total / retry_backoff_max) on the client."
         )
 
     def test_dotnet_configures_retry(self, sdk, source_text):
@@ -257,7 +264,7 @@ class TestRetry:
             source_text,
         ), (
             "No retry configuration. Set CosmosClientOptions.MaxRetryAttemptsOnRateLimitedRequests "
-            "and MaxRetryWaitTimeOnRateLimitedRequests. Rule sdk-retry-throttled."
+            "and MaxRetryWaitTimeOnRateLimitedRequests. Rule sdk-retry-429."
         )
 
     def test_java_configures_retry(self, sdk, source_text):
@@ -267,7 +274,7 @@ class TestRetry:
             source_text,
         ), (
             "No throttling retry options. Use CosmosClientBuilder.throttlingRetryOptions(...). "
-            "Rule sdk-retry-throttled."
+            "Rule sdk-retry-429."
         )
 
     def test_nodejs_configures_retry(self, sdk, source_text):
@@ -277,7 +284,7 @@ class TestRetry:
             source_text,
         ), (
             "No retry options configured. Set connectionPolicy.retryOptions on the client. "
-            "Rule sdk-retry-throttled."
+            "Rule sdk-retry-429."
         )
 
 
