@@ -1,17 +1,19 @@
 name: MSBench SDK Skills Evaluation
 
-# Manual entrypoint for running the MSBench SDK skills evaluation pipeline.
+# Manually-triggered only (workflow_dispatch, no schedule). This pipeline
+# authenticates to Azure / MSBench CES as the PERSON who triggers the run, using
+# an interactive device-code sign-in — the same identity MSBench authenticates you
+# with when you run the eval locally. No service principal is required for this path.
 #
-# By default this first runs a cheap CES submit preflight as the Azure service
-# principal (via OIDC). Only if the SP successfully submits to CES — i.e. a
-# server-assigned run_id comes back, proving auth + entitlement + reachability —
-# does the full graded evaluation job run. Set skip_preflight to 'true' to bypass
-# the gate and go straight to the full run.
+# Whoever dispatches the workflow MUST:
+#   1. have an Azure account that is entitled to submit to MSBench CES
+#      (and has read access to the devdiv/MicrosoftSweBench Azure Artifacts feed), and
+#   2. watch this job's logs for the device-code prompt and complete the browser
+#      sign-in as that account within the timeout, otherwise the job fails.
 #
-# Cost note: the preflight submits with --no-wait, which returns immediately but
-# still creates one real run that executes server-side. So gating this way means
-# two submitted runs per dispatch (a throwaway preflight run + the graded run).
-# Use skip_preflight once the SP path is proven if you want to avoid the extra run.
+# To instead run this unattended/automated via a service principal (e.g. for a
+# scheduled run), see the "Set up a service principal for the MSBench pipeline"
+# tracking issue — that path needs extra permissions granted to the SP first.
 on:
   workflow_dispatch:
     inputs:
@@ -29,89 +31,47 @@ on:
         description: 'Copilot model (blank = runner default claude-sonnet-4.6)'
         required: false
         default: ''
-      skip_preflight:
-        description: 'Skip the CES submit preflight and run the full evaluation directly'
+      tenant_id:
+        description: 'Azure tenant to sign into (blank = az default tenant)'
         required: false
-        default: 'false'
+        default: ''
+
+permissions:
+  contents: read
+  issues: write # Required if the evaluation fails and an issue must be created.
 
 jobs:
-  # Cheap gate: prove the service principal can submit to CES before paying for a
-  # full graded run. Submits one run with --no-wait and asserts a run_id came back.
-  # Skipped entirely when skip_preflight is 'true'.
-  preflight:
-    name: CES submit preflight (service principal)
-    if: ${{ inputs.skip_preflight != 'true' }}
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write # Required for Azure OIDC / federated credentials login.
-      contents: read
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      # Authenticate to Azure as the service principal via GitHub OIDC — the same
-      # identity a scheduled/published run uses. A returned run_id proves THIS
-      # identity reached CES and cleared MSBench entitlement.
-      - name: Azure CLI Login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install msbench-cli
-        run: |
-          ACCESS_TOKEN=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv)
-          echo "::add-mask::$ACCESS_TOKEN"
-          pip install msbench-cli \
-            --extra-index-url "https://build:${ACCESS_TOKEN}@pkgs.dev.azure.com/devdiv/_packaging/MicrosoftSweBench/pypi/simple/" \
-            --trusted-host pkgs.dev.azure.com
-
-      # Submit one run with --no-wait and assert CES returned a run_id. Forwards the
-      # same encrypted env (GITHUB_TOKEN/COSMOS) as the full run so the submission
-      # payload — including Key Vault encryption — matches reality.
-      - name: Submit CES preflight run (assert run_id)
-        env:
-          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          COSMOS: ${{ secrets.COSMOS }}
-        run: |
-          python scripts/msbench-eval.py \
-            --benchmark "${{ inputs.benchmark }}" \
-            --repeat 1 \
-            --no-wait
-
   evaluate:
     name: Run MSBench evaluation
-    needs: preflight
-    # Run when the preflight passed, or when it was skipped via skip_preflight.
-    # Do NOT run if the preflight failed (the SP could not submit to CES).
-    if: ${{ !cancelled() && (needs.preflight.result == 'success' || needs.preflight.result == 'skipped') }}
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write # Required for Azure OIDC / federated credentials login.
-      issues: write # Required if the evaluation fails and an issue must be created.
-      contents: read
+    # Generous cap: interactive device-code sign-in (up to ~15 min) plus the run.
+    timeout-minutes: 60
 
     steps:
       # Check out the repository so the evaluation and issue scripts are available.
       - name: Check out repository
         uses: actions/checkout@v4
 
-      # Authenticate to Azure using GitHub OIDC. The referenced secrets must be configured
-      # in the repository or organization: AZURE_CLIENT_ID, AZURE_TENANT_ID,
-      # and AZURE_SUBSCRIPTION_ID.
-      - name: Azure CLI Login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      # Sign in to Azure interactively as the person who triggered this run. az prints
+      # a URL + one-time code to the logs; open it in a browser and authenticate as your
+      # MSBench-entitled account. The device-code flow polls for completion, so nothing
+      # needs to be typed back into the runner. All later az / msbench-cli calls in this
+      # job then run as that identity — which is how MSBench authorizes the submission.
+      #
+      # Note: if your tenant's Conditional Access blocks device-code sign-in, use a
+      # self-hosted runner where you are already `az login`ed instead (see the SP issue
+      # for the fully-unattended alternative).
+      - name: Sign in to Azure (device code — triggerer's identity)
+        run: |
+          echo "=============================================================="
+          echo "Complete the device-code sign-in below as your MSBench-entitled"
+          echo "Azure account. The run waits until you finish (or it times out)."
+          echo "=============================================================="
+          if [ -n "${{ inputs.tenant_id }}" ]; then
+            az login --use-device-code --tenant "${{ inputs.tenant_id }}"
+          else
+            az login --use-device-code
+          fi
 
       # Use Python 3.11 for the MSBench tooling and repository scripts.
       - name: Set up Python
@@ -119,8 +79,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      # Install the MSBench CLI from the Azure Artifacts feed. The access token is passed
-      # via environment variable to avoid persisting credentials in pip config.
+      # Install the MSBench CLI from the Azure Artifacts feed. The access token is minted
+      # from the signed-in user's identity and passed via environment variable to avoid
+      # persisting credentials in pip config. The signed-in account must have read access
+      # to the devdiv/MicrosoftSweBench feed.
       - name: Install msbench-cli
         run: |
           ACCESS_TOKEN=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv)
