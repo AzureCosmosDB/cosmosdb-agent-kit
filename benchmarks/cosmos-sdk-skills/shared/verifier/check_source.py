@@ -455,3 +455,61 @@ class TestCacheMetadata:
             "createIfNotExists per request consumes from the system-reserved RU "
             "budget on every call and adds gateway latency."
         )
+
+
+# ---------------------------------------------------------------------
+# Python client configuration surface: kwargs vs legacy ConnectionPolicy
+# ---------------------------------------------------------------------
+
+# Legacy attribute names that only exist on azure.cosmos.documents.ConnectionPolicy.
+# Setting any of these (e.g. `policy.RequestTimeout = 10000`) is the v3 /
+# pydocumentdb carry-over pattern the v4 SDK replaced with flat kwargs.
+_CONNECTION_POLICY_ATTRS = (
+    "RequestTimeout",
+    "ReadTimeout",
+    "PreferredLocations",
+    "EnableEndpointDiscovery",
+    "DisableSSLVerification",
+    "RetryOptions",
+    "ConnectionRetryConfiguration",
+    "UseMultipleWriteLocations",
+)
+
+
+class TestClientConfigViaKwargs:
+    """Rule sdk-python-client-kwargs: in azure-cosmos v4 all CosmosClient
+    configuration is passed as keyword arguments to the constructor. Hand-
+    building a documents.ConnectionPolicy and mutating its attributes (the
+    classic `policy.RequestTimeout = ...` anti-pattern) is a legacy v3 /
+    pydocumentdb carry-over that the SDK replaces with _build_connection_policy().
+    This is a Python-only static signal (the code still runs, so it is not
+    behaviorally observable)."""
+
+    def test_python_config_via_kwargs_not_connection_policy(self, sdk, source_text):
+        _need(sdk, "python")
+
+        # (1) Constructing a ConnectionPolicy object. Scoped to ConnectionPolicy
+        # only — SSLConfiguration / ProxyConfiguration objects are still the
+        # required surface for those settings and must NOT be flagged.
+        assert not re.search(r"\bConnectionPolicy\s*\(", source_text), (
+            "Legacy `ConnectionPolicy` object detected. Rule sdk-python-client-kwargs: "
+            "in azure-cosmos v4 do not construct `documents.ConnectionPolicy` in "
+            "application code. Pass configuration as keyword arguments directly to "
+            "CosmosClient(...) (e.g. connection_timeout, preferred_locations, "
+            "retry_total, connection_verify); the SDK maps them onto a ConnectionPolicy "
+            "internally via _build_connection_policy()."
+        )
+
+        # (2) Mutating a ConnectionPolicy attribute (e.g. the driving anti-example
+        # `policy.RequestTimeout = 10000`). These attribute names are unique to the
+        # ConnectionPolicy object, so an assignment is an unambiguous legacy signal.
+        attr_group = "|".join(_CONNECTION_POLICY_ATTRS)
+        legacy_attr = re.search(rf"\.(?:{attr_group})\s*=", source_text)
+        assert not legacy_attr, (
+            f"Legacy ConnectionPolicy attribute assignment ({legacy_attr.group(0).strip()}) "
+            "detected. Rule sdk-python-client-kwargs: configure the client with keyword "
+            "arguments — use connection_timeout=<seconds> (not ConnectionPolicy.RequestTimeout, "
+            "and not the ms-based request_timeout= kwarg), preferred_locations=[...] instead of "
+            "ConnectionPolicy.PreferredLocations, and retry_total=<n> instead of "
+            "ConnectionPolicy.RetryOptions."
+        )
