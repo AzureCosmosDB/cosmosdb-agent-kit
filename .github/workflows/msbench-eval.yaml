@@ -1,6 +1,17 @@
 name: MSBench SDK Skills Evaluation
 
 # Manual entrypoint for running the MSBench SDK skills evaluation pipeline.
+#
+# By default this first runs a cheap CES submit preflight as the Azure service
+# principal (via OIDC). Only if the SP successfully submits to CES — i.e. a
+# server-assigned run_id comes back, proving auth + entitlement + reachability —
+# does the full graded evaluation job run. Set skip_preflight to 'true' to bypass
+# the gate and go straight to the full run.
+#
+# Cost note: the preflight submits with --no-wait, which returns immediately but
+# still creates one real run that executes server-side. So gating this way means
+# two submitted runs per dispatch (a throwaway preflight run + the graded run).
+# Use skip_preflight once the SP path is proven if you want to avoid the extra run.
 on:
   workflow_dispatch:
     inputs:
@@ -18,10 +29,69 @@ on:
         description: 'Copilot model (blank = runner default claude-sonnet-4.6)'
         required: false
         default: ''
+      skip_preflight:
+        description: 'Skip the CES submit preflight and run the full evaluation directly'
+        required: false
+        default: 'false'
 
 jobs:
+  # Cheap gate: prove the service principal can submit to CES before paying for a
+  # full graded run. Submits one run with --no-wait and asserts a run_id came back.
+  # Skipped entirely when skip_preflight is 'true'.
+  preflight:
+    name: CES submit preflight (service principal)
+    if: ${{ inputs.skip_preflight != 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Required for Azure OIDC / federated credentials login.
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Authenticate to Azure as the service principal via GitHub OIDC — the same
+      # identity a scheduled/published run uses. A returned run_id proves THIS
+      # identity reached CES and cleared MSBench entitlement.
+      - name: Azure CLI Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install msbench-cli
+        run: |
+          ACCESS_TOKEN=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv)
+          echo "::add-mask::$ACCESS_TOKEN"
+          pip install msbench-cli \
+            --extra-index-url "https://build:${ACCESS_TOKEN}@pkgs.dev.azure.com/devdiv/_packaging/MicrosoftSweBench/pypi/simple/" \
+            --trusted-host pkgs.dev.azure.com
+
+      # Submit one run with --no-wait and assert CES returned a run_id. Forwards the
+      # same encrypted env (GITHUB_TOKEN/COSMOS) as the full run so the submission
+      # payload — including Key Vault encryption — matches reality.
+      - name: Submit CES preflight run (assert run_id)
+        env:
+          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          COSMOS: ${{ secrets.COSMOS }}
+        run: |
+          python scripts/msbench-eval.py \
+            --benchmark "${{ inputs.benchmark }}" \
+            --repeat 1 \
+            --no-wait
+
   evaluate:
     name: Run MSBench evaluation
+    needs: preflight
+    # Run when the preflight passed, or when it was skipped via skip_preflight.
+    # Do NOT run if the preflight failed (the SP could not submit to CES).
+    if: ${{ !cancelled() && (needs.preflight.result == 'success' || needs.preflight.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write # Required for Azure OIDC / federated credentials login.
