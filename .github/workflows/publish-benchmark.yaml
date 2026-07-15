@@ -26,6 +26,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The prod docker profile targets an internal Azure Container Registry whose name is
+      # kept out of this public repo. It is materialized here from the CES_ACR repo variable
+      # and appended to mosaic.toml so the harbor `--profile prod` steps below are unchanged.
+      - name: Configure prod registry profile
+        working-directory: benchmarks/cosmos-sdk-skills
+        env:
+          CES_ACR: ${{ vars.CES_ACR }}
+        run: |
+          if [ -z "$CES_ACR" ]; then
+            echo "Repo variable CES_ACR (Azure Container Registry name) must be set." >&2
+            exit 1
+          fi
+          {
+            printf '\n[docker.prod]\n'
+            printf 'registry = "%s.azurecr.io"\n' "$CES_ACR"
+            printf 'provider = "Azure container registry"\n'
+            printf 'benchmark = "cosmos-sdk-skills"\n'
+            printf 'type = "eval"\n'
+            printf 'architecture = "x86_64"\n'
+            printf 'version = "0.0.1"\n'
+          } >> mosaic.toml
+
       - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
@@ -34,19 +56,31 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Login to ACR
-        run: az acr login --name codeexecservice
+        env:
+          CES_ACR: ${{ vars.CES_ACR }}
+        run: az acr login --name "$CES_ACR"
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
+      # Install harbor-format-curation from the internal Azure Artifacts feed. Feed path and
+      # AAD token resource are supplied via the MSBENCH_FEED / MSBENCH_TOKEN_RESOURCE repo
+      # variables so they are not hardcoded in this public workflow.
       - name: Install harbor-format-curation
+        env:
+          MSBENCH_FEED: ${{ vars.MSBENCH_FEED }}
+          MSBENCH_TOKEN_RESOURCE: ${{ vars.MSBENCH_TOKEN_RESOURCE }}
         run: |
-          ACCESS_TOKEN=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv)
+          if [ -z "$MSBENCH_FEED" ] || [ -z "$MSBENCH_TOKEN_RESOURCE" ]; then
+            echo "Repo variables MSBENCH_FEED and MSBENCH_TOKEN_RESOURCE must be set." >&2
+            exit 1
+          fi
+          ACCESS_TOKEN=$(az account get-access-token --resource "$MSBENCH_TOKEN_RESOURCE" --query accessToken -o tsv)
           echo "::add-mask::$ACCESS_TOKEN"
           pip install harbor-format-curation \
-            --index-url "https://build:${ACCESS_TOKEN}@pkgs.dev.azure.com/devdiv/_packaging/MicrosoftSweBench/pypi/simple/" \
-            --trusted-host pkgs.dev.azure.com
+            --index-url "https://build:${ACCESS_TOKEN}@${MSBENCH_FEED}" \
+            --trusted-host "${MSBENCH_FEED%%/*}"
 
       - name: Import tasks
         working-directory: benchmarks/cosmos-sdk-skills

@@ -7,7 +7,7 @@ name: MSBench SDK Skills Evaluation
 #
 # Whoever dispatches the workflow MUST:
 #   1. have an Azure account that is entitled to submit to MSBench CES
-#      (and has read access to the devdiv/MicrosoftSweBench Azure Artifacts feed), and
+#      (and has read access to the internal MSBench Azure Artifacts feed), and
 #   2. watch this job's logs for the device-code prompt and complete the browser
 #      sign-in as that account within the timeout, otherwise the job fails.
 #
@@ -79,17 +79,28 @@ jobs:
         with:
           python-version: '3.11'
 
-      # Install the MSBench CLI from the Azure Artifacts feed. The access token is minted
-      # from the signed-in user's identity and passed via environment variable to avoid
-      # persisting credentials in pip config. The signed-in account must have read access
-      # to the devdiv/MicrosoftSweBench feed.
+      # Install the MSBench CLI from the internal Azure Artifacts feed. The feed path and
+      # AAD token resource are kept out of this public workflow and supplied via repo
+      # variables (Settings > Secrets and variables > Actions > Variables):
+      #   MSBENCH_FEED           - feed host+path, no scheme (e.g. host/_packaging/<feed>/pypi/simple/)
+      #   MSBENCH_TOKEN_RESOURCE - AAD resource id used to mint the feed access token
+      # The access token is minted from the signed-in user's identity and passed via
+      # environment variable to avoid persisting credentials in pip config. The signed-in
+      # account must have read access to the feed.
       - name: Install msbench-cli
+        env:
+          MSBENCH_FEED: ${{ vars.MSBENCH_FEED }}
+          MSBENCH_TOKEN_RESOURCE: ${{ vars.MSBENCH_TOKEN_RESOURCE }}
         run: |
-          ACCESS_TOKEN=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv)
+          if [ -z "$MSBENCH_FEED" ] || [ -z "$MSBENCH_TOKEN_RESOURCE" ]; then
+            echo "Repo variables MSBENCH_FEED and MSBENCH_TOKEN_RESOURCE must be set." >&2
+            exit 1
+          fi
+          ACCESS_TOKEN=$(az account get-access-token --resource "$MSBENCH_TOKEN_RESOURCE" --query accessToken -o tsv)
           echo "::add-mask::$ACCESS_TOKEN"
           pip install msbench-cli \
-            --extra-index-url "https://build:${ACCESS_TOKEN}@pkgs.dev.azure.com/devdiv/_packaging/MicrosoftSweBench/pypi/simple/" \
-            --trusted-host pkgs.dev.azure.com
+            --extra-index-url "https://build:${ACCESS_TOKEN}@${MSBENCH_FEED}" \
+            --trusted-host "${MSBENCH_FEED%%/*}"
 
       # Run the evaluation script. The script is expected to exit with code 1 if the pass
       # threshold is not met, which will mark the job as failed and trigger the issue step below.
@@ -107,6 +118,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           COSMOS: ${{ secrets.COSMOS }}
+          # CES execution backend, kept out of the public repo (repo variable).
+          MSBENCH_BACKEND: ${{ vars.MSBENCH_BACKEND }}
         run: |
           python scripts/msbench-eval.py \
             --benchmark "${{ inputs.benchmark }}" \

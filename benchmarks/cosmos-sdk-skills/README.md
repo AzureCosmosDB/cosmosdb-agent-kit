@@ -30,7 +30,7 @@ not from the prompt.
 cosmos-sdk-skills-bench/
 ├── README.md                        # this file
 ├── mosaic.toml                      # harbor-format-curation config
-├── msbench-registration/            # files to PR into msbench-benchmarks
+├── msbench-registration/            # files to PR into the central MSBench benchmarks repo
 │   ├── benchmark_loaders.toml
 │   └── dataset.jsonl                # 1 row (mosaic-python)
 ├── shared/
@@ -189,9 +189,9 @@ backed-up SDK/scenario variants follow the same pattern.
 
 ## Validating before merging
 
-Per [Bring Your Own Benchmark Repository](https://github.com/devdiv-microsoft/MicrosoftSweBench/wiki/4.-Bring-Your-Own-Benchmark-Repository),
+Per the internal MSBench "Bring Your Own Benchmark Repository" guide,
 once your images are built and pushed you can run the benchmark
-without contributing to `msbench-benchmarks`:
+without contributing to the central MSBench benchmarks repo:
 
 ```bash
 msbench-cli run \

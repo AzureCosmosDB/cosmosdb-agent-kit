@@ -1,5 +1,5 @@
 # harbor-format-curation configuration for cosmos-sdk-skills benchmark.
-# See https://github.com/devdiv-microsoft/MicrosoftSweBench/wiki/3.-Adding-a-Benchmark-to-MSBench
+# See the internal MSBench "Adding a Benchmark to MSBench" guide.
 
 [import]
 from = "path"
@@ -15,10 +15,8 @@ type = "eval"
 architecture = "x86_64"
 version = "0.0.1"
 
-[docker.prod]
-registry = "codeexecservice.azurecr.io"
-provider = "Azure container registry"
-benchmark = "cosmos-sdk-skills"
-type = "eval"
-architecture = "x86_64"
-version = "0.0.1"
+# The [docker.prod] profile targets an internal Azure Container Registry and is NOT
+# committed here to keep the registry name out of this public repo. CI appends it at
+# publish time from the CES_ACR repo variable (see .github/workflows/publish-benchmark.yaml).
+# To build/publish the prod profile locally, append a matching [docker.prod] section with
+# registry = "<your-acr>.azurecr.io".

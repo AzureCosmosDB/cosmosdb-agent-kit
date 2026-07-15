@@ -44,7 +44,10 @@ DEFAULT_OUTPUT = "results.json"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_RUNNER = REPO_ROOT / "benchmarks" / "cosmos-sdk-skills" / "shared" / "ces" / "runner.sh"
 DEFAULT_DATASET = REPO_ROOT / "benchmarks" / "cosmos-sdk-skills" / "dataset.jsonl"
-DEFAULT_BACKEND = "ces-dev1"
+# CES execution backend. Kept out of the public repo; supplied via the
+# MSBENCH_BACKEND env var (set from a repo variable in CI, or exported locally).
+# Empty by default so --backend is simply omitted unless configured.
+DEFAULT_BACKEND = os.environ.get("MSBENCH_BACKEND", "")
 # Env vars the runner needs in-container; forwarded with --encrypted-env when set.
 RUNNER_TOKEN_ENV = "GITHUB_TOKEN"
 COPILOT_MODEL_ENV = "COPILOT_MODEL"
