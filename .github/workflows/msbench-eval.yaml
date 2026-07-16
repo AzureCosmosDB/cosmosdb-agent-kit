@@ -1,19 +1,21 @@
-name: MSBench SDK Skills Evaluation
+name: SDK Skill-Efficacy Evaluation
 
 # Manually-triggered only (workflow_dispatch, no schedule). This pipeline
-# authenticates to Azure / MSBench CES as the PERSON who triggers the run, using
-# an interactive device-code sign-in — the same identity MSBench authenticates you
-# with when you run the eval locally. No service principal is required for this path.
+# authenticates to Azure / the remote execution backend as the PERSON who triggers
+# the run, using an interactive device-code sign-in — the same identity the
+# evaluation harness authenticates you with when you run the eval locally.
+# No service principal is required for this path.
 #
 # Whoever dispatches the workflow MUST:
-#   1. have an Azure account that is entitled to submit to MSBench CES
-#      (and has read access to the internal MSBench Azure Artifacts feed), and
+#   1. have an Azure account that is entitled to submit to the remote execution
+#      backend (and has read access to the internal Azure Artifacts feed), and
 #   2. watch this job's logs for the device-code prompt and complete the browser
 #      sign-in as that account within the timeout, otherwise the job fails.
 #
 # To instead run this unattended/automated via a service principal (e.g. for a
-# scheduled run), see the "Set up a service principal for the MSBench pipeline"
-# tracking issue — that path needs extra permissions granted to the SP first.
+# scheduled run), see the "Set up a service principal for the evaluation
+# pipeline" tracking issue — that path needs extra permissions granted to the
+# SP first.
 on:
   workflow_dispatch:
     inputs:
@@ -42,7 +44,7 @@ permissions:
 
 jobs:
   evaluate:
-    name: Run MSBench evaluation
+    name: Run skill-efficacy evaluation
     runs-on: ubuntu-latest
     # Generous cap: interactive device-code sign-in (up to ~15 min) plus the run.
     timeout-minutes: 60
@@ -54,9 +56,10 @@ jobs:
 
       # Sign in to Azure interactively as the person who triggered this run. az prints
       # a URL + one-time code to the logs; open it in a browser and authenticate as your
-      # MSBench-entitled account. The device-code flow polls for completion, so nothing
+      # evaluation-entitled account. The device-code flow polls for completion, so nothing
       # needs to be typed back into the runner. All later az / msbench-cli calls in this
-      # job then run as that identity — which is how MSBench authorizes the submission.
+      # job then run as that identity — which is how the evaluation harness authorizes
+      # the submission.
       #
       # Note: if your tenant's Conditional Access blocks device-code sign-in, use a
       # self-hosted runner where you are already `az login`ed instead (see the SP issue
@@ -64,7 +67,7 @@ jobs:
       - name: Sign in to Azure (device code — triggerer's identity)
         run: |
           echo "=============================================================="
-          echo "Complete the device-code sign-in below as your MSBench-entitled"
+          echo "Complete the device-code sign-in below as your evaluation-entitled"
           echo "Azure account. The run waits until you finish (or it times out)."
           echo "=============================================================="
           if [ -n "${{ inputs.tenant_id }}" ]; then
@@ -73,13 +76,13 @@ jobs:
             az login --use-device-code
           fi
 
-      # Use Python 3.11 for the MSBench tooling and repository scripts.
+      # Use Python 3.11 for the evaluation tooling and repository scripts.
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # Install the MSBench CLI from the internal Azure Artifacts feed. The feed path and
+      # Install msbench-cli from the internal Azure Artifacts feed. The feed path and
       # AAD token resource are kept out of this public workflow and supplied via repo
       # variables (Settings > Secrets and variables > Actions > Variables):
       #   MSBENCH_FEED           - feed host+path, no scheme (e.g. host/_packaging/<feed>/pypi/simple/)
@@ -109,16 +112,16 @@ jobs:
       # subscription — the in-container runner (shared/ces/runner.sh) uses it to authenticate
       # the baked @github/copilot CLI. The default Actions token has no Copilot access, so a
       # dedicated COPILOT_GITHUB_TOKEN secret is required. msbench-eval.py forwards it into the
-      # CES container via --encrypted-env GITHUB_TOKEN.
+      # remote-backend container via --encrypted-env GITHUB_TOKEN.
       #
       # COSMOS is an optional Cosmos DB connection string secret. When configured, the script
       # forwards it (encrypted) so the verifier grades against a real Cosmos account instead of
       # the bundled emulator. Leave the secret unset to run against the emulator.
-      - name: Run MSBench evaluation
+      - name: Run skill-efficacy evaluation
         env:
           GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           COSMOS: ${{ secrets.COSMOS }}
-          # CES execution backend, kept out of the public repo (repo variable).
+          # Remote execution backend, kept out of the public repo (repo variable).
           MSBENCH_BACKEND: ${{ vars.MSBENCH_BACKEND }}
         run: |
           python scripts/msbench-eval.py \

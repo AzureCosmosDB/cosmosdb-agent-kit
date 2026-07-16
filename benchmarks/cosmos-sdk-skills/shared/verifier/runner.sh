@@ -66,7 +66,7 @@ fi
 #   (b) give each SDK its own database, so several SDK instances that
 #       share one account never read/write each other's data;
 #   (c) give each SDK its own app listener port, so several instances
-#       that happen to share a network namespace (same msbench run)
+#       that happen to share a network namespace (same evaluation run)
 #       never collide on the HTTP port.
 # This is what makes "all five SDKs in ONE run against one live account"
 # safe. Default (emulator) behaviour is completely unchanged.

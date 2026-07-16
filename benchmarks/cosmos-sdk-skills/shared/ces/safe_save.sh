@@ -1,8 +1,8 @@
 #!/bin/bash
 # safe_save.sh - self-contained replacement for /save.sh.
 #
-# Lives at /opt/safe_save.sh so the CES backend's runtime injection of
-# /save.sh + /glob_files.py cannot clobber it. The upstream CES
+# Lives at /opt/safe_save.sh so the remote backend's runtime injection of
+# /save.sh + /glob_files.py cannot clobber it. The upstream remote backend
 # /glob_files.py at the time of writing is broken (TypeError in the
 # pathspec on_error callback when /var/lock is a dangling symlink),
 # which makes the encryption step blow up before the agent gets to run.

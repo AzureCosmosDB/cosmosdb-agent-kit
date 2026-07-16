@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run an MSBench benchmark, merge pass@k results, and flag failing instances.
+"""Run a skill-efficacy benchmark, merge pass@k results, and flag failing instances.
 
 Usage:
     python scripts/msbench-eval.py --benchmark cosmos-sdk-skills --repeat 3 --threshold 0.9
@@ -34,9 +34,9 @@ DEFAULT_THRESHOLD = 0.9
 DEFAULT_OUTPUT = "results.json"
 
 # Repository layout. The task images are Azure Linux (tdnf) based and are built
-# by the official harbor-format-curation pipeline so CES runs the baked
+# by the official harbor-format-curation pipeline so the remote execution backend runs the baked
 # /entry.sh verifier and produces a real eval.json score. The images pre-install
-# zip/unzip/which (CES's agent harness cannot install them on tdnf) and bake the
+# zip/unzip/which (the remote backend's agent harness cannot install them on tdnf) and bake the
 # @github/copilot CLI, so the agent is driven by shared/ces/runner.sh via
 # --runner, authenticated with GITHUB_TOKEN via --encrypted-env. cosmos-sdk-skills
 # is not centrally registered, so the harbor-generated dataset is supplied via
@@ -44,7 +44,7 @@ DEFAULT_OUTPUT = "results.json"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_RUNNER = REPO_ROOT / "benchmarks" / "cosmos-sdk-skills" / "shared" / "ces" / "runner.sh"
 DEFAULT_DATASET = REPO_ROOT / "benchmarks" / "cosmos-sdk-skills" / "dataset.jsonl"
-# CES execution backend. Kept out of the public repo; supplied via the
+# Remote execution backend. Kept out of the public repo; supplied via the
 # MSBENCH_BACKEND env var (set from a repo variable in CI, or exported locally).
 # Empty by default so --backend is simply omitted unless configured.
 DEFAULT_BACKEND = os.environ.get("MSBENCH_BACKEND", "")
@@ -57,7 +57,7 @@ COPILOT_MODEL_ENV = "COPILOT_MODEL"
 # runner.sh) accepts EITHER a single COSMOS connection string OR a split
 # COSMOS_ENDPOINT/COSMOS_KEY pair; if none are set the run uses the emulator.
 LIVE_ACCOUNT_ENVS = ("COSMOS", "COSMOS_ENDPOINT", "COSMOS_KEY")
-# MSBench requires --agent alongside --runner. The runner overrides the launch
+# The evaluation CLI requires --agent alongside --runner. The runner overrides the launch
 # script so this plugin's agent-downloader (which fails on the Mariner image) is
 # never invoked; the named agent only supplies the host orchestration + model map.
 DEFAULT_RUNNER_AGENT = "github-copilot-cli"
@@ -105,7 +105,7 @@ class MsbenchEvalError(RuntimeError):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run an MSBench benchmark and evaluate per-instance pass thresholds."
+        description="Run a skill-efficacy benchmark and evaluate per-instance pass thresholds."
     )
     parser.add_argument("--benchmark", default=DEFAULT_BENCHMARK, help="Benchmark name")
     parser.add_argument("--repeat", type=int, default=DEFAULT_REPEAT, help="Repeat count")
@@ -143,7 +143,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--backend",
         default=DEFAULT_BACKEND,
-        help="MSBench execution backend (CES backend required for --encrypted-env).",
+        help="Remote execution backend (required for --encrypted-env).",
     )
     parser.add_argument(
         "--encrypted-env",
@@ -151,7 +151,7 @@ def parse_args() -> argparse.Namespace:
         action="append",
         default=None,
         help=(
-            "Env var name(s) to forward into the container encrypted (CES only). "
+            "Env var name(s) to forward into the container encrypted (remote backend only). "
             "Defaults to forwarding GITHUB_TOKEN when it is set in the environment."
         ),
     )
@@ -176,12 +176,12 @@ def parse_args() -> argparse.Namespace:
         parser.error(f"--runner script not found: {args.runner}")
     if args.dataset and not Path(args.dataset).is_file():
         parser.error(f"--dataset file not found: {args.dataset}")
-    # MSBench requires --agent whenever --runner is used.
+    # The evaluation CLI requires --agent whenever --runner is used.
     if args.runner and not args.agent:
         args.agent = DEFAULT_RUNNER_AGENT
     args.copilot_model = None
     # The workflow's --model selects the baked Copilot CLI model via COPILOT_MODEL.
-    # MSBench still requires --model to be a plugin model-map key, so unsupported
+    # The evaluation CLI still requires --model to be a plugin model-map key, so unsupported
     # Copilot model names fall back to a safe plugin key for host orchestration.
     if args.runner and args.agent == DEFAULT_RUNNER_AGENT:
         if args.model:
@@ -327,8 +327,8 @@ def build_run_command(args: argparse.Namespace) -> list[str]:
     _append_common_run_flags(command, args)
     if getattr(args, "no_wait", False):
         # Submit and return immediately with the server-assigned run_id instead of
-        # blocking until the agent run finishes. Used by the CES submit preflight to
-        # prove the calling identity can authenticate to CES and is entitled to
+        # blocking until the agent run finishes. Used by the remote-backend submit
+        # preflight to prove the calling identity can authenticate to the remote backend and is entitled to
         # create a run, without paying for a full grade.
         command.append("--no-wait")
     return command
@@ -638,7 +638,7 @@ def read_instance_evals(results_zip: Path) -> dict[str, dict[str, Any]]:
 
     Returns a mapping of ``instance_id -> {resolved, failing_tests, counts}``.
     Empty when the archive contains no gradable ``eval.json`` (e.g. the 22-byte
-    empty output.zip produced when CES never ran the verifier).
+    empty output.zip produced when the remote backend never ran the verifier).
     """
     instances: dict[str, dict[str, Any]] = {}
     try:
@@ -647,7 +647,7 @@ def read_instance_evals(results_zip: Path) -> dict[str, dict[str, Any]]:
             for inner_name in inner_names:
                 inner_bytes = outer_zip.read(inner_name)
                 if len(inner_bytes) <= 64:
-                    # Empty/placeholder output.zip -> CES did not grade this instance.
+                    # Empty/placeholder output.zip -> the remote backend did not grade this instance.
                     continue
                 files = _read_inner_output(inner_bytes)
                 if "eval.json" not in files:
@@ -806,14 +806,14 @@ def main() -> int:
         run_id = extract_run_id(combined_initial_output)
         if not run_id:
             raise MsbenchEvalError(
-                "CES submit preflight FAILED: msbench-cli returned no run_id, so no run "
-                "was created on CES. The calling identity could not authenticate, is not "
-                "entitled to submit, or CES was unreachable. See the CLI output above for "
+                "Remote-backend submit preflight FAILED: msbench-cli returned no run_id, so no run "
+                "was created on the remote execution backend. The calling identity could not authenticate, is not "
+                "entitled to submit, or the remote backend was unreachable. See the CLI output above for "
                 "the specific auth/entitlement/network error."
             )
         print(
-            f"CES submit preflight OK: CES assigned run_id={run_id}. A server-assigned "
-            "run_id confirms the calling identity authenticated to CES and is entitled to "
+            f"Remote-backend submit preflight OK: the remote backend assigned run_id={run_id}. A server-assigned "
+            "run_id confirms the calling identity authenticated to the remote backend and is entitled to "
             "create a run. Skipping polling, report generation, and threshold checks."
         )
         return 0

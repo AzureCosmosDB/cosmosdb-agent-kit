@@ -1,8 +1,8 @@
 #!/bin/bash
 # runner.sh — passed to msbench-cli via --runner. Mounted at /agent/runner.sh
-# by the CES runtime and invoked by /entry.sh.
+# by the remote execution backend and invoked by /entry.sh.
 #
-# Bypasses MSBench's github-copilot-cli plugin agent-downloader (which needs
+# Bypasses the evaluation harness's github-copilot-cli plugin agent-downloader (which needs
 # Microsoft-internal RBAC + unzip on Mariner). Uses the public
 # @github/copilot npm CLI baked into the image and authenticates with a
 # GITHUB_TOKEN passed in via --encrypted-env.

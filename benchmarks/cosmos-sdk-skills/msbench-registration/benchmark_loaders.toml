@@ -1,7 +1,7 @@
 # Place this file at:
 #   <msbench-benchmarks-repo>/benchmarks/skillsbench/cosmos-sdk-skills/benchmark_loaders.toml
 #
-# See the internal MSBench "Bring Your Own Benchmark Repository" guide.
+# See the internal "Bring Your Own Benchmark Repository" guide.
 
 [benchmark]
 name = "cosmos-sdk-skills"

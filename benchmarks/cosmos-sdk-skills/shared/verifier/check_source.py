@@ -5,7 +5,7 @@ stripped — see _strip_comments in conftest.py). String *literals* are NOT
 stripped, so patterns here should require code-adjacency (e.g. `foo\s*=` or
 `Foo\s*\(`) rather than a bare keyword that a log message or string constant
 could satisfy by accident. They are deliberately the
-*weaker* half of the grader. Per the MSBench lessons doc (§15/§16), the
+*weaker* half of the grader. Per the internal evaluation lessons doc (§15/§16), the
 rules asserted here — singleton client, preferred regions, Direct mode,
 429 retry, diagnostics, client lifecycle, end-to-end timeouts, provision-
 once — are **client-side configuration that a single-node local emulator

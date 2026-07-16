@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Create a GitHub issue for MSBench SDK skill gaps.
+"""Create a GitHub issue for SDK skill-efficacy gaps.
 
-This script parses MSBench evaluation results, maps failing tests to sdk-* rules,
+This script parses skill-efficacy evaluation results, maps failing tests to sdk-* rules,
 and opens a tracking issue with `gh issue create`. Use `--dry-run` to print the
 issue content without creating the issue.
 """
@@ -51,7 +51,7 @@ URL_KEYS = (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Create a GitHub issue for MSBench SDK rule gaps"
+        description="Create a GitHub issue for SDK skill-efficacy rule gaps"
     )
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument(
@@ -531,7 +531,7 @@ def analyze_payload(payload: Any) -> dict[str, Any]:
 
 def build_issue_title(affected_rules: list[str], average_pass_rate: float) -> str:
     return (
-        f"MSBench Eval: {len(affected_rules)} SDK rules need improvement "
+        f"Skill-Efficacy Eval: {len(affected_rules)} SDK rules need improvement "
         f"(avg {format_percent(average_pass_rate)}% pass rate)"
     )
 
@@ -601,7 +601,7 @@ def render_issue_body(analysis: dict[str, Any], analysis_url: str, rules_dir: Pa
     lines.extend(
         [
             "",
-            "## MSBench run analysis",
+            "## Skill-efficacy run analysis",
             "",
             f"- {analysis_url}",
         ]

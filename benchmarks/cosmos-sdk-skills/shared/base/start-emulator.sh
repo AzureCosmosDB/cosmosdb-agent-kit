@@ -103,7 +103,7 @@ fi
 
 echo "[start-emulator] launching $EMULATOR_BIN in background, logging to $EMU_LOG"
 # vnext-preview emulator must run as the `cosmosdev` user (postgres refuses
-# to start as root). CES's Mariner image has no `su`/`runuser`/`setpriv`
+# to start as root). The remote backend's Mariner image has no `su`/`runuser`/`setpriv`
 # and its `sudo` is broken (PAM auth fails), so use python3 to drop privs
 # directly via setuid/setgid. Locally on a dev box we usually have sudo,
 # so fall back to that when python or cosmosdev isn't around.
@@ -112,7 +112,7 @@ if ! id cosmosdev >/dev/null 2>&1; then
     exit 1
 fi
 
-# CES mounts /logs and /data as root-owned at runtime, overriding the image's
+# The remote backend mounts /logs and /data as root-owned at runtime, overriding the image's
 # baked permissions. Since the emulator runs as the unprivileged `cosmosdev`
 # user, it cannot write to those dirs (postgres data, SSL certs, *.log).
 # start-emulator runs as root here, so hand ownership to cosmosdev before the
@@ -162,7 +162,7 @@ dump_emulator_log() {
 }
 
 # Wait for the emulator to accept connections. The vnext emulator bundles
-# PostgreSQL + Citus + ~10 heavy extensions; on a contended CES host that
+# PostgreSQL + Citus + ~10 heavy extensions; on a contended remote-backend host that
 # init can take several minutes (locally it's ~3s). Default to a generous
 # ceiling and allow override via EMULATOR_WAIT_SECS.
 EMULATOR_WAIT_SECS="${EMULATOR_WAIT_SECS:-420}"

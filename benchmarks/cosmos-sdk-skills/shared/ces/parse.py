@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-parse.py - Harbor Reward to MSBench eval.json Parser
+parse.py - Harbor Reward to eval.json Parser
 
-Converts Harbor's reward output to the MSBench standard eval.json format.
+Converts Harbor's reward output to the standard eval.json format.
 
 Harbor Reward Formats (see: https://github.com/laude-institute/harbor):
   1. /logs/verifier/reward.txt: Plain text file with single numeric value
@@ -15,7 +15,7 @@ Harbor Reward Formats (see: https://github.com/laude-institute/harbor):
      c. Nested per-metric dicts: {"e2e": {"score": 1.0}, "unit-test": {"score": 1.0}}
         (mean of "score" values is used as reward)
 
-MSBench Output Format:
+eval.json Output Format:
   {
     "<instance_id>": {
       "resolved": true|false
@@ -81,7 +81,7 @@ def extract_reward_from_json(data):
 metadata_path = os.environ.get("METADATA_PATH", "/drop/metadata.json")
 output_dir = os.environ.get("OUTPUT_DIR", "/output")
 
-# Read instance_id - prefer instanceId env var (set by MSBench), fallback to metadata file
+# Read instance_id - prefer instanceId env var (set by the remote execution backend), fallback to metadata file
 instance_id = os.environ.get("instanceId")
 if not instance_id:
     try:
@@ -149,7 +149,7 @@ if reward_source is None:
 if reward_source is None:
     print("Warning: No reward file found, defaulting to resolved=False")
 
-# Write MSBench eval.json
+# Write eval.json
 eval_output = {
     instance_id: {
         "resolved": resolved

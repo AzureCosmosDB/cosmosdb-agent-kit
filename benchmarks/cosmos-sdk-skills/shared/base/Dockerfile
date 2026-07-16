@@ -39,13 +39,13 @@ RUN set -eux; \
             python3 python3-pip ca-certificates curl jq procps tar gzip \
             && rm -rf /var/lib/apt/lists/*; \
     fi; \
-    # CES /save.sh + /restore.sh invoke `python` (not `python3`). Mariner
-    # only installs `python3`, so add the bare `python` symlink the CES
-    # contract relies on.
+    # The remote backend's /save.sh + /restore.sh invoke `python` (not
+    # `python3`). Mariner only installs `python3`, so add the bare `python`
+    # symlink the remote-backend contract relies on.
     if ! command -v python >/dev/null 2>&1; then ln -sf "$(command -v python3)" /usr/local/bin/python; fi
 
 # Verifier dependencies. Pin versions so the benchmark is reproducible.
-# pathspec is used by /glob_files.py (part of the CES save-secrets payload).
+# pathspec is used by /glob_files.py (part of the remote backend save-secrets payload).
 RUN python3 -m pip install --no-cache-dir \
     pytest==8.3.3 \
     requests==2.32.3 \
@@ -75,14 +75,14 @@ COPY shared/contracts/ /verifier/contracts/
 COPY shared/base/start-emulator.sh /usr/local/bin/start-emulator
 RUN chmod +x /usr/local/bin/start-emulator
 
-# MSBench / CES backend contract files. The CES runtime expects all of
+# Remote-backend contract files. The remote-backend runtime expects all of
 # these to exist at root inside the task image:
 #   /ces_activate.sh          legacy env-activation stub (no-op)
 #   /entry.sh                 master orchestrator (encrypt -> agent -> decrypt -> eval -> parse)
 #   /save.sh, /restore.sh     secret encrypt/decrypt
 #   /glob_files.py            helper for save.sh (needs pathspec)
 #   /cut_metadata.py          helper for save.sh (strips non-public metadata keys)
-#   /parse.py                 Harbor reward -> MSBench eval.json
+#   /parse.py                 Harbor reward -> evaluation eval.json
 #   /secret_files.txt         globs for what to encrypt before agent runs
 #   /nonsecret_metadata_keys.txt  metadata keys agent is allowed to see
 #   /opt/activate_python.sh   no-op python-env activator
@@ -97,19 +97,19 @@ COPY shared/ces/parse.py                       /parse.py
 COPY shared/ces/secret_files.txt               /secret_files.txt
 COPY shared/ces/nonsecret_metadata_keys.txt    /nonsecret_metadata_keys.txt
 COPY shared/ces/activate_python.sh             /opt/activate_python.sh
-# CES injects its own broken /glob_files.py at runtime (TypeError in the
+# The remote backend injects its own broken /glob_files.py at runtime (TypeError in the
 # pathspec on_error callback when /var/lock is a dangling symlink),
-# clobbering ours. /opt/ is not on CES's overwrite path, so we stage a
+# clobbering ours. /opt/ is not on the remote backend's overwrite path, so we stage a
 # self-contained pure-bash encryption script there and entry.sh calls it
 # directly instead of /save.sh. See the comment in safe_save.sh.
 COPY shared/ces/safe_save.sh                   /opt/safe_save.sh
 RUN chmod +x /ces_activate.sh /entry.sh /save.sh /restore.sh /opt/activate_python.sh /opt/safe_save.sh
 
-# Directories the verifier and CES runtime write to.
+# Directories the verifier and remote-backend runtime write to.
 RUN mkdir -p /logs/verifier /app /reference /output /drop /agent /testbed
 
 # The vnext-preview emulator (postgres + rust gateway) must run as the
-# unprivileged `cosmosdev` user. CES entry.sh + runner.sh run as root.
+# unprivileged `cosmosdev` user. The remote backend's entry.sh + runner.sh run as root.
 # Both write to /logs (emulator -> /logs/*.log; verifier -> /logs/verifier/);
 # make the relevant dirs world-writable (sticky) so the two cooperate.
 RUN chown -R cosmosdev:cosmosdev /data /home/cosmosdev 2>/dev/null || true; \
@@ -117,7 +117,7 @@ RUN chown -R cosmosdev:cosmosdev /data /home/cosmosdev 2>/dev/null || true; \
 
 # -----------------------------------------------------------------------------
 # Pre-install the public @github/copilot CLI so the --runner approach can
-# invoke it without going through MSBench's agent-downloader (which needs
+# invoke it without going through the evaluation harness's agent-downloader (which needs
 # Microsoft-internal RBAC + unzip on this Mariner-based image).
 # Pin to the same version the working cosmosdb-rules benchmark uses.
 # -----------------------------------------------------------------------------

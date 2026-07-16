@@ -1,11 +1,11 @@
 #!/bin/bash
-# MSBench / CES master orchestrator. Sourced/run by the CES backend after
+# Master orchestrator. Sourced/run by the remote execution backend after
 # /ces_activate.sh. Derived verbatim from the cosmosdb-rules.* images, with
 # one change: INSTANCE_ID is read from /drop/metadata.json so a single
 # entry.sh can serve every task in the benchmark.
 set -euo pipefail
 
-# Standard MSBench directory paths
+# Standard evaluation harness directory paths
 export AGENT_DIR="/agent"           # Where agent code lives (mounted at runtime)
 export TESTBED_DIR="/testbed"       # The workspace/repository the agent works on
 export OUTPUT_DIR="/output"         # Where to write results (eval.json, etc.)
@@ -14,8 +14,8 @@ export OUTPUT_DIR="/output"         # Where to write results (eval.json, etc.)
 export METADATA_PATH="/drop/metadata.json"
 export EVAL_SCRIPT_PATH="/tests/test.sh"
 
-# Instance identifier — prefer the instanceId env var (set by the MSBench local
-# Docker backend), fall back to /drop/metadata.json (CES backend contract), and
+# Instance identifier — prefer the instanceId env var (set by the evaluation
+# harness's local Docker backend), fall back to /drop/metadata.json (remote-backend contract), and
 # default to "unknown" so a missing/renamed key never aborts the run under set -e.
 export INSTANCE_ID="${instanceId:-}"
 if [ -z "$INSTANCE_ID" ]; then
@@ -79,7 +79,7 @@ if [ -d "/logs/verifier" ] && [ "$(ls -A /logs/verifier 2>/dev/null)" ]; then
     echo "Copied verifier logs to output folder"
 fi
 
-# Parse Harbor reward output to MSBench eval.json format
+# Parse Harbor reward output to evaluation eval.json format
 echo "Parsing results..."
 (. /opt/activate_python.sh && python3 /parse.py) &> "$OUTPUT_DIR/050_parse.log"
 PARSE_EXIT_CODE=$?

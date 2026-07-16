@@ -1,5 +1,5 @@
 # harbor-format-curation configuration for cosmos-sdk-skills benchmark.
-# See the internal MSBench "Adding a Benchmark to MSBench" guide.
+# See the internal "Adding a Benchmark" guide.
 
 [import]
 from = "path"

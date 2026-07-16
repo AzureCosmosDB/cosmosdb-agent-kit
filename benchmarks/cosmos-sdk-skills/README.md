@@ -1,6 +1,6 @@
 # cosmos-sdk-skills-bench
 
-An MSBench benchmark that measures whether a coding agent obeys a loaded
+A skill-efficacy benchmark that measures whether a coding agent obeys a loaded
 Cosmos DB best-practices skill set (`skills/cosmosdb-best-practices`) when building
 services backed by Azure Cosmos DB.
 
@@ -30,7 +30,7 @@ not from the prompt.
 cosmos-sdk-skills-bench/
 ├── README.md                        # this file
 ├── mosaic.toml                      # harbor-format-curation config
-├── msbench-registration/            # files to PR into the central MSBench benchmarks repo
+├── msbench-registration/            # files to PR into the central benchmarks repo
 │   ├── benchmark_loaders.toml
 │   └── dataset.jsonl                # 1 row (mosaic-python)
 ├── shared/
@@ -117,7 +117,7 @@ only when **every** mandatory check passes. The pytest run is
 per-check log (`api.log`, `cosmos.log`, `source.log`, `skills.log`) so a
 failing run is debuggable by inspecting which check rejected it.
 
-> **Note:** If MSBench accepts graded float rewards (this is documented
+> **Note:** If the evaluation harness accepts graded float rewards (this is documented
 > as a future direction in the wiki), the runner is easy to switch over.
 > See `shared/verifier/runner.sh` for the conversion point.
 
@@ -189,9 +189,9 @@ backed-up SDK/scenario variants follow the same pattern.
 
 ## Validating before merging
 
-Per the internal MSBench "Bring Your Own Benchmark Repository" guide,
+Per the internal "Bring Your Own Benchmark Repository" guide,
 once your images are built and pushed you can run the benchmark
-without contributing to the central MSBench benchmarks repo:
+without contributing to the central benchmarks repo:
 
 ```bash
 msbench-cli run \
@@ -208,7 +208,7 @@ msbench-cli run \
   not own them.
 - The local `cosmosdb-agent-kit/testing-v2/` harness. That is a
   separate, lighter-weight pytest harness for local iteration, not an
-  MSBench benchmark.
+  skill-efficacy benchmark.
 
 ## CI Pipeline (GitHub Actions)
 
@@ -222,9 +222,9 @@ msbench-cli run --benchmark cosmos-sdk-skills --repeat 3 --runner shared/ces/run
 
 **How it works:**
 1. Workflow is triggered manually via `workflow_dispatch`
-2. Authenticates to Azure as the person who triggered the run (`az login --use-device-code`), so MSBench submits under their own entitlement
+2. Authenticates to Azure as the person who triggered the run (`az login --use-device-code`), so the evaluation harness submits under their own entitlement
 3. Runs `scripts/msbench-eval.py` which submits one `--repeat 3` run
-4. MSBench executes the mosaic-python instance × 3 attempts = 3 tasks
+4. The evaluation harness executes the mosaic-python instance × 3 attempts = 3 tasks
 5. Results are merged with `--merge pass_at_k` for per-instance reliability
 6. If the instance's average pass rate < 90%, `scripts/create-skills-issue.py` creates a GitHub issue mapping failures to specific `sdk-*` rules
 
