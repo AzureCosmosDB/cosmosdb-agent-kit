@@ -7,7 +7,7 @@ tags: throughput, ttl, storage, growth, archival, partition-limit
 
 ## Expire Stale Data Before It Hits Storage Limits
 
-Data that only ever grows will eventually hit a hard ceiling: a physical partition caps at ~50 GB before it must split, and a single logical partition key is hard-capped at 20 GB, after which writes to that key fail (see the partitioning overview). Time-series, telemetry, event, and audit workloads are especially prone to this. When storage on the busiest partition is trending toward the limit, expire stale records with TTL, archive cold data to cheaper storage, or re-key so growth spreads across partitions — before the wall, not after.
+Data that only ever grows will eventually hit a wall: a physical partition holds up to ~50 GB and then splits automatically, but a single logical partition key is hard-capped at 20 GB — once a key reaches it, writes to that key fail (see the partitioning overview). The danger case is a physical partition dominated by one oversized logical key: it can't split, so it trends toward that hard 20 GB wall. Time-series, telemetry, event, and audit workloads are especially prone to this. When storage on the busiest partition is trending toward the limit, expire stale records with TTL, archive cold data to cheaper storage, or re-key so growth spreads across partitions — before the wall, not after.
 
 **Incorrect (records accumulate forever):**
 
@@ -42,7 +42,7 @@ public class TelemetryEvent
     // The .NET SDK's default (Newtonsoft) serializer uses the property name as-is,
     // so map it explicitly:
     [JsonProperty(PropertyName = "ttl")]  // using Newtonsoft.Json;
-    public int? Ttl { get; set; } = 60 * 60 * 24 * 90; // per-item override (seconds)
+    public int? Ttl { get; set; } = 60 * 60 * 24 * 7; // 7 days — overrides the 90-day container default for this item
 }
 
 await container.UpsertItemAsync(evt, new PartitionKey(evt.DeviceId));
