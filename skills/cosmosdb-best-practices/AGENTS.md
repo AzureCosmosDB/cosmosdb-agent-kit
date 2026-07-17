@@ -107,6 +107,7 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 6.3 [Choose Container vs Database Throughput](#63-choose-container-vs-database-throughput)
    - 6.4 [Right-Size Provisioned Throughput](#64-right-size-provisioned-throughput)
    - 6.5 [Consider Serverless for Dev/Test](#65-consider-serverless-for-dev-test)
+   - 6.6 [Expire Stale Data Before It Hits Storage Limits](#66-expire-stale-data-before-it-hits-storage-limits)
 7. [Global Distribution](#7-global-distribution) — **MEDIUM**
    - 7.1 [Implement Conflict Resolution](#71-implement-conflict-resolution)
    - 7.2 [Choose Appropriate Consistency Level](#72-choose-appropriate-consistency-level)
@@ -4269,7 +4270,7 @@ Capture and log diagnostics from Cosmos DB responses, especially for slow or fai
 
 `CosmosException.Diagnostics` (type `CosmosDiagnostics`) is a first-class structured signal the SDK provides for debugging failures (RU spend, latency tails, 429s, region selection, and channel reuse). Demonstrating the pattern is not enough — it must be applied at the point of failure.
 
-**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A bare swallow (`catch (CosmosException) { }`, `catch (CosmosException) { return null; }`, `return default;`, `return new T();`, etc., without first surfacing `.Diagnostics`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
+**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A catch block that swallows the exception (e.g., `catch (CosmosException) { }`, or returning `null` / `default` / `new T()`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
 
 **Incorrect (ignoring diagnostics):**
 
@@ -4427,7 +4428,7 @@ Key diagnostic fields:
 
 **Detector (mechanical check):** For each `catch` clause whose declared type binds to `Microsoft.Azure.Cosmos.CosmosException` (or a subclass), verify the block body contains a member access ending in `.Diagnostics` on the caught variable. If absent, flag the catch-block source range. This is expressible as a Roslyn analyzer or a regex over `.cs` files (excluding `bin/`, `obj/`, and test directories).
 
-**Why it matters:** `Diagnostics` carries the RU charge, activity ID, the region the call hit, and the per-channel timing breakdown. On a 429 it also contains the back-end retry hints. Without it, the operator loses exactly the information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
+**Why it matters:** `RequestCharge` and `ActivityId` provide immediate cost/correlation context, and `Diagnostics` provides the detailed timeline, regions contacted, and retry/transient-failure context (on a 429 it also includes retry details). Without diagnostics, the operator loses the detailed information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
 
 Reference: [Capture diagnostics — Troubleshoot .NET SDK](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-dotnet-sdk#capture-diagnostics)
 
@@ -9504,6 +9505,62 @@ When NOT to use serverless:
 ```
 
 Reference: [Serverless in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/serverless)
+
+### 6.6 Expire Stale Data Before It Hits Storage Limits
+
+**Impact: MEDIUM** (avoids the partition storage wall on growing data)
+
+## Expire Stale Data Before It Hits Storage Limits
+
+Data that only ever grows will eventually hit a hard ceiling: a physical partition caps at ~50 GB before it must split, and a single logical partition key is hard-capped at 20 GB, after which writes to that key fail (see the partitioning overview). Time-series, telemetry, event, and audit workloads are especially prone to this. When storage on the busiest partition is trending toward the limit, expire stale records with TTL, archive cold data to cheaper storage, or re-key so growth spreads across partitions — before the wall, not after.
+
+**Incorrect (records accumulate forever):**
+
+```csharp
+public class TelemetryEvent
+{
+    public string Id { get; set; } = default!;
+    public string DeviceId { get; set; } = default!;   // Partition key
+    public DateTime Timestamp { get; set; }
+    public object Payload { get; set; } = default!;
+    // No TTL: every event persists indefinitely and the partition only grows.
+}
+
+await container.CreateItemAsync(evt, new PartitionKey(evt.DeviceId));
+```
+
+**Correct (container TTL plus a per-item override for stale telemetry):**
+
+```csharp
+// Default TTL expires items after the retention window.
+var props = await container.ReadContainerAsync();
+props.Resource.DefaultTimeToLive = 60 * 60 * 24 * 90; // 90 days
+await container.ReplaceContainerAsync(props.Resource);
+
+public class TelemetryEvent
+{
+    public string Id { get; set; } = default!;
+    public string DeviceId { get; set; } = default!;
+    public DateTime Timestamp { get; set; }
+
+    // Per-item TTL only works if the property serializes to the JSON name "ttl".
+    // The .NET SDK's default (Newtonsoft) serializer uses the property name as-is,
+    // so map it explicitly:
+    [JsonProperty(PropertyName = "ttl")]  // using Newtonsoft.Json;
+    public int? Ttl { get; set; } = 60 * 60 * 24 * 90; // per-item override (seconds)
+}
+
+await container.UpsertItemAsync(evt, new PartitionKey(evt.DeviceId));
+```
+
+Guidance:
+- Set `DefaultTimeToLive` at the container level and override per item where retention varies.
+- If a *single logical key* dominates growth, TTL alone may not be enough — archive cold history by time bucket or re-key for even distribution (see `partition-high-cardinality`).
+- Archival (change feed to blob or another cheaper store) preserves history while keeping the operational container small.
+
+Reference:
+- [Time to Live (TTL) in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/time-to-live)
+- [Partitioning and horizontal scaling — partition storage limits](https://learn.microsoft.com/azure/cosmos-db/partitioning-overview)
 
 ---
 

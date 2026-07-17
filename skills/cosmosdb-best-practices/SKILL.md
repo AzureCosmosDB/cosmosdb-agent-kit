@@ -145,6 +145,7 @@ Reference these guidelines when:
 - [throughput-serverless](rules/throughput-serverless.md) - Consider serverless for dev/test
 - [throughput-burst](rules/throughput-burst.md) - Understand burst capacity
 - [throughput-container-vs-database](rules/throughput-container-vs-database.md) - Choose allocation level wisely
+- [throughput-ttl-stale-data](rules/throughput-ttl-stale-data.md) - Expire stale data with TTL before hitting storage limits
 
 ### 7. Global Distribution (MEDIUM)
 

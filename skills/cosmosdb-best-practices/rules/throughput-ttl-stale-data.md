@@ -7,7 +7,7 @@ tags: throughput, ttl, storage, growth, archival, partition-limit
 
 ## Expire Stale Data Before It Hits Storage Limits
 
-Data that only ever grows will eventually hit a hard ceiling: a physical partition caps at ~50 GiB before it must split, and a single logical partition key is hard-capped at ~20 GiB, after which writes to that key fail. Time-series, telemetry, event, and audit workloads are especially prone to this. When storage on the busiest partition is trending toward the limit, expire stale records with TTL, archive cold data to cheaper storage, or re-key so growth spreads across partitions — before the wall, not after.
+Data that only ever grows will eventually hit a hard ceiling: a physical partition caps at ~50 GB before it must split, and a single logical partition key is hard-capped at 20 GB, after which writes to that key fail (see the partitioning overview). Time-series, telemetry, event, and audit workloads are especially prone to this. When storage on the busiest partition is trending toward the limit, expire stale records with TTL, archive cold data to cheaper storage, or re-key so growth spreads across partitions — before the wall, not after.
 
 **Incorrect (records accumulate forever):**
 
@@ -37,6 +37,11 @@ public class TelemetryEvent
     public string Id { get; set; } = default!;
     public string DeviceId { get; set; } = default!;
     public DateTime Timestamp { get; set; }
+
+    // Per-item TTL only works if the property serializes to the JSON name "ttl".
+    // The .NET SDK's default (Newtonsoft) serializer uses the property name as-is,
+    // so map it explicitly:
+    [JsonProperty(PropertyName = "ttl")]  // using Newtonsoft.Json;
     public int? Ttl { get; set; } = 60 * 60 * 24 * 90; // per-item override (seconds)
 }
 
@@ -48,4 +53,6 @@ Guidance:
 - If a *single logical key* dominates growth, TTL alone may not be enough — archive cold history by time bucket or re-key for even distribution (see `partition-high-cardinality`).
 - Archival (change feed to blob or another cheaper store) preserves history while keeping the operational container small.
 
-Reference: [Time to Live (TTL) in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/time-to-live)
+Reference:
+- [Time to Live (TTL) in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/time-to-live)
+- [Partitioning and horizontal scaling — partition storage limits](https://learn.microsoft.com/azure/cosmos-db/partitioning-overview)
