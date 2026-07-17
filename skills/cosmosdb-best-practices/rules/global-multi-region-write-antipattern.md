@@ -25,7 +25,7 @@ Multi-region writes (multi-master) are valuable for true active-active write ava
 }
 ```
 
-**Correct (disable multi-region writes — the key change is `enableMultipleWriteLocations: false`; keep other regions as read replicas / failover if you want them):**
+**Correct (disable multi-region writes — the key change is `enableMultipleWriteLocations: false`; keep other regions as read replicas if you want them):**
 
 ```json
 {
@@ -41,7 +41,7 @@ Multi-region writes (multi-master) are valuable for true active-active write ava
 }
 ```
 
-The secondary region stays for reads and failover; only the *multi-write* capability is turned off. (For a dev account that needs just one region, you can also drop the extra location — but that is a separate decision from disabling multi-region writes.)
+The secondary region stays for reads (and, if `enableAutomaticFailover` is enabled on the account, as a failover target); only the *multi-write* capability is turned off. (For a dev account that needs just one region, you can also drop the extra location — but that is a separate decision from disabling multi-region writes.)
 
 When multi-region writes ARE justified (keep them enabled):
 - The application genuinely writes from multiple regions concurrently and needs local write latency.
