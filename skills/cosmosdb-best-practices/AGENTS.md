@@ -2154,7 +2154,7 @@ Do **not** hand-roll this migration. Azure Cosmos DB for NoSQL provides a built-
 // Bespoke re-key: create a new container, backfill, dual-write, reconcile, cut over.
 // Hundreds of lines of code to write, test, and operate — and easy to get wrong
 // (missed change-feed events, dual-write drift, throttling the copy).
-var newContainer = await database.CreateContainerAsync(
+Container newContainer = await database.CreateContainerAsync(
     new ContainerProperties("orders-by-customer", "/customerId"), throughput: 10000);
 
 await foreach (var doc in ReadAllFromOldContainerAsync())
@@ -2169,7 +2169,7 @@ Azure portal → your Cosmos DB account → Data Explorer → select the contain
   → Scale & Settings → Partition Keys tab → Change
 
 1. Pick the new partition key path (higher-cardinality, aligned to the dominant
-   access pattern; a /synthetic or hierarchical key is fine). It cannot be /id.
+   access pattern; a /synthetic or hierarchical key is fine).
 2. Create a new destination container (portal copies all settings except the
    partition key and unique keys) or select an existing one in the same database.
 3. Run the copy as OFFLINE (no writes during copy) or ONLINE (writes continue).
@@ -2193,7 +2193,7 @@ Requirements and limitations (verify before starting):
 - **Size/throughput:** container has **< 4 TB** of data and is provisioned with **< 1,000,000 RU/s**. Above either, contact Microsoft support.
 - **Not supported** on accounts that have the **Merge partition** capability enabled.
 - **Regions:** available only in the [regions supported by container copy](https://learn.microsoft.com/azure/cosmos-db/container-copy#supported-regions).
-- The copy runs on service-managed compute (two 4 vCPU / 16 GB instances per account by default; higher SKUs via support). Choose a **new key with high cardinality** aligned to your dominant access pattern, and validate queries, stored procedures, and indexing policy on the new container after cutover.
+- The copy runs on service-managed compute; for very large containers you can request higher-capacity compute via Microsoft support. Choose a **new key with high cardinality** aligned to your dominant access pattern, and validate queries, stored procedures, and indexing policy on the new container after cutover.
 
 When per-query fixes are enough (an occasional cross-partition shape on an otherwise well-keyed container), prefer `query-avoid-cross-partition` instead of re-keying.
 
@@ -4331,7 +4331,7 @@ Capture and log diagnostics from Cosmos DB responses, especially for slow or fai
 
 `CosmosException.Diagnostics` (type `CosmosDiagnostics`) is a first-class structured signal the SDK provides for debugging failures (RU spend, latency tails, 429s, region selection, and channel reuse). Demonstrating the pattern is not enough — it must be applied at the point of failure.
 
-**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A catch block that swallows the exception (e.g., `catch (CosmosException) { }`, or returning `null` / `default` / `new T()`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
+**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A bare swallow (`catch (CosmosException) { }`, `catch (CosmosException) { return null; }`, `return default;`, `return new T();`, etc., without first surfacing `.Diagnostics`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
 
 **Incorrect (ignoring diagnostics):**
 
@@ -4489,7 +4489,7 @@ Key diagnostic fields:
 
 **Detector (mechanical check):** For each `catch` clause whose declared type binds to `Microsoft.Azure.Cosmos.CosmosException` (or a subclass), verify the block body contains a member access ending in `.Diagnostics` on the caught variable. If absent, flag the catch-block source range. This is expressible as a Roslyn analyzer or a regex over `.cs` files (excluding `bin/`, `obj/`, and test directories).
 
-**Why it matters:** `RequestCharge` and `ActivityId` provide immediate cost/correlation context, and `Diagnostics` provides the detailed timeline, regions contacted, and retry/transient-failure context (on a 429 it also includes retry details). Without diagnostics, the operator loses the detailed information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
+**Why it matters:** `Diagnostics` carries the RU charge, activity ID, the region the call hit, and the per-channel timing breakdown. On a 429 it also contains the back-end retry hints. Without it, the operator loses exactly the information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
 
 Reference: [Capture diagnostics — Troubleshoot .NET SDK](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-dotnet-sdk#capture-diagnostics)
 

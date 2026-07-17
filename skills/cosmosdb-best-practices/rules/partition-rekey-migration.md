@@ -17,7 +17,7 @@ Do **not** hand-roll this migration. Azure Cosmos DB for NoSQL provides a built-
 // Bespoke re-key: create a new container, backfill, dual-write, reconcile, cut over.
 // Hundreds of lines of code to write, test, and operate — and easy to get wrong
 // (missed change-feed events, dual-write drift, throttling the copy).
-var newContainer = await database.CreateContainerAsync(
+Container newContainer = await database.CreateContainerAsync(
     new ContainerProperties("orders-by-customer", "/customerId"), throughput: 10000);
 
 await foreach (var doc in ReadAllFromOldContainerAsync())
@@ -32,7 +32,7 @@ Azure portal → your Cosmos DB account → Data Explorer → select the contain
   → Scale & Settings → Partition Keys tab → Change
 
 1. Pick the new partition key path (higher-cardinality, aligned to the dominant
-   access pattern; a /synthetic or hierarchical key is fine). It cannot be /id.
+   access pattern; a /synthetic or hierarchical key is fine).
 2. Create a new destination container (portal copies all settings except the
    partition key and unique keys) or select an existing one in the same database.
 3. Run the copy as OFFLINE (no writes during copy) or ONLINE (writes continue).
@@ -56,7 +56,7 @@ Requirements and limitations (verify before starting):
 - **Size/throughput:** container has **< 4 TB** of data and is provisioned with **< 1,000,000 RU/s**. Above either, contact Microsoft support.
 - **Not supported** on accounts that have the **Merge partition** capability enabled.
 - **Regions:** available only in the [regions supported by container copy](https://learn.microsoft.com/azure/cosmos-db/container-copy#supported-regions).
-- The copy runs on service-managed compute (two 4 vCPU / 16 GB instances per account by default; higher SKUs via support). Choose a **new key with high cardinality** aligned to your dominant access pattern, and validate queries, stored procedures, and indexing policy on the new container after cutover.
+- The copy runs on service-managed compute; for very large containers you can request higher-capacity compute via Microsoft support. Choose a **new key with high cardinality** aligned to your dominant access pattern, and validate queries, stored procedures, and indexing policy on the new container after cutover.
 
 When per-query fixes are enough (an occasional cross-partition shape on an otherwise well-keyed container), prefer `query-avoid-cross-partition` instead of re-keying.
 
