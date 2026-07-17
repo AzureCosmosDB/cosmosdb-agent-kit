@@ -73,6 +73,10 @@ RUNNER_PLUGIN_MODELS = {
 DEFAULT_RUNNER_MODEL = "claude-sonnet-4.6"
 POLL_INTERVAL_SECONDS = 30
 MAX_POLLS = 120
+# Web UI where a submitted run can be viewed/analyzed. The run_id is the only
+# variable; the host is stable across backends. Surfaced in stdout and the
+# results.json artifact so a human (or the failure issue) can open the run.
+RUN_ANALYSIS_URL_TEMPLATE = "https://msbenchapp.azurewebsites.net/run-analysis/{run_id}"
 RUN_ID_PATTERNS = (
     r'"run_id"\s*:\s*"([^"]+)"',
     r"\brun[_ -]?id\b\s*[:=]\s*([A-Za-z0-9._:-]+)",
@@ -264,6 +268,16 @@ def extract_run_id(text: str) -> str | None:
         if match:
             return match.group(1).strip().strip('"')
     return None
+
+
+def run_analysis_url(run_id: str) -> str:
+    """Build the web analysis URL for a submitted run."""
+    return RUN_ANALYSIS_URL_TEMPLATE.format(run_id=run_id)
+
+
+def print_run_link(run_id: str) -> None:
+    """Emit the run's analysis link prominently so it can be opened/clicked."""
+    print(f"\nRun analysis: {run_analysis_url(run_id)}")
 
 
 def extract_status(text: str) -> str | None:
@@ -693,7 +707,7 @@ def _split_scenario_sdk(instance_id: str) -> tuple[str, str]:
 
 
 def build_results_from_eval(
-    results_zips: list[Path], benchmark: str, output_path: Path
+    results_zips: list[Path], benchmark: str, output_path: Path, run_id: str | None = None
 ) -> list[dict[str, Any]] | None:
     """Aggregate eval.json across attempts and write a results.json report.
 
@@ -750,6 +764,8 @@ def build_results_from_eval(
     payload = {
         "benchmark": benchmark,
         "source": "eval.json",
+        "run_id": run_id,
+        "analysis_url": run_analysis_url(run_id) if run_id else None,
         "results": report_results,
     }
     output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -816,6 +832,7 @@ def main() -> int:
             "run_id confirms the calling identity authenticated to the remote backend and is entitled to "
             "create a run. Skipping polling, report generation, and threshold checks."
         )
+        print_run_link(run_id)
         return 0
 
     if args.dry_run:
@@ -836,6 +853,9 @@ def main() -> int:
             "Unable to determine run_id from msbench-cli output."
         )
     attempt_run_ids = extract_all_run_ids(combined_initial_output) or [run_id]
+    # Surface the viewable run link as soon as the run_id is known, so it is
+    # available even if grading/reporting fails later.
+    print_run_link(run_id)
 
     initial_status = extract_status(combined_initial_output)
     resume_output = ""
@@ -863,7 +883,7 @@ def main() -> int:
     # Primary path: read authoritative eval.json (+ pytest failures) straight
     # from each downloaded output.zip. The msbench-cli report mis-parses harbor
     # eval.json (EvalJsonParser.parse_log) and reports "error", so we bypass it.
-    results = build_results_from_eval(results_zips, args.benchmark, output_path)
+    results = build_results_from_eval(results_zips, args.benchmark, output_path, run_id)
 
     if not results:
         # Fallback for non-harbor benchmarks: use the msbench-cli merged report.
@@ -876,6 +896,8 @@ def main() -> int:
         results = load_results(output_path)
 
     print_summary(results, args.threshold)
+    # Repeat the link after the summary so it is the last, most-visible line.
+    print_run_link(run_id)
 
     failing = [item for item in results if item["pass_rate"] < args.threshold]
     if failing:
