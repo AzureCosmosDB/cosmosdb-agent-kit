@@ -111,9 +111,10 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 7.1 [Implement Conflict Resolution](#71-implement-conflict-resolution)
    - 7.2 [Choose Appropriate Consistency Level](#72-choose-appropriate-consistency-level)
    - 7.3 [Configure Automatic Failover](#73-configure-automatic-failover)
-   - 7.4 [Configure Multi-Region Writes](#74-configure-multi-region-writes)
-   - 7.5 [Add Read Regions Near Users](#75-add-read-regions-near-users)
-   - 7.6 [Configure Zone Redundancy for High Availability](#76-configure-zone-redundancy-for-high-availability)
+   - 7.4 [Avoid Multi-Region Writes Without an Active-Active Need](#74-avoid-multi-region-writes-without-an-active-active-need)
+   - 7.5 [Configure Multi-Region Writes](#75-configure-multi-region-writes)
+   - 7.6 [Add Read Regions Near Users](#76-add-read-regions-near-users)
+   - 7.7 [Configure Zone Redundancy for High Availability](#77-configure-zone-redundancy-for-high-availability)
 8. [Monitoring & Diagnostics](#8-monitoring-diagnostics) — **LOW-MEDIUM**
    - 8.1 [Integrate Azure Monitor](#81-integrate-azure-monitor)
    - 8.2 [Enable Diagnostic Logging](#82-enable-diagnostic-logging)
@@ -4269,7 +4270,7 @@ Capture and log diagnostics from Cosmos DB responses, especially for slow or fai
 
 `CosmosException.Diagnostics` (type `CosmosDiagnostics`) is a first-class structured signal the SDK provides for debugging failures (RU spend, latency tails, 429s, region selection, and channel reuse). Demonstrating the pattern is not enough — it must be applied at the point of failure.
 
-**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A bare swallow (`catch (CosmosException) { }`, `catch (CosmosException) { return null; }`, `return default;`, `return new T();`, etc., without first surfacing `.Diagnostics`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
+**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A catch block that swallows the exception (e.g., `catch (CosmosException) { }`, or returning `null` / `default` / `new T()`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
 
 **Incorrect (ignoring diagnostics):**
 
@@ -4427,7 +4428,7 @@ Key diagnostic fields:
 
 **Detector (mechanical check):** For each `catch` clause whose declared type binds to `Microsoft.Azure.Cosmos.CosmosException` (or a subclass), verify the block body contains a member access ending in `.Diagnostics` on the caught variable. If absent, flag the catch-block source range. This is expressible as a Roslyn analyzer or a regex over `.cs` files (excluding `bin/`, `obj/`, and test directories).
 
-**Why it matters:** `Diagnostics` carries the RU charge, activity ID, the region the call hit, and the per-channel timing breakdown. On a 429 it also contains the back-end retry hints. Without it, the operator loses exactly the information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
+**Why it matters:** `RequestCharge` and `ActivityId` provide immediate cost/correlation context, and `Diagnostics` provides the detailed timeline, regions contacted, and retry/transient-failure context (on a 429 it also includes retry details). Without diagnostics, the operator loses the detailed information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
 
 Reference: [Capture diagnostics — Troubleshoot .NET SDK](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-dotnet-sdk#capture-diagnostics)
 
@@ -9871,7 +9872,57 @@ Automatic failover behavior:
 
 Reference: [Automatic failover](https://learn.microsoft.com/azure/cosmos-db/high-availability)
 
-### 7.4 Configure Multi-Region Writes
+### 7.4 Avoid Multi-Region Writes Without an Active-Active Need
+
+**Impact: MEDIUM** (removes conflict-resolution complexity and replicated write cost)
+
+## Avoid Multi-Region Writes Without an Active-Active Need
+
+Multi-region writes (multi-master) are valuable for true active-active write availability and very low RTO, but they add conflict-resolution complexity and can increase replicated write cost. Enabling them where they provide no benefit is an antipattern: non-production accounts that copy a production template, accounts where the workload only ever writes to one region, or a single-region account with the flag enabled as a latent tripwire. In these cases, disabling multi-region writes removes complexity and surprise cost with no loss of capability.
+
+**Incorrect (cloning production multi-write config into a dev account that writes to one region):**
+
+```json
+{
+  "type": "Microsoft.DocumentDB/databaseAccounts",
+  "name": "orders-dev",
+  "properties": {
+    "enableMultipleWriteLocations": true,
+    "locations": [
+      { "locationName": "West US 2", "failoverPriority": 0 },
+      { "locationName": "East US", "failoverPriority": 1 }
+    ]
+  }
+}
+```
+
+**Correct (disable multi-region writes — the key change is `enableMultipleWriteLocations: false`; keep other regions as read replicas / failover if you want them):**
+
+```json
+{
+  "type": "Microsoft.DocumentDB/databaseAccounts",
+  "name": "orders-dev",
+  "properties": {
+    "enableMultipleWriteLocations": false,
+    "locations": [
+      { "locationName": "West US 2", "failoverPriority": 0 },
+      { "locationName": "East US", "failoverPriority": 1 }
+    ]
+  }
+}
+```
+
+The secondary region stays for reads and failover; only the *multi-write* capability is turned off. (For a dev account that needs just one region, you can also drop the extra location — but that is a separate decision from disabling multi-region writes.)
+
+When multi-region writes ARE justified (keep them enabled):
+- The application genuinely writes from multiple regions concurrently and needs local write latency.
+- You require write availability during a regional outage (very low RTO) and have a conflict-resolution policy.
+
+If you enable multi-region writes for those reasons, pair them with a deliberate conflict-resolution strategy (see `global-conflict-resolution`). For the legitimate active-active pattern, see `global-multi-region`.
+
+Reference: [Configure multi-region writes](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-multi-master)
+
+### 7.5 Configure Multi-Region Writes
 
 **Impact: HIGH** (enables local writes, high availability)
 
@@ -9975,7 +10026,7 @@ Considerations:
 
 Reference: [Multi-region writes](https://learn.microsoft.com/azure/cosmos-db/multi-region-writes)
 
-### 7.5 Add Read Regions Near Users
+### 7.6 Add Read Regions Near Users
 
 **Impact: MEDIUM** (reduces read latency globally)
 
@@ -10108,7 +10159,7 @@ Cost considerations:
 
 Reference: [Global distribution](https://learn.microsoft.com/azure/cosmos-db/distribute-data-globally)
 
-### 7.6 Configure Zone Redundancy for High Availability
+### 7.7 Configure Zone Redundancy for High Availability
 
 **Impact: HIGH** (eliminates availability zone failures, increases SLA to 99.995%)
 

@@ -154,6 +154,7 @@ Reference these guidelines when:
 - [global-failover](rules/global-failover.md) - Configure automatic failover
 - [global-read-regions](rules/global-read-regions.md) - Add read regions near users
 - [global-zone-redundancy](rules/global-zone-redundancy.md) - Enable zone redundancy for HA
+- [global-multi-region-write-antipattern](rules/global-multi-region-write-antipattern.md) - Avoid multi-region writes without an active-active need
 
 ### 8. Monitoring & Diagnostics (LOW-MEDIUM)
 
