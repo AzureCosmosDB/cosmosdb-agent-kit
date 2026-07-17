@@ -25,7 +25,7 @@ await database.CreateContainerIfNotExistsAsync(
 // Serverless is an account-level capability set at creation (single region).
 {
   "type": "Microsoft.DocumentDB/databaseAccounts",
-  "apiVersion": "2024-11-15",
+  "apiVersion": "2021-10-15",
   "name": "events-serverless",
   "properties": {
     "databaseAccountOfferType": "Standard",
