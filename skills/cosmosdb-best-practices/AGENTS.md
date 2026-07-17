@@ -9326,7 +9326,7 @@ Reference: [Throughput on containers vs databases](https://learn.microsoft.com/a
 
 ## Review Idle Containers for Lifecycle Action
 
-A container with near-zero traffic still bills for throughput: **manual** provisioning bills its full RU/s 24/7, and **autoscale** bills each hour for the highest RU/s it scaled to that hour (between 10% and 100% of the configured max) — so an idle autoscale container still bills the 10% minimum. Abandoned import staging, deprecated features, and one-off migrations commonly leave such containers behind. The lever that recovers that cost is **decommissioning the container** (or dropping it to the minimum RU/s if it must stay) — note that **TTL and archival reduce stored *data*, not the provisioned RU/s bill**. Before removing anything, confirm retention, compliance, and recovery requirements.
+A container with near-zero traffic still bills for throughput: **manual** provisioning bills its full RU/s 24/7, and **autoscale** [bills each hour for the highest RU/s it scaled to that hour](https://learn.microsoft.com/azure/cosmos-db/provision-throughput-autoscale) (between 10% and 100% of the configured max) — so an idle autoscale container still bills the 10% minimum. Abandoned import staging, deprecated features, and one-off migrations commonly leave such containers behind. The lever that recovers that cost is **decommissioning the container** (or dropping it to the minimum RU/s if it must stay) — note that **TTL and archival reduce stored *data*, not the provisioned RU/s bill**. Before removing anything, confirm retention, compliance, and recovery requirements.
 
 **Incorrect (leaving an abandoned container provisioned):**
 
@@ -9362,9 +9362,7 @@ Safety gates before removing an idle container:
 
 This differs from `throughput-right-size`, which tunes an *active but oversized* container; here the container is effectively unused and the question is whether it should exist at all.
 
-References:
-- [Time to Live (TTL) in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/time-to-live)
-- [Provisioned throughput with autoscale (billing model)](https://learn.microsoft.com/azure/cosmos-db/provision-throughput-autoscale)
+Reference: [Time to Live (TTL) in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/time-to-live)
 
 ### 6.5 Right-Size Provisioned Throughput
 
