@@ -4270,7 +4270,7 @@ Capture and log diagnostics from Cosmos DB responses, especially for slow or fai
 
 `CosmosException.Diagnostics` (type `CosmosDiagnostics`) is a first-class structured signal the SDK provides for debugging failures (RU spend, latency tails, 429s, region selection, and channel reuse). Demonstrating the pattern is not enough — it must be applied at the point of failure.
 
-**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A catch block that swallows the exception (e.g., `catch (CosmosException) { }`, or returning `null` / `default` / `new T()`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
+**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A bare swallow (`catch (CosmosException) { }`, `catch (CosmosException) { return null; }`, `return default;`, `return new T();`, etc., without first surfacing `.Diagnostics`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
 
 **Incorrect (ignoring diagnostics):**
 
@@ -4428,7 +4428,7 @@ Key diagnostic fields:
 
 **Detector (mechanical check):** For each `catch` clause whose declared type binds to `Microsoft.Azure.Cosmos.CosmosException` (or a subclass), verify the block body contains a member access ending in `.Diagnostics` on the caught variable. If absent, flag the catch-block source range. This is expressible as a Roslyn analyzer or a regex over `.cs` files (excluding `bin/`, `obj/`, and test directories).
 
-**Why it matters:** `RequestCharge` and `ActivityId` provide immediate cost/correlation context, and `Diagnostics` provides the detailed timeline, regions contacted, and retry/transient-failure context (on a 429 it also includes retry details). Without diagnostics, the operator loses the detailed information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
+**Why it matters:** `Diagnostics` carries the RU charge, activity ID, the region the call hit, and the per-channel timing breakdown. On a 429 it also contains the back-end retry hints. Without it, the operator loses exactly the information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
 
 Reference: [Capture diagnostics — Troubleshoot .NET SDK](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-dotnet-sdk#capture-diagnostics)
 
@@ -9326,7 +9326,7 @@ Reference: [Throughput on containers vs databases](https://learn.microsoft.com/a
 
 ## Review Idle Containers for Lifecycle Action
 
-A container with near-zero traffic still carries its provisioned throughput — or an autoscale floor (10% of the configured max) — which is billed even while it sits idle. Abandoned import staging, deprecated features, and one-off migrations commonly leave such containers behind. The lever that recovers that cost is **decommissioning the container** (or dropping it to the minimum RU/s if it must stay) — note that **TTL and archival reduce stored *data*, not the provisioned RU/s bill**. Before removing anything, confirm retention, compliance, and recovery requirements.
+A container with near-zero traffic still bills for throughput: **manual** provisioning bills its full RU/s 24/7, and **autoscale** bills each hour for the highest RU/s it scaled to that hour (between 10% and 100% of the configured max) — so an idle autoscale container still bills the 10% minimum. Abandoned import staging, deprecated features, and one-off migrations commonly leave such containers behind. The lever that recovers that cost is **decommissioning the container** (or dropping it to the minimum RU/s if it must stay) — note that **TTL and archival reduce stored *data*, not the provisioned RU/s bill**. Before removing anything, confirm retention, compliance, and recovery requirements.
 
 **Incorrect (leaving an abandoned container provisioned):**
 
@@ -9362,7 +9362,9 @@ Safety gates before removing an idle container:
 
 This differs from `throughput-right-size`, which tunes an *active but oversized* container; here the container is effectively unused and the question is whether it should exist at all.
 
-Reference: [Time to Live (TTL) in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/time-to-live)
+References:
+- [Time to Live (TTL) in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/time-to-live)
+- [Provisioned throughput with autoscale (billing model)](https://learn.microsoft.com/azure/cosmos-db/provision-throughput-autoscale)
 
 ### 6.5 Right-Size Provisioned Throughput
 
