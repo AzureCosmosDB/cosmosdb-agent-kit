@@ -1,7 +1,7 @@
 ---
 title: Re-Key a Misaligned Container with the Change Partition Key Feature
 impact: CRITICAL
-impactDescription: eliminates structural cross-partition fan-out
+impactDescription: turns dominant cross-partition fan-out into single-partition operations
 tags: partition, migration, re-key, change-partition-key, container-copy, cross-partition
 ---
 

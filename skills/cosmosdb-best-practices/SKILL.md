@@ -79,6 +79,7 @@ Reference these guidelines when:
 - [partition-key-length](rules/partition-key-length.md) - Respect partition key value length limits
 - [partition-immutable-key](rules/partition-immutable-key.md) - Choose immutable properties as partition keys
 - [partition-20gb-limit](rules/partition-20gb-limit.md) - Plan for 20GB logical partition limit
+- [partition-rekey-migration](rules/partition-rekey-migration.md) - Re-key a misaligned container with the Change partition key feature
 
 ### 3. Query Optimization (HIGH)
 
