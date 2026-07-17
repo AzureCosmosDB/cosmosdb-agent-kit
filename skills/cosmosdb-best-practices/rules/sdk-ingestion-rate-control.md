@@ -47,7 +47,7 @@ async def ingest(container, documents):
 ```
 
 Additional levers:
-- Prefer the SDK's built-in **throughput control** over hand-rolled fan-out — it caps a workload's RU usage so a bulk job can't starve other traffic (Java SDK and Spark connector shown below; .NET has bulk mode via `AllowBulkExecution`).
+- Prefer the SDK's built-in **throughput control** over hand-rolled fan-out — it caps a workload's RU usage so a bulk job can't starve other traffic (Java SDK and Spark connector shown below). Note that .NET's bulk mode (`AllowBulkExecution`) improves ingestion *efficiency* but does **not** enforce an RU/s cap — pair it with bounded concurrency/backpressure or throughput control.
 - Separate batch ingestion paths from latency-sensitive request paths (different clients, or a queue) so a bulk job cannot starve interactive traffic.
 - Scaling RU/s can complement rate control, but it does not replace it — a burst can still outrun any fixed provisioning.
 
