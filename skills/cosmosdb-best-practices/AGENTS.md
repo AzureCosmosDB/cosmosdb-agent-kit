@@ -2140,13 +2140,13 @@ Reference: [Choose a partition key](https://learn.microsoft.com/azure/cosmos-db/
 
 ### 2.8 Re-Key a Misaligned Container with the Change Partition Key Feature
 
-**Impact: CRITICAL** (cuts fan-out query RU from ~Nx (one charge per physical partition) to single-partition cost)
+**Impact: CRITICAL** (replaces cross-partition fan-out with single-partition query cost (major RU/latency reduction))
 
 ## Re-Key a Misaligned Container with the Change Partition Key Feature
 
 When the dominant query workload structurally fans out across partitions — or one partition runs hot — the partition key is misaligned with the application's access pattern. Adding a partition-key filter to individual queries helps isolated shapes, but it cannot fix a live container whose primary lookup dimension is not the partition key. The partition key is immutable on a container, so the fix is to move the data to a container with a better key.
 
-Do **not** hand-roll this migration. Azure Cosmos DB for NoSQL provides a built-in **Change partition key** feature (Azure portal) that performs the re-key for you using service-managed [container copy](https://learn.microsoft.com/azure/cosmos-db/container-copy) jobs, so you don't have to write and operate your own dual-write/backfill pipeline.
+Prefer the built-in feature over hand-rolling this migration. Azure Cosmos DB for NoSQL provides a built-in **Change partition key** feature (Azure portal) that performs the re-key for you using service-managed [container copy](https://learn.microsoft.com/azure/cosmos-db/container-copy) jobs, so you don't have to write and operate your own dual-write/backfill pipeline. (A hand-rolled migration is only needed when the container falls outside the feature's supported limits below.)
 
 **Incorrect (hand-rolled migration pipeline you must build, run, and reconcile yourself):**
 
