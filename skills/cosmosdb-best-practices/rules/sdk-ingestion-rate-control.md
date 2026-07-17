@@ -7,13 +7,12 @@ tags: sdk, ingestion, bulk, throttling, retry-after, backpressure, java, spark, 
 
 ## Rate-Control High-Volume Ingestion
 
-Write-heavy batch or bulk ingestion can push a container past its provisioned throughput faster than it can absorb, causing sustained 429s and latency spikes for other request paths sharing the same container. Scaling RU/s is sometimes necessary, but application-side rate control is the code lever that keeps ingestion stable: cap concurrent writes, honor `retry-after` on 429, use the SDK's bulk/throughput-control features, and smooth producers through a queue.
+Write-heavy batch or bulk ingestion can push a container past its provisioned throughput faster than it can absorb, causing sustained 429s and latency spikes for other request paths sharing the same container. Scaling RU/s is sometimes necessary, but application-side rate control is the code lever that keeps ingestion stable: cap concurrent writes, honor the server's `x-ms-retry-after-ms` hint on 429, use the SDK's bulk/throughput-control features, and smooth producers through a queue.
 
 **Incorrect (unbounded concurrent ingestion that amplifies throttling):**
 
 ```python
 import asyncio
-from azure.cosmos.aio import CosmosClient
 
 async def ingest(container, documents):
     # Fires every write at once; on 429 the naive retries pile on more pressure.
