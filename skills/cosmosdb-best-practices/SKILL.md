@@ -145,6 +145,7 @@ Reference these guidelines when:
 - [throughput-serverless](rules/throughput-serverless.md) - Consider serverless for dev/test
 - [throughput-burst](rules/throughput-burst.md) - Understand burst capacity
 - [throughput-container-vs-database](rules/throughput-container-vs-database.md) - Choose allocation level wisely
+- [throughput-idle-container-review](rules/throughput-idle-container-review.md) - Review idle containers for lifecycle action
 
 ### 7. Global Distribution (MEDIUM)
 

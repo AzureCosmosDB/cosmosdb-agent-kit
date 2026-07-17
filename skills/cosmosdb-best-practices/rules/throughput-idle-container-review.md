@@ -7,7 +7,7 @@ tags: throughput, lifecycle, idle, ttl, decommission, cost
 
 ## Review Idle Containers for Lifecycle Action
 
-A container with near-zero traffic still carries its provisioned throughput, or an autoscale floor (10% of the configured max) that is billed even while idle. Abandoned import staging, deprecated features, and one-off migrations commonly leave such containers behind. Before deleting anything, confirm retention, compliance, and recovery requirements; then decommission, archive, or apply TTL so unused data and capacity do not persist and bill indefinitely.
+A container with near-zero traffic still carries its provisioned throughput — or an autoscale floor (10% of the configured max) — which is billed even while it sits idle. Abandoned import staging, deprecated features, and one-off migrations commonly leave such containers behind. The lever that recovers that cost is **decommissioning the container** (or dropping it to the minimum RU/s if it must stay) — note that **TTL and archival reduce stored *data*, not the provisioned RU/s bill**. Before removing anything, confirm retention, compliance, and recovery requirements.
 
 **Incorrect (leaving an abandoned container provisioned):**
 
@@ -19,15 +19,19 @@ await database.CreateContainerIfNotExistsAsync(
     throughput: 400);
 ```
 
-**Correct (apply TTL and decommission after validation):**
+**Correct (decommission to recover cost; TTL only handles data retention):**
 
 ```csharp
-// Expire remaining data on a retention window instead of holding it forever.
+// NOTE: TTL only expires data — it does NOT reduce the provisioned/autoscale RU bill.
+// Recovering the throughput cost requires decommissioning the container (or, if it must
+// stay, dropping it to the minimum RU/s).
+
+// 1. Optional retention: expire remaining data instead of holding it forever.
 var properties = await container.ReadContainerAsync();
 properties.Resource.DefaultTimeToLive = 60 * 60 * 24 * 30; // retain 30 days
 await container.ReplaceContainerAsync(properties.Resource);
 
-// After owner approval and a validated backup/export:
+// 2. After owner approval and a validated backup/export, delete it to stop paying:
 // await container.DeleteContainerAsync();
 ```
 
@@ -35,7 +39,7 @@ Safety gates before removing an idle container:
 1. Confirm the container is genuinely idle (no reads or writes over a representative window, not just low RU).
 2. Get owner approval and check retention/compliance requirements.
 3. Take and validate a backup or export.
-4. Prefer TTL or archival first; delete only after monitoring confirms nothing depends on it.
+4. TTL/archival control *data retention*, not throughput cost — to stop paying, delete the container (or lower its RU/s). Delete only after monitoring confirms nothing depends on it.
 
 This differs from `throughput-right-size`, which tunes an *active but oversized* container; here the container is effectively unused and the question is whether it should exist at all.
 
