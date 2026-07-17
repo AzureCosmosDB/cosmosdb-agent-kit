@@ -3271,6 +3271,63 @@ match response {
 }
 ```
 
+```go
+// ❌ Query instead of point read (Go SDK)
+func GetOrder(container *azcosmos.ContainerClient, customerID string, orderID string) (Order, error) {
+    pk := azcosmos.NewPartitionKeyString(customerID)
+
+    query := azcosmos.NewQueryDefinition("SELECT * FROM c WHERE c.id = @id").
+        WithParameter("@id", orderID)
+
+    pager := container.NewQueryItemsPager(query, nil)
+
+    ctx := context.Background()
+    for pager.More() {
+        resp, err := pager.NextPage(ctx)
+        if err != nil {
+            return Order{}, err
+        }
+
+        var orders []Order
+        err = json.Unmarshal(resp.Value, &orders)
+        if err != nil {
+            return Order{}, err
+        }
+
+        if len(orders) > 0 {
+            return orders[0], nil
+        }
+    }
+
+    return Order{}, nil
+}
+```
+
+```go
+// ✅ Point read in Go SDK
+func GetOrder(container *azcosmos.ContainerClient, customerID string, orderID string) (Order, error) {
+    pk := azcosmos.NewPartitionKeyString(customerID)
+
+    response, err := container.ReadItem(
+        context.Background(),
+        pk,
+        orderID,
+        nil,
+    )
+    if err != nil {
+        return Order{}, err
+    }
+
+    var order Order
+    err = json.Unmarshal(response.Value, &order)
+    if err != nil {
+        return Order{}, err
+    }
+
+    return order, nil
+}
+```
+
 ### Multiple Known Documents — ReadMany vs. Parallel Point Reads
 
 When fetching multiple documents by known `(id, partitionKey)` pairs, you have two options:
