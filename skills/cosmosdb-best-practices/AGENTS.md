@@ -5394,22 +5394,24 @@ async def ingest(container, documents):
 import asyncio
 from azure.cosmos.exceptions import CosmosHttpResponseError
 
-async def upsert_with_backoff(container, doc, limiter):
+async def upsert_with_backoff(container, doc, limiter, max_attempts=10):
     async with limiter:
-        while True:
+        for attempt in range(max_attempts):
             try:
                 return await container.upsert_item(doc)
             except CosmosHttpResponseError as ex:
-                if ex.status_code != 429:
-                    raise
+                if ex.status_code != 429 or attempt == max_attempts - 1:
+                    raise  # bounded: give up after max_attempts instead of looping forever
                 delay_ms = int(ex.headers.get("x-ms-retry-after-ms", "1000"))
                 await asyncio.sleep(delay_ms / 1000)
 
-async def ingest(container, documents):
-    limiter = asyncio.Semaphore(50)   # cap concurrency
-    await asyncio.gather(*[
-        upsert_with_backoff(container, doc, limiter) for doc in documents
-    ])
+async def ingest(container, documents, batch_size=1000):
+    limiter = asyncio.Semaphore(50)                    # cap concurrent writes
+    for i in range(0, len(documents), batch_size):     # process in batches — don't create every task at once
+        batch = documents[i:i + batch_size]
+        await asyncio.gather(*[
+            upsert_with_backoff(container, doc, limiter) for doc in batch
+        ])
 ```
 
 Additional levers:
