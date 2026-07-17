@@ -2140,7 +2140,7 @@ Reference: [Choose a partition key](https://learn.microsoft.com/azure/cosmos-db/
 
 ### 2.8 Re-Key a Misaligned Container with the Change Partition Key Feature
 
-**Impact: CRITICAL** (turns dominant cross-partition fan-out into single-partition operations)
+**Impact: CRITICAL** (cuts fan-out query RU from ~Nx (one charge per physical partition) to single-partition cost)
 
 ## Re-Key a Misaligned Container with the Change Partition Key Feature
 
@@ -2190,7 +2190,7 @@ using var iterator = newContainer.GetItemQueryIterator<Order>(
 
 Requirements and limitations (verify before starting):
 - **API:** Azure Cosmos DB for **NoSQL** API.
-- **Size/throughput:** container has **< 4 TB** of data and is provisioned with **< 1,000,000 RU/s**. Above either, contact Microsoft support.
+- **Size/throughput:** container has **< 4 TB** of data and is provisioned with **< 1,000,000 RU/s**. Above either, contact Microsoft support. ([Change partition key — Limitations](https://learn.microsoft.com/azure/cosmos-db/change-partition-key#limitations))
 - **Not supported** on accounts that have the **Merge partition** capability enabled.
 - **Regions:** available only in the [regions supported by container copy](https://learn.microsoft.com/azure/cosmos-db/container-copy#supported-regions).
 - The copy runs on service-managed compute; for very large containers you can request higher-capacity compute via Microsoft support. Choose a **new key with high cardinality** aligned to your dominant access pattern, and validate queries, stored procedures, and indexing policy on the new container after cutover.
