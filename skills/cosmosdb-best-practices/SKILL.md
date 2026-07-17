@@ -145,6 +145,7 @@ Reference these guidelines when:
 - [throughput-serverless](rules/throughput-serverless.md) - Consider serverless for dev/test
 - [throughput-burst](rules/throughput-burst.md) - Understand burst capacity
 - [throughput-container-vs-database](rules/throughput-container-vs-database.md) - Choose allocation level wisely
+- [throughput-serverless-migration](rules/throughput-serverless-migration.md) - Migrate a low-traffic provisioned account to serverless
 
 ### 7. Global Distribution (MEDIUM)
 
