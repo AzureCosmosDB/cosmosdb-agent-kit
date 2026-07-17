@@ -12,6 +12,7 @@ Write-heavy batch or bulk ingestion can push a container past its provisioned th
 **Incorrect (unbounded concurrent ingestion that amplifies throttling):**
 
 ```python
+import asyncio
 from azure.cosmos.aio import CosmosClient
 
 async def ingest(container, documents):

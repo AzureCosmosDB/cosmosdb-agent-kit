@@ -66,33 +66,34 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 4.11 [Use ETags for optimistic concurrency on read-modify-write operations](#411-use-etags-for-optimistic-concurrency-on-read-modify-write-operations)
    - 4.12 [Configure Excluded Regions for Dynamic Failover](#412-configure-excluded-regions-for-dynamic-failover)
    - 4.13 [Use current Go Cosmos DB SDK versions and explicit partition-key metadata](#413-use-current-go-cosmos-db-sdk-versions-and-explicit-partition-key-metadata)
-   - 4.14 [Unwrap CosmosItemResponse and enable content response in Java SDK](#414-unwrap-cosmositemresponse-and-enable-content-response-in-java-sdk)
-   - 4.15 [Use dependent @Bean methods for Cosmos DB initialization in Spring Boot](#415-use-dependent-bean-methods-for-cosmos-db-initialization-in-spring-boot)
-   - 4.16 [Spring Boot and Java version compatibility for Cosmos DB SDK](#416-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
-   - 4.17 [Initialize Async Cosmos DB Container Before CosmosDBSaver](#417-initialize-async-cosmos-db-container-before-cosmosdbsaver)
-   - 4.18 [Use CosmosDBSaver for LangGraph Checkpointing](#418-use-cosmosdbsaver-for-langgraph-checkpointing)
-   - 4.19 [Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS](#419-use-azurecosmosdbnosqlchatmessagehistory-for-persistent-conversations-in-js-ts)
-   - 4.20 [Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain](#420-configure-azure-openai-embedding-deployment-name-for-js-ts-langchain)
-   - 4.21 [Prevent Filter Injection in JS/TS LangChain Vector Store Queries](#421-prevent-filter-injection-in-js-ts-langchain-vector-store-queries)
-   - 4.22 [Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search](#422-configure-full-text-prerequisites-before-js-ts-langchain-hybrid-search)
-   - 4.23 [Use Managed Identity for JS/TS LangChain Cosmos DB Integration](#423-use-managed-identity-for-js-ts-langchain-cosmos-db-integration)
-   - 4.24 [Choose the Correct Search Type for JS/TS LangChain Vector Store](#424-choose-the-correct-search-type-for-js-ts-langchain-vector-store)
-   - 4.25 [Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS](#425-use-azurecosmosdbnosqlsemanticcache-for-llm-cost-reduction-in-js-ts)
-   - 4.26 [Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript](#426-correctly-initialize-azurecosmosdbnosqlvectorstore-in-javascript-typescript)
-   - 4.27 [Use Persistent MCP Client Sessions for Multi-Agent Applications](#427-use-persistent-mcp-client-sessions-for-multi-agent-applications)
-   - 4.28 [Handle MCP ToolMessage Content Format Variations](#428-handle-mcp-toolmessage-content-format-variations)
-   - 4.29 [Filter MCP Tools by Name Prefix for Agent Assignment](#429-filter-mcp-tools-by-name-prefix-for-agent-assignment)
-   - 4.30 [Configure local development environment to avoid cloud connection conflicts](#430-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
-   - 4.31 [Explicitly reference Newtonsoft.Json package](#431-explicitly-reference-newtonsoft-json-package)
-   - 4.32 [Use the Patch API for atomic counter increments](#432-use-the-patch-api-for-atomic-counter-increments)
-   - 4.33 [Configure Preferred Regions for Availability](#433-configure-preferred-regions-for-availability)
-   - 4.34 [Include aiohttp When Using Python Async SDK](#434-include-aiohttp-when-using-python-async-sdk)
-   - 4.35 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#435-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
-   - 4.36 [Handle 429 Errors with Retry-After](#436-handle-429-errors-with-retry-after)
-   - 4.37 [Use consistent enum serialization between Cosmos SDK and application layer](#437-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
-   - 4.38 [Reuse CosmosClient as Singleton](#438-reuse-cosmosclient-as-singleton)
-   - 4.39 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#439-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
-   - 4.40 [Use CosmosRepository correctly and handle Iterable return types](#440-use-cosmosrepository-correctly-and-handle-iterable-return-types)
+   - 4.14 [Rate-Control High-Volume Ingestion](#414-rate-control-high-volume-ingestion)
+   - 4.15 [Unwrap CosmosItemResponse and enable content response in Java SDK](#415-unwrap-cosmositemresponse-and-enable-content-response-in-java-sdk)
+   - 4.16 [Use dependent @Bean methods for Cosmos DB initialization in Spring Boot](#416-use-dependent-bean-methods-for-cosmos-db-initialization-in-spring-boot)
+   - 4.17 [Spring Boot and Java version compatibility for Cosmos DB SDK](#417-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
+   - 4.18 [Initialize Async Cosmos DB Container Before CosmosDBSaver](#418-initialize-async-cosmos-db-container-before-cosmosdbsaver)
+   - 4.19 [Use CosmosDBSaver for LangGraph Checkpointing](#419-use-cosmosdbsaver-for-langgraph-checkpointing)
+   - 4.20 [Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS](#420-use-azurecosmosdbnosqlchatmessagehistory-for-persistent-conversations-in-js-ts)
+   - 4.21 [Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain](#421-configure-azure-openai-embedding-deployment-name-for-js-ts-langchain)
+   - 4.22 [Prevent Filter Injection in JS/TS LangChain Vector Store Queries](#422-prevent-filter-injection-in-js-ts-langchain-vector-store-queries)
+   - 4.23 [Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search](#423-configure-full-text-prerequisites-before-js-ts-langchain-hybrid-search)
+   - 4.24 [Use Managed Identity for JS/TS LangChain Cosmos DB Integration](#424-use-managed-identity-for-js-ts-langchain-cosmos-db-integration)
+   - 4.25 [Choose the Correct Search Type for JS/TS LangChain Vector Store](#425-choose-the-correct-search-type-for-js-ts-langchain-vector-store)
+   - 4.26 [Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS](#426-use-azurecosmosdbnosqlsemanticcache-for-llm-cost-reduction-in-js-ts)
+   - 4.27 [Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript](#427-correctly-initialize-azurecosmosdbnosqlvectorstore-in-javascript-typescript)
+   - 4.28 [Use Persistent MCP Client Sessions for Multi-Agent Applications](#428-use-persistent-mcp-client-sessions-for-multi-agent-applications)
+   - 4.29 [Handle MCP ToolMessage Content Format Variations](#429-handle-mcp-toolmessage-content-format-variations)
+   - 4.30 [Filter MCP Tools by Name Prefix for Agent Assignment](#430-filter-mcp-tools-by-name-prefix-for-agent-assignment)
+   - 4.31 [Configure local development environment to avoid cloud connection conflicts](#431-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
+   - 4.32 [Explicitly reference Newtonsoft.Json package](#432-explicitly-reference-newtonsoft-json-package)
+   - 4.33 [Use the Patch API for atomic counter increments](#433-use-the-patch-api-for-atomic-counter-increments)
+   - 4.34 [Configure Preferred Regions for Availability](#434-configure-preferred-regions-for-availability)
+   - 4.35 [Include aiohttp When Using Python Async SDK](#435-include-aiohttp-when-using-python-async-sdk)
+   - 4.36 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#436-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
+   - 4.37 [Handle 429 Errors with Retry-After](#437-handle-429-errors-with-retry-after)
+   - 4.38 [Use consistent enum serialization between Cosmos SDK and application layer](#438-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
+   - 4.39 [Reuse CosmosClient as Singleton](#439-reuse-cosmosclient-as-singleton)
+   - 4.40 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#440-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
+   - 4.41 [Use CosmosRepository correctly and handle Iterable return types](#441-use-cosmosrepository-correctly-and-handle-iterable-return-types)
 5. [Indexing Strategies](#5-indexing-strategies) — **MEDIUM-HIGH**
    - 5.1 [Composite Index Directions Must Match ORDER BY](#51-composite-index-directions-must-match-order-by)
    - 5.2 [Use Composite Indexes for ORDER BY](#52-use-composite-indexes-for-order-by)
@@ -4269,7 +4270,7 @@ Capture and log diagnostics from Cosmos DB responses, especially for slow or fai
 
 `CosmosException.Diagnostics` (type `CosmosDiagnostics`) is a first-class structured signal the SDK provides for debugging failures (RU spend, latency tails, 429s, region selection, and channel reuse). Demonstrating the pattern is not enough — it must be applied at the point of failure.
 
-**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A bare swallow (`catch (CosmosException) { }`, `catch (CosmosException) { return null; }`, `return default;`, `return new T();`, etc., without first surfacing `.Diagnostics`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
+**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A catch block that swallows the exception (e.g., `catch (CosmosException) { }`, or returning `null` / `default` / `new T()`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
 
 **Incorrect (ignoring diagnostics):**
 
@@ -4427,7 +4428,7 @@ Key diagnostic fields:
 
 **Detector (mechanical check):** For each `catch` clause whose declared type binds to `Microsoft.Azure.Cosmos.CosmosException` (or a subclass), verify the block body contains a member access ending in `.Diagnostics` on the caught variable. If absent, flag the catch-block source range. This is expressible as a Roslyn analyzer or a regex over `.cs` files (excluding `bin/`, `obj/`, and test directories).
 
-**Why it matters:** `Diagnostics` carries the RU charge, activity ID, the region the call hit, and the per-channel timing breakdown. On a 429 it also contains the back-end retry hints. Without it, the operator loses exactly the information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
+**Why it matters:** `RequestCharge` and `ActivityId` provide immediate cost/correlation context, and `Diagnostics` provides the detailed timeline, regions contacted, and retry/transient-failure context (on a 429 it also includes retry details). Without diagnostics, the operator loses the detailed information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
 
 Reference: [Capture diagnostics — Troubleshoot .NET SDK](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-dotnet-sdk#capture-diagnostics)
 
@@ -5367,7 +5368,161 @@ References:
 - [Azure Cosmos DB for NoSQL partitioning overview](https://learn.microsoft.com/azure/cosmos-db/partitioning-overview)
 - [Azure Cosmos DB Go SDK (`azcosmos`) package docs](https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/data/azcosmos)
 
-### 4.14 Unwrap CosmosItemResponse and enable content response in Java SDK
+### 4.14 Rate-Control High-Volume Ingestion
+
+**Impact: HIGH** (prevents sustained 429s and noisy-neighbor latency)
+
+## Rate-Control High-Volume Ingestion
+
+Write-heavy batch or bulk ingestion can push a container past its provisioned throughput faster than it can absorb, causing sustained 429s and latency spikes for other request paths sharing the same container. Scaling RU/s is sometimes necessary, but application-side rate control is the code lever that keeps ingestion stable: cap concurrent writes, honor `retry-after` on 429, use the SDK's bulk/throughput-control features, and smooth producers through a queue.
+
+**Incorrect (unbounded concurrent ingestion that amplifies throttling):**
+
+```python
+import asyncio
+from azure.cosmos.aio import CosmosClient
+
+async def ingest(container, documents):
+    # Fires every write at once; on 429 the naive retries pile on more pressure.
+    await asyncio.gather(*[
+        container.upsert_item(doc) for doc in documents
+    ])
+```
+
+**Correct (bounded concurrency with retry-after-aware writes):**
+
+```python
+import asyncio
+from azure.cosmos.exceptions import CosmosHttpResponseError
+
+async def upsert_with_backoff(container, doc, limiter):
+    async with limiter:
+        while True:
+            try:
+                return await container.upsert_item(doc)
+            except CosmosHttpResponseError as ex:
+                if ex.status_code != 429:
+                    raise
+                delay_ms = int(ex.headers.get("x-ms-retry-after-ms", "1000"))
+                await asyncio.sleep(delay_ms / 1000)
+
+async def ingest(container, documents):
+    limiter = asyncio.Semaphore(50)   # cap concurrency
+    await asyncio.gather(*[
+        upsert_with_backoff(container, doc, limiter) for doc in documents
+    ])
+```
+
+Additional levers:
+- Prefer the SDK's built-in **throughput control** over hand-rolled fan-out — it caps a workload's RU usage so a bulk job can't starve other traffic (Java SDK and Spark connector shown below; .NET has bulk mode via `AllowBulkExecution`).
+- Separate batch ingestion paths from latency-sensitive request paths (different clients, or a queue) so a bulk job cannot starve interactive traffic.
+- Scaling RU/s can complement rate control, but it does not replace it — a burst can still outrun any fixed provisioning.
+
+### Java SDK: throughput control groups
+
+The Java SDK v4 (>= 4.13.0) has built-in **throughput control groups** that cap RU consumption. Use a *local* group to limit a single client, or a *global* group to coordinate one limit across many client instances via a shared metadata container. (These APIs are annotated `@Beta`.)
+
+**Local (limit ingestion to a share of the container's RU/s within one client):**
+
+```java
+ThroughputControlGroupConfig groupConfig =
+    new ThroughputControlGroupConfigBuilder()
+        .groupName("ingestion")
+        .targetThroughputThreshold(0.5) // 50% of provisioned RU/s; or .targetThroughput(5000) for an absolute RU/s cap
+        .build();
+
+container.enableLocalThroughputControlGroup(groupConfig);
+// All operations on `container` in this client are now rate-limited to the group.
+```
+
+**Global (enforce one collective limit across many microservice/worker instances):**
+
+```java
+ThroughputControlGroupConfig groupConfig =
+    new ThroughputControlGroupConfigBuilder()
+        .groupName("ingestion")
+        .targetThroughputThreshold(0.5)
+        .defaultControlGroup(true)
+        .build();
+
+// Metadata container coordinates usage across clients (its partition key is "/groupId").
+GlobalThroughputControlConfig globalControlConfig =
+    client.createGlobalThroughputControlConfigBuilder(
+            "ThroughputControlDatabase", "ThroughputControlContainer")
+        .setControlItemRenewInterval(Duration.ofSeconds(5))
+        .setControlItemExpireInterval(Duration.ofSeconds(11))
+        .build();
+
+container.enableGlobalThroughputControlGroup(groupConfig, globalControlConfig);
+```
+
+### Spark connector: throughput control
+
+For bulk data movement with the Cosmos DB Spark connector, enable throughput control so the job caps its RU usage and leaves headroom for other workloads. First create a throughput-control metadata container (partition key `/groupId`, TTL enabled), then set the config on the job:
+
+```scala
+"spark.cosmos.throughputControl.enabled" -> "true",
+"spark.cosmos.throughputControl.name" -> "ingestion",
+"spark.cosmos.throughputControl.targetThroughputThreshold" -> "0.95", // 95% of provisioned RU/s
+"spark.cosmos.throughputControl.globalControl.database" -> "database-v4",
+"spark.cosmos.throughputControl.globalControl.container" -> "ThroughputControl"
+```
+
+Notes:
+- On **serverless** accounts a percentage threshold isn't supported — set an absolute cap via `spark.cosmos.throughputControl.targetThroughput` instead.
+- With Microsoft Entra ID auth, `targetThroughputThreshold` requires the `.../containers/throughputSettings/read` data action so the connector can read the container's provisioned throughput.
+
+### Server-side isolation: throughput buckets and priority-based execution
+
+The levers above are client-side. Cosmos DB also has two **server-side** controls that isolate a bulk ingestion workload from latency-sensitive traffic on the *same* container. Combine either with the retry/backoff shown earlier so the throttled ingestion path yields instead of failing.
+
+**Priority-based execution (PBE)** — tag requests `High` or `Low`; when the container exceeds its RU/s, Cosmos DB throttles **low-priority requests first** (best-effort, no SLA) and the SDK retries them per its retry policy. Run ingestion at low priority so it backs off under contention while the app's high-priority traffic proceeds. Enable it on the account (portal **Features**, or `az cosmosdb update --enable-priority-based-execution true`). Unspecified requests default to **High**.
+
+```csharp
+// .NET v3 (>= 3.38.0): run bulk ingestion at low priority
+var ingest = new ItemRequestOptions { PriorityLevel = PriorityLevel.Low };
+await container.CreateItemAsync(doc, new PartitionKey(doc.PartitionKey), ingest);
+// The app's user-facing reads/writes use PriorityLevel.High and win under contention.
+```
+
+```java
+// Java v4 (>= 4.45.0): a low-priority throughput-control group, referenced per request
+ThroughputControlGroupConfig low = new ThroughputControlGroupConfigBuilder()
+    .groupName("ingestion").priorityLevel(PriorityLevel.LOW).build();
+container.enableLocalThroughputControlGroup(low);
+
+CosmosItemRequestOptions options = new CosmosItemRequestOptions();
+options.setThroughputControlGroupName("ingestion");
+```
+
+PBE is **not** supported on serverless accounts and is non-deterministic on shared (database-level) throughput.
+
+**Throughput buckets (preview)** — cap the fraction of a container's RU/s a workload may consume (up to five buckets, each with a maximum percentage). Assign the ingestion job to a bucket so it can never use more than, say, 40% of the container, leaving headroom for the app. Register the preview on the subscription, then configure buckets in Data Explorer (Scale & Settings).
+
+```csharp
+// .NET (>= 3.50.0-preview.0): pin all bulk-client requests to bucket 1 (capped in the portal)
+CosmosClient client = new CosmosClientBuilder("<endpoint>", credential)
+    .WithBulkExecution(true)
+    .WithThroughputBucket(1)
+    .Build();
+// Or per request: new ItemRequestOptions { ThroughputBucket = 1 }
+```
+
+```java
+// Java (>= 4.75.0): server-side throughput control assigns the container's requests to bucket 1
+ThroughputControlGroupConfig bucket = new ThroughputControlGroupConfigBuilder()
+    .groupName("ingestion").throughputBucket(1).defaultControlGroup(true).build();
+container.enableServerThroughputControlGroup(bucket);
+```
+
+References:
+- [Bulk import data with the .NET SDK](https://learn.microsoft.com/azure/cosmos-db/nosql/tutorial-dotnet-bulk-import)
+- [Throughput control groups — Java SDK v4](https://learn.microsoft.com/azure/cosmos-db/throughput-control-java)
+- [Throughput control — Spark connector](https://learn.microsoft.com/azure/cosmos-db/throughput-control-spark)
+- [Priority-based execution](https://learn.microsoft.com/azure/cosmos-db/priority-based-execution)
+- [Throughput buckets](https://learn.microsoft.com/azure/cosmos-db/throughput-buckets)
+
+### 4.15 Unwrap CosmosItemResponse and enable content response in Java SDK
 
 **Impact: MEDIUM** (prevents type errors from missing getItem() on reads and null content on writes)
 
@@ -5573,7 +5728,7 @@ Enabling content response does NOT increase RU cost - the document is already fe
 
 Reference: [Azure Cosmos DB Java SDK best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-java)
 
-### 4.15 Use dependent @Bean methods for Cosmos DB initialization in Spring Boot
+### 4.16 Use dependent @Bean methods for Cosmos DB initialization in Spring Boot
 
 **Impact: HIGH** (prevents circular dependency, startup failures, class name collisions, and compile errors)
 
@@ -5834,7 +5989,7 @@ References:
 - [`CosmosAsyncClient.createDatabaseIfNotExists()` Javadoc](https://learn.microsoft.com/java/api/com.azure.cosmos.cosmosasyncclient?view=azure-java-stable)
 - [`AbstractCosmosConfiguration` Javadoc](https://learn.microsoft.com/java/api/com.azure.spring.data.cosmos.config.abstractcosmosconfiguration?view=azure-java-stable)
 
-### 4.16 Spring Boot and Java version compatibility for Cosmos DB SDK
+### 4.17 Spring Boot and Java version compatibility for Cosmos DB SDK
 
 **Impact: CRITICAL** (Prevents build failures due to version incompatibility between Spring Boot and Java)
 
@@ -5965,7 +6120,7 @@ export PATH=$JAVA_HOME/bin:$PATH
 - [Spring Boot 2.7.x System Requirements](https://docs.spring.io/spring-boot/docs/2.7.x/reference/html/getting-started.html#getting-started-system-requirements)
 - [Azure Cosmos DB Java SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-java-v4)
 
-### 4.17 Initialize Async Cosmos DB Container Before CosmosDBSaver
+### 4.18 Initialize Async Cosmos DB Container Before CosmosDBSaver
 
 **Impact: HIGH** (prevents credential and event-loop errors in async applications)
 
@@ -6027,7 +6182,7 @@ async def setup():
 
 Reference: [Azure Cosmos DB async Python SDK](https://learn.microsoft.com/python/api/azure-cosmos/azure.cosmos.aio?view=azure-python)
 
-### 4.18 Use CosmosDBSaver for LangGraph Checkpointing
+### 4.19 Use CosmosDBSaver for LangGraph Checkpointing
 
 **Impact: HIGH** (enables persistent multi-turn conversation state across restarts)
 
@@ -6089,7 +6244,7 @@ async def initialize_checkpointer():
 
 Reference: [langchain-azure-cosmosdb documentation](https://python.langchain.com/docs/integrations/providers/azure_cosmos_db/)
 
-### 4.19 Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS
+### 4.20 Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS
 
 **Impact: HIGH** (enables persistent multi-turn conversations that survive restarts and scale horizontally)
 
@@ -6174,7 +6329,7 @@ const response = await withHistory.invoke(
 
 Reference: [LangChain.js Azure Cosmos DB Chat History](https://js.langchain.com/docs/integrations/chat_memory/azure_cosmosdb_nosql/)
 
-### 4.20 Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain
+### 4.21 Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain
 
 **Impact: MEDIUM** (incorrect deployment name causes 404 errors or uses wrong model)
 
@@ -6240,7 +6395,7 @@ const embeddings = new AzureOpenAIEmbeddings({
 
 Reference: [LangChain.js Azure OpenAI Embeddings](https://js.langchain.com/docs/integrations/text_embedding/azure_openai/)
 
-### 4.21 Prevent Filter Injection in JS/TS LangChain Vector Store Queries
+### 4.22 Prevent Filter Injection in JS/TS LangChain Vector Store Queries
 
 **Impact: CRITICAL** (prevents NoSQL injection attacks that can exfiltrate or corrupt data)
 
@@ -6317,7 +6472,7 @@ async function searchFiltered(
 
 Reference: [Azure Cosmos DB Parameterized Queries](https://learn.microsoft.com/azure/cosmos-db/nosql/query/parameterized-queries)
 
-### 4.22 Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search
+### 4.23 Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search
 
 **Impact: HIGH** (full-text and hybrid queries fail at runtime without container-level configuration)
 
@@ -6419,7 +6574,7 @@ const results = await store.similaritySearch("specific keyword plus semantic mea
 
 Reference: [Azure Cosmos DB Full-Text Search](https://learn.microsoft.com/azure/cosmos-db/nosql/query/full-text-search)
 
-### 4.23 Use Managed Identity for JS/TS LangChain Cosmos DB Integration
+### 4.24 Use Managed Identity for JS/TS LangChain Cosmos DB Integration
 
 **Impact: CRITICAL** (zero-secret authentication eliminates credential leakage risk)
 
@@ -6483,7 +6638,7 @@ az cosmosdb sql role assignment create \
 
 Reference: [Azure Cosmos DB RBAC with Azure Identity](https://learn.microsoft.com/azure/cosmos-db/nosql/security/how-to-grant-data-plane-role-based-access)
 
-### 4.24 Choose the Correct Search Type for JS/TS LangChain Vector Store
+### 4.25 Choose the Correct Search Type for JS/TS LangChain Vector Store
 
 **Impact: HIGH** (selecting wrong search type returns irrelevant results or causes errors)
 
@@ -6552,7 +6707,7 @@ const results = await store.similaritySearch("keyword and semantic query", 10, {
 
 Reference: [LangChain.js Azure Cosmos DB NoSQL Vector Store](https://js.langchain.com/docs/integrations/vectorstores/azure_cosmosdb_nosql/)
 
-### 4.25 Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS
+### 4.26 Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS
 
 **Impact: MEDIUM** (reduces LLM API costs and latency by caching semantically similar queries)
 
@@ -6623,7 +6778,7 @@ const response2 = await model.invoke("Tell me about Azure Cosmos DB"); // Cache 
 
 Reference: [LangChain.js Azure Cosmos DB Semantic Cache](https://js.langchain.com/docs/integrations/llm_caching/azure_cosmosdb_nosql/)
 
-### 4.26 Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript
+### 4.27 Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript
 
 **Impact: HIGH** (prevents runtime connection failures and misconfigured vector stores)
 
@@ -6692,7 +6847,7 @@ const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
 
 Reference: [LangChain.js Azure Cosmos DB Integration](https://js.langchain.com/docs/integrations/vectorstores/azure_cosmosdb_nosql/)
 
-### 4.27 Use Persistent MCP Client Sessions for Multi-Agent Applications
+### 4.28 Use Persistent MCP Client Sessions for Multi-Agent Applications
 
 **Impact: HIGH** (prevents session initialization overhead and connection churn)
 
@@ -6779,7 +6934,7 @@ async def cleanup_mcp():
 
 Reference: [langchain-mcp-adapters documentation](https://github.com/langchain-ai/langchain-mcp-adapters)
 
-### 4.28 Handle MCP ToolMessage Content Format Variations
+### 4.29 Handle MCP ToolMessage Content Format Variations
 
 **Impact: HIGH** (prevents JSON parse failures from langchain-mcp-adapters >= 0.2.0)
 
@@ -6829,7 +6984,7 @@ def extract_routing_info(message: ToolMessage):
 
 Reference: [langchain-mcp-adapters changelog](https://github.com/langchain-ai/langchain-mcp-adapters)
 
-### 4.29 Filter MCP Tools by Name Prefix for Agent Assignment
+### 4.30 Filter MCP Tools by Name Prefix for Agent Assignment
 
 **Impact: MEDIUM** (reduces agent confusion and improves routing accuracy)
 
@@ -6885,7 +7040,7 @@ transactions_agent = create_react_agent(model, transactions_tools, prompt=transa
 
 Reference: [LangGraph prebuilt agents](https://langchain-ai.github.io/langgraph/reference/prebuilt/)
 
-### 4.30 Configure local development environment to avoid cloud connection conflicts
+### 4.31 Configure local development environment to avoid cloud connection conflicts
 
 **Impact: MEDIUM** (prevents accidental connections to production instead of emulator)
 
@@ -7056,7 +7211,7 @@ azure:
 
 Reference: [Azure Cosmos DB Emulator](https://learn.microsoft.com/azure/cosmos-db/emulator)
 
-### 4.31 Explicitly reference Newtonsoft.Json package
+### 4.32 Explicitly reference Newtonsoft.Json package
 
 **Impact: HIGH** (Prevents build failures and security vulnerabilities from missing or outdated Newtonsoft.Json dependency)
 
@@ -7160,7 +7315,7 @@ Solution:
 
 Reference: [Managing Newtonsoft.Json Dependencies](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-dotnet-sdk-v3?tabs=trace-net-core#managing-newtonsoftjson-dependencies)
 
-### 4.32 Use the Patch API for atomic counter increments
+### 4.33 Use the Patch API for atomic counter increments
 
 **Impact: HIGH** (eliminates read-modify-write for counters; reduces RU cost and eliminates concurrency conflicts)
 
@@ -7231,7 +7386,7 @@ return container.patchItem(videoId, new PartitionKey(videoId), ops, Video.class)
 
 Reference: [Partial document update (Patch API)](https://learn.microsoft.com/azure/cosmos-db/partial-document-update)
 
-### 4.33 Configure Preferred Regions for Availability
+### 4.34 Configure Preferred Regions for Availability
 
 **Impact: HIGH** (enables automatic failover, reduces latency)
 
@@ -7327,7 +7482,7 @@ Best practices:
 
 Reference: [Configure preferred regions](https://learn.microsoft.com/azure/cosmos-db/nosql/tutorial-global-distribution)
 
-### 4.34 Include aiohttp When Using Python Async SDK
+### 4.35 Include aiohttp When Using Python Async SDK
 
 **Impact: HIGH** (prevents application startup failure)
 
@@ -7375,7 +7530,7 @@ from azure.cosmos import CosmosClient
 
 Reference: [Azure Cosmos DB Python SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-python)
 
-### 4.35 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
+### 4.36 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
 
 **Impact: HIGH** (causes wrong partition key to be sent, producing silent data corruption or 400/404 errors)
 
@@ -7434,7 +7589,7 @@ usersContainer.createItem(
 
 Reference: [Java SDK createItem](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-get-started)
 
-### 4.36 Handle 429 Errors with Retry-After
+### 4.37 Handle 429 Errors with Retry-After
 
 **Impact: HIGH** (prevents cascading failures)
 
@@ -7551,7 +7706,7 @@ await Task.WhenAll(tasks);
 
 Reference: [Handle rate limiting](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-request-rate-too-large)
 
-### 4.37 Use consistent enum serialization between Cosmos SDK and application layer
+### 4.38 Use consistent enum serialization between Cosmos SDK and application layer
 
 **Impact: critical** (undefined)
 
@@ -7672,7 +7827,7 @@ await container.create_item(body=doc.model_dump(by_alias=True, mode="json"))
 - Point reads work but filtered queries don't
 - API returns different enum format than stored in Cosmos DB
 
-### 4.38 Reuse CosmosClient as Singleton
+### 4.39 Reuse CosmosClient as Singleton
 
 **Impact: CRITICAL** (prevents connection exhaustion)
 
@@ -7864,7 +8019,7 @@ async fn list_orders(
 
 Reference: [CosmosClient best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-dotnet)
 
-### 4.39 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
+### 4.40 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
 
 **Impact: CRITICAL** (prevents startup failures and data access errors in Spring Data Cosmos applications)
 
@@ -7980,7 +8135,7 @@ Add `@JsonIgnoreProperties(ignoreUnknown = true)` to every Cosmos entity class s
 
 Reference: [Spring Data Azure Cosmos DB annotations](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-spring-data)
 
-### 4.40 Use CosmosRepository correctly and handle Iterable return types
+### 4.41 Use CosmosRepository correctly and handle Iterable return types
 
 **Impact: HIGH** (prevents ClassCastException and query failures in Spring Data Cosmos repositories)
 
