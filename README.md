@@ -11,6 +11,21 @@ A collection of skills for AI coding agents working with Azure Cosmos DB. Skills
 
 Skills follow the [Agent Skills](https://agentskills.io/) format and the kit ships with plugin manifests for **Claude Code**, **Codex**, **Cursor**, **Gemini CLI**, and **GitHub Copilot**.
 
+## Where this works best
+
+This agent kit is designed for **progressive (on-demand) skill delivery**: hosts that load a relevant skill only when it is needed, rather than injecting the entire skill set into every prompt. For the best results:
+
+- **Recommended:** Agent hosts that support progressive or on-demand skill loading (for example, GitHub Copilot in VS Code), **or** models with a large context window (roughly **200K+ tokens**).
+- **Use with caution:** Hosts that inject the **entire** skill set as always-on context (some IDE agents and CLI tools) **combined with** models that have a smaller usable prompt budget (roughly **128K tokens or less**). In this configuration the full skill payload can consume, or overflow, the context window, which degrades output quality or causes the agent to stop making progress.
+
+**If you are in a constrained setup** (always-on injection plus a smaller-context model), prefer one of the following:
+
+- Load a **single, focused skill** for the task at hand instead of the full set, or
+- Switch to a **larger-context model**, or
+- Use a host that supports **on-demand skill discovery**.
+
+> These recommendations are based on internal skill-efficacy testing across multiple models and delivery mechanisms. Exact context limits vary by model and host.
+
 ## Available Skills
 
 | Skill | Description | Status |
