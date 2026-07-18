@@ -59,7 +59,9 @@ function loadSections(rulesDir) {
         { prefix: 'monitoring-', name: 'Monitoring & Diagnostics', number: 8, impact: 'LOW-MEDIUM' },
         { prefix: 'pattern-', name: 'Design Patterns', number: 9, impact: 'HIGH' },
         { prefix: 'tooling-', name: 'Developer Tooling', number: 10, impact: 'MEDIUM' },
-        { prefix: 'vector-', name: 'Vector Search', number: 11, impact: 'HIGH' }
+        { prefix: 'vector-', name: 'Vector Search', number: 11, impact: 'HIGH' },
+        { prefix: 'fts-', name: 'Full-Text Search', number: 12, impact: 'HIGH' },
+        { prefix: 'security-', name: 'Security', number: 13, impact: 'HIGH' }
     ];
 }
 
