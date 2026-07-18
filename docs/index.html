@@ -65,6 +65,7 @@
       <nav>
         <a href="#highlights">Highlights</a>
         <a href="#skills">Skills</a>
+        <a href="#compatibility">Compatibility</a>
         <a href="#testing">Testing</a>
         <a href="#integrations">Integrations</a>
         <a href="#survey">Survey</a>
@@ -142,6 +143,46 @@
         <p>
           The <code>cosmosdb-best-practices</code> skill includes tactical guidance for SQL API usage, vector search setup,
           full-text search, consistency, and operational diagnostics.
+        </p>
+      </section>
+
+      <section id="compatibility" class="panel reveal">
+        <h2>Where This Works Best</h2>
+        <p>
+          This agent kit is designed for <strong>progressive (on-demand) skill delivery</strong>: hosts that load a
+          relevant skill only when it is needed, rather than injecting the entire skill set into every prompt.
+          For the best results:
+        </p>
+        <div class="compat-cards">
+          <article class="card compat-good">
+            <h3>Recommended</h3>
+            <p>
+              Agent hosts that support progressive or on-demand skill loading (for example, GitHub Copilot in VS Code),
+              or models with a large context window (roughly <strong>200K+ tokens</strong>).
+            </p>
+          </article>
+          <article class="card compat-caution">
+            <h3>Use with caution</h3>
+            <p>
+              Hosts that inject the <strong>entire</strong> skill set as always-on context (some IDE agents and CLI
+              tools) combined with models that have a smaller usable prompt budget (roughly
+              <strong>128K tokens or less</strong>). In this configuration the full skill payload can consume, or
+              overflow, the context window, which degrades output quality or causes the agent to stop making progress.
+            </p>
+          </article>
+        </div>
+        <p>
+          <strong>If you are in a constrained setup</strong> (always-on injection plus a smaller-context model),
+          prefer one of the following:
+        </p>
+        <ul class="compat-list">
+          <li>Load a <strong>single, focused skill</strong> for the task at hand instead of the full set, or</li>
+          <li>Switch to a <strong>larger-context model</strong>, or</li>
+          <li>Use a host that supports <strong>on-demand skill discovery</strong>.</li>
+        </ul>
+        <p class="compat-note">
+          These recommendations are based on internal skill-efficacy testing across multiple models and delivery
+          mechanisms. Exact context limits vary by model and host.
         </p>
       </section>
 
