@@ -1,0 +1,19 @@
+id: security-client-encryption
+name: Security - Client-Side Encryption for Sensitive Fields
+description: |
+  Test that the skill recommends Always Encrypted with Azure Key Vault for
+  sensitive fields instead of relying on encryption at rest, and calls out
+  that encrypted fields cannot be indexed or freely queried.
+tags:
+  - security
+  - happy-path
+  - always-encrypted
+inputs:
+  prompt: |
+    We store patient records in Cosmos DB and need to be HIPAA compliant.
+    Each document has an SSN and a diagnosis field. Azure says data is
+    encrypted at rest by default, so is that enough, or do we need to do
+    something extra for these fields?
+expected:
+  outcomes:
+    - type: task_completed
