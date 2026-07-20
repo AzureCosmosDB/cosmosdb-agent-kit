@@ -5,7 +5,7 @@
 > heavier end-to-end A/B you can run deliberately when making the monolith
 > decision, but it largely reproduces the routing signal Layer 2 already gives you.
 > A runnable staging helper ([`stage_skill_set.py`](stage_skill_set.py)) ships so
-> the A/B is expressible; the scoring step reuses the existing **waza** + Copilot
+> the A/B is expressible; the scoring step reuses the existing **Vally** + Copilot
 > SDK engine.
 
 ## Why this is optional, not the gate
@@ -55,7 +55,7 @@ that arm as its skills source.
 
 ## Wiring the scoring step (if you run the full A/B)
 
-The existing waza eval targets a **named** skill
+The existing Vally eval targets a **named** skill
 ([`../../evals/cosmosdb-best-practices/eval.yaml`](../../evals/cosmosdb-best-practices/eval.yaml)),
 so it force-loads one skill and does not route. A full Layer 1 is therefore a
 two-stage pipeline per prompt:
@@ -66,7 +66,7 @@ two-stage pipeline per prompt:
    when pointed at the staged skills root.
 2. **Application stage.** Load the chosen skill's content and run the task through
    the `copilot-sdk` engine, scored with the same graders the content evals use
-   ([`../../.waza.yaml`](../../.waza.yaml)), so both arms are scored identically.
+  ([`../../.vally.yaml`](../../.vally.yaml)), so both arms are scored identically.
 
-Keep it local-first: waza authenticates with the maintainer's own token, so no
+Keep it local-first: Vally authenticates with the maintainer's own token, so no
 upstream secret or org model-access grant is required to run it.

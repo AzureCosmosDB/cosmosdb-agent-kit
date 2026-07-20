@@ -22,6 +22,8 @@ The Azure Cosmos DB Emulator uses a self-signed SSL certificate that requires sp
 
 ---
 
+**Incorrect (using emulator defaults without gateway mode or trusted local SSL handling):**
+
 ### .NET SDK
 
 ```csharp
@@ -83,6 +85,8 @@ const client = new CosmosClient({
 ```
 
 ---
+
+**Correct (configuring emulator-specific gateway mode and certificate handling per SDK):**
 
 ### Java SDK (Detailed)
 

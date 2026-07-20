@@ -9,6 +9,8 @@ tags: index, range, equality, types
 
 Understand when to use different index types. Range indexes support equality, range, and ORDER BY; Hash indexes are deprecated.
 
+**Incorrect (manually reasoning about deprecated hash indexes or over-specifying index kinds for standard queries):**
+
 **Understanding index types:**
 
 ```csharp
@@ -36,7 +38,7 @@ Understand when to use different index types. Range indexes support equality, ra
 }
 ```
 
-**Correct (modern indexing approach):**
+**Correct (letting modern Cosmos DB indexing defaults handle standard paths and adding special indexes only when needed):**
 
 ```csharp
 // Modern Cosmos DB automatically uses optimal index types

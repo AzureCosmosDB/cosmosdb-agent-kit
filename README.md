@@ -166,18 +166,16 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
 ## Evaluation (Local Only)
 
-This project includes a [Waza](https://github.com/microsoft/waza) eval framework for local skill testing. Evals are not enforced in CI today (the mock executor cannot validate response content), but you can run them locally to sanity-check your changes:
+This project includes a [Vally](https://github.com/microsoft/vally) eval framework for local skill testing. Evals are not enforced in CI today (the mock executor cannot validate response content), but you can run them locally to sanity-check your changes:
 
 ```bash
-# Install waza (one-time)
-irm https://raw.githubusercontent.com/microsoft/waza/main/install.ps1 | iex   # Windows
-curl -fsSL https://raw.githubusercontent.com/microsoft/waza/main/install.sh | bash  # macOS/Linux
+# Install Vally by following the instructions at https://github.com/microsoft/vally
 
 # Run evaluations
-waza run evals/cosmosdb-best-practices/eval.yaml -v
+vally run evals/cosmosdb-best-practices/eval.yaml -v
 
 # Check skill readiness
-waza check skills/cosmosdb-best-practices
+vally check skills/cosmosdb-best-practices
 ```
 
 **Looking for a way to help?** Check out our [good first issues](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) or browse the [Discussions](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/discussions) board to share ideas.
@@ -195,23 +193,21 @@ Thanks to everyone who has contributed rules, fixes, and ideas!
 
 Contributions of any kind welcome! See the [contributing guide](CONTRIBUTING.md) to get started.
 
-## Evaluation with Waza
+## Evaluation with Vally
 
-This project uses [Waza](https://github.com/microsoft/waza) to evaluate skill quality — testing that the agent produces correct Cosmos DB guidance across data modeling, partitioning, queries, SDK usage, and throughput scenarios.
+This project uses [Vally](https://github.com/microsoft/vally) to evaluate skill quality, testing that the agent produces correct Cosmos DB guidance across data modeling, partitioning, queries, SDK usage, and throughput scenarios.
 
 ```bash
-# Install waza
-irm https://raw.githubusercontent.com/microsoft/waza/main/install.ps1 | iex  # Windows
-curl -fsSL https://raw.githubusercontent.com/microsoft/waza/main/install.sh | bash  # macOS/Linux
+# Install Vally by following the instructions at https://github.com/microsoft/vally
 
 # Run evaluations (mock executor, no API key needed)
-waza run evals/cosmosdb-best-practices/eval.yaml -v
+vally run evals/cosmosdb-best-practices/eval.yaml -v
 
 # Check skill readiness
-waza check skills/cosmosdb-best-practices
+vally check skills/cosmosdb-best-practices
 
 # Run with a real model (requires Copilot auth)
-waza run evals/cosmosdb-best-practices/eval.yaml --executor copilot-sdk --model claude-sonnet-4.6
+vally run evals/cosmosdb-best-practices/eval.yaml --executor copilot-sdk --model claude-sonnet-4.6
 ```
 
 ## Changelog

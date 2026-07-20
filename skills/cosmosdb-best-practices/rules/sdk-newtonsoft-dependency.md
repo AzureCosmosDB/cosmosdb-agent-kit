@@ -11,7 +11,7 @@ When creating any .NET project that references `Microsoft.Azure.Cosmos` (version
 
 The Azure Cosmos DB .NET SDK requires an explicit reference to `Newtonsoft.Json` version 13.0.3 or higher. This dependency is not managed automatically - you must add it directly to your project.
 
-**Problem (build fails without explicit reference):**
+**Incorrect (relying on the Cosmos SDK package alone and omitting the explicit Newtonsoft.Json reference):**
 
 ```csharp
 // Your .csproj only references Cosmos DB SDK
@@ -26,7 +26,7 @@ The Azure Cosmos DB .NET SDK requires an explicit reference to `Newtonsoft.Json`
 // 'AzureCosmosDisableNewtonsoftJsonCheck' property to 'true' to bypass this check.
 ```
 
-**Solution (add explicit Newtonsoft.Json reference):**
+**Correct (adding an explicit Newtonsoft.Json reference in project or central package management):**
 
 ```xml
 <!-- Standard .csproj projects -->

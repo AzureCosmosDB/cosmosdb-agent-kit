@@ -1,5 +1,3 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/waza/main/schemas/config.schema.json
-
 paths:
   skills: skills/
   evals: evals/
@@ -18,7 +16,7 @@ defaults:
   sessionLog: false
 cache:
   enabled: false
-  dir: .waza-cache
+  dir: .vally-cache
 server:
   port: 3000
   resultsDir: results/
@@ -32,4 +30,4 @@ tokens:
 graders:
   programTimeout: 30
 storage:
-  containerName: waza-results
+  containerName: vally-results
