@@ -10,5 +10,8 @@ results/
 # Testing iteration extracted source (keep only zips)
 testing/scenarios/**/iterations/**/ecommerce-order-api/
 testing/scenarios/**/iterations/**/target/
+
+# AI coding agent directories
+.codex/
 # Rust build artifacts
 testing-v2/scenarios/**/iterations/**/target/

@@ -1,6 +1,6 @@
 # Azure Cosmos DB Best Practices
 
-**Version 1.1.0**  
+**Version 1.0.0**  
 CosmosDB Agent Kit  
 January 2026
 
@@ -109,10 +109,11 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 6.2 [Understand Burst Capacity](#62-understand-burst-capacity)
    - 6.3 [Choose Container vs Database Throughput](#63-choose-container-vs-database-throughput)
    - 6.4 [Review Idle Containers for Lifecycle Action](#64-review-idle-containers-for-lifecycle-action)
-   - 6.5 [Right-Size Provisioned Throughput](#65-right-size-provisioned-throughput)
-   - 6.6 [Migrate a Low-Traffic Provisioned Account to Serverless](#66-migrate-a-low-traffic-provisioned-account-to-serverless)
-   - 6.7 [Consider Serverless for Dev/Test](#67-consider-serverless-for-dev-test)
-   - 6.8 [Expire Stale Data Before It Hits Storage Limits](#68-expire-stale-data-before-it-hits-storage-limits)
+   - 6.5 [Use Integrated Cache for Read-Heavy Workloads with Dedicated Gateway](#65-use-integrated-cache-for-read-heavy-workloads-with-dedicated-gateway)
+   - 6.6 [Right-Size Provisioned Throughput](#66-right-size-provisioned-throughput)
+   - 6.7 [Migrate a Low-Traffic Provisioned Account to Serverless](#67-migrate-a-low-traffic-provisioned-account-to-serverless)
+   - 6.8 [Consider Serverless for Dev/Test](#68-consider-serverless-for-dev-test)
+   - 6.9 [Expire Stale Data Before It Hits Storage Limits](#69-expire-stale-data-before-it-hits-storage-limits)
 7. [Global Distribution](#7-global-distribution) — **MEDIUM**
    - 7.1 [Implement Conflict Resolution](#71-implement-conflict-resolution)
    - 7.2 [Choose Appropriate Consistency Level](#72-choose-appropriate-consistency-level)
@@ -9751,7 +9752,107 @@ This differs from `throughput-right-size`, which tunes an *active but oversized*
 
 Reference: [Time to Live (TTL) in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/time-to-live)
 
-### 6.5 Right-Size Provisioned Throughput
+### 6.5 Use Integrated Cache for Read-Heavy Workloads with Dedicated Gateway
+
+**Impact: MEDIUM** (Significant RU reduction for repeated point reads and queries — cache hits cost 0 RUs)
+
+## Use Integrated Cache for Read-Heavy Workloads with Dedicated Gateway
+
+**Impact: MEDIUM (significant RU reduction for repeated reads — cache hits cost 0 RUs)**
+
+The Cosmos DB integrated cache (available via the dedicated gateway) caches point reads and query results in-memory at the gateway tier. For read-heavy workloads with repeated access to the same data, this can eliminate RU charges entirely for cache hits. Developers often connect through the public endpoint by default and miss out on this optimization entirely.
+
+Use the integrated cache when:
+- Your workload is read-heavy with high repetition (e.g., product catalogs, reference data, user profiles)
+- You can tolerate slight staleness (eventual or session consistency)
+- You want to reduce RU consumption without scaling up provisioned throughput
+
+**Do not use the integrated cache when:**
+- Your workload is write-heavy or reads are rarely repeated — cache hit rate will be too low to justify the cost
+- You use Change Feed — it bypasses the cache entirely
+- You require strong, bounded staleness, or consistent prefix consistency — these bypass the cache
+- Note: The dedicated gateway is **separately billed** (hourly, per node) — factor this into your cost analysis before provisioning
+
+**Limitations:**
+- Only works with **session** or **eventual** consistency reads — consistent prefix, bounded staleness, and strong consistency bypass the cache entirely
+- Requires a **dedicated gateway** to be provisioned and requests to be routed through the **dedicated gateway endpoint** using **Gateway connection mode** (not Direct mode)
+- Each gateway node has an **independent cache** — sticky sessions are not guaranteed across nodes
+- Cache staleness is controlled via `MaxIntegratedCacheStaleness` — tune this to your freshness requirements
+
+---
+
+**Incorrect (connecting via public endpoint — integrated cache bypassed):**
+
+```csharp
+// Using the standard public endpoint — integrated cache is NOT used
+CosmosClient client = new CosmosClientBuilder("AccountEndpoint=https://<account>.documents.azure.com:443/;AccountKey=<key>;")
+    .WithConsistencyLevel(ConsistencyLevel.Session)
+    .Build();
+
+Container container = client.GetContainer("mydb", "mycontainer");
+
+// This point read hits the backend every time — full RU cost on each call
+ItemResponse<Product> response = await container.ReadItemAsync<Product>(
+    id: "product-123",
+    partitionKey: new PartitionKey("electronics")
+);
+```
+
+**Correct (connecting via dedicated gateway endpoint — integrated cache enabled):**
+
+```csharp
+// Use the dedicated gateway endpoint to enable the integrated cache
+// Dedicated gateway endpoint format: https://<account>.sqlx.cosmos.azure.com:443/
+CosmosClient client = new CosmosClientBuilder(
+        "AccountEndpoint=https://<account>.sqlx.cosmos.azure.com:443/;AccountKey=<key>;")
+    .WithConnectionModeGateway()   // Required: Direct mode bypasses the dedicated gateway and cache
+    .WithConsistencyLevel(ConsistencyLevel.Session)
+    .Build();
+
+Container container = client.GetContainer("mydb", "mycontainer");
+
+// Configure staleness tolerance — cache hits within this window cost 0 RUs
+ItemRequestOptions options = new ItemRequestOptions
+{
+    DedicatedGatewayRequestOptions = new DedicatedGatewayRequestOptions
+    {
+        MaxIntegratedCacheStaleness = TimeSpan.FromMinutes(5)
+    }
+};
+
+// First call: cache miss — fetches from backend (normal RU cost)
+// Subsequent calls within staleness window: cache hit — 0 RUs charged
+ItemResponse<Product> response = await container.ReadItemAsync<Product>(
+    id: "product-123",
+    partitionKey: new PartitionKey("electronics"),
+    requestOptions: options
+);
+```
+
+**Query caching example:**
+
+```csharp
+QueryRequestOptions queryOptions = new QueryRequestOptions
+{
+    DedicatedGatewayRequestOptions = new DedicatedGatewayRequestOptions
+    {
+        MaxIntegratedCacheStaleness = TimeSpan.FromMinutes(5)
+    }
+};
+
+var query = new QueryDefinition("SELECT * FROM c WHERE c.category = @category")
+    .WithParameter("@category", "electronics");
+
+// Repeated queries with the same text and parameters benefit from cache hits
+FeedIterator<Product> iterator = container.GetItemQueryIterator<Product>(
+    query,
+    requestOptions: queryOptions
+);
+```
+
+Reference: [Azure Cosmos DB integrated cache](https://learn.microsoft.com/azure/cosmos-db/integrated-cache)
+
+### 6.6 Right-Size Provisioned Throughput
 
 **Impact: MEDIUM** (balances performance and cost)
 
@@ -9843,7 +9944,7 @@ Throughput guidance:
 
 Reference: [Estimate RU/s](https://learn.microsoft.com/azure/cosmos-db/estimate-ru-with-capacity-planner)
 
-### 6.6 Migrate a Low-Traffic Provisioned Account to Serverless
+### 6.7 Migrate a Low-Traffic Provisioned Account to Serverless
 
 **Impact: MEDIUM** (pay-per-request pricing for sporadic workloads)
 
@@ -9896,7 +9997,7 @@ References:
 - [Serverless in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/serverless)
 - [Change from serverless to provisioned throughput](https://learn.microsoft.com/azure/cosmos-db/how-to-change-capacity-mode)
 
-### 6.7 Consider Serverless for Dev/Test
+### 6.8 Consider Serverless for Dev/Test
 
 **Impact: MEDIUM** (pay-per-request pricing)
 
@@ -9990,7 +10091,7 @@ When NOT to use serverless:
 
 Reference: [Serverless in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/serverless)
 
-### 6.8 Expire Stale Data Before It Hits Storage Limits
+### 6.9 Expire Stale Data Before It Hits Storage Limits
 
 **Impact: MEDIUM** (avoids the partition storage wall on growing data)
 

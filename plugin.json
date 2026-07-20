@@ -1,7 +1,7 @@
 {
   "name": "cosmosdb",
   "description": "Azure Cosmos DB best practices and performance optimization skills for AI coding agents. Provides expert guidance on data modeling, partition key design, query optimization, SDK usage, indexing, throughput, global distribution, vector search, and full-text search.",
-  "version": "1.1.0",
+  "version": "1.0.0",
   "author": {
     "name": "Microsoft",
     "url": "https://github.com/AzureCosmosDB"
