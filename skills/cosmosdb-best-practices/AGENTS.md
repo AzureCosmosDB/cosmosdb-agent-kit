@@ -29,7 +29,8 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 1.8 [Reference Data When Items Grow Large](#18-reference-data-when-items-grow-large)
    - 1.9 [Use ID references with transient hydration for document relationships](#19-use-id-references-with-transient-hydration-for-document-relationships)
    - 1.10 [Version Your Document Schemas](#110-version-your-document-schemas)
-   - 1.11 [Use Type Discriminators for Polymorphic Data](#111-use-type-discriminators-for-polymorphic-data)
+   - 1.11 [Use TTL for Automatic Data Expiration](#111-use-ttl-for-automatic-data-expiration)
+   - 1.12 [Use Type Discriminators for Polymorphic Data](#112-use-type-discriminators-for-polymorphic-data)
 2. [Partition Key Design](#2-partition-key-design) — **CRITICAL**
    - 2.1 [Plan for 20GB Logical Partition Limit](#21-plan-for-20gb-logical-partition-limit)
    - 2.2 [Distribute Writes to Avoid Hot Partitions](#22-distribute-writes-to-avoid-hot-partitions)
@@ -65,33 +66,34 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 4.10 [Configure SSL and connection mode for Cosmos DB Emulator](#410-configure-ssl-and-connection-mode-for-cosmos-db-emulator)
    - 4.11 [Use ETags for optimistic concurrency on read-modify-write operations](#411-use-etags-for-optimistic-concurrency-on-read-modify-write-operations)
    - 4.12 [Configure Excluded Regions for Dynamic Failover](#412-configure-excluded-regions-for-dynamic-failover)
-   - 4.13 [Unwrap CosmosItemResponse and enable content response in Java SDK](#413-unwrap-cosmositemresponse-and-enable-content-response-in-java-sdk)
-   - 4.14 [Use dependent @Bean methods for Cosmos DB initialization in Spring Boot](#414-use-dependent-bean-methods-for-cosmos-db-initialization-in-spring-boot)
-   - 4.15 [Spring Boot and Java version compatibility for Cosmos DB SDK](#415-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
-   - 4.16 [Initialize Async Cosmos DB Container Before CosmosDBSaver](#416-initialize-async-cosmos-db-container-before-cosmosdbsaver)
-   - 4.17 [Use CosmosDBSaver for LangGraph Checkpointing](#417-use-cosmosdbsaver-for-langgraph-checkpointing)
-   - 4.18 [Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS](#418-use-azurecosmosdbnosqlchatmessagehistory-for-persistent-conversations-in-js-ts)
-   - 4.19 [Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain](#419-configure-azure-openai-embedding-deployment-name-for-js-ts-langchain)
-   - 4.20 [Prevent Filter Injection in JS/TS LangChain Vector Store Queries](#420-prevent-filter-injection-in-js-ts-langchain-vector-store-queries)
-   - 4.21 [Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search](#421-configure-full-text-prerequisites-before-js-ts-langchain-hybrid-search)
-   - 4.22 [Use Managed Identity for JS/TS LangChain Cosmos DB Integration](#422-use-managed-identity-for-js-ts-langchain-cosmos-db-integration)
-   - 4.23 [Choose the Correct Search Type for JS/TS LangChain Vector Store](#423-choose-the-correct-search-type-for-js-ts-langchain-vector-store)
-   - 4.24 [Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS](#424-use-azurecosmosdbnosqlsemanticcache-for-llm-cost-reduction-in-js-ts)
-   - 4.25 [Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript](#425-correctly-initialize-azurecosmosdbnosqlvectorstore-in-javascript-typescript)
-   - 4.26 [Use Persistent MCP Client Sessions for Multi-Agent Applications](#426-use-persistent-mcp-client-sessions-for-multi-agent-applications)
-   - 4.27 [Handle MCP ToolMessage Content Format Variations](#427-handle-mcp-toolmessage-content-format-variations)
-   - 4.28 [Filter MCP Tools by Name Prefix for Agent Assignment](#428-filter-mcp-tools-by-name-prefix-for-agent-assignment)
-   - 4.29 [Configure local development environment to avoid cloud connection conflicts](#429-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
-   - 4.30 [Explicitly reference Newtonsoft.Json package](#430-explicitly-reference-newtonsoft-json-package)
-   - 4.31 [Use the Patch API for atomic counter increments](#431-use-the-patch-api-for-atomic-counter-increments)
-   - 4.32 [Configure Preferred Regions for Availability](#432-configure-preferred-regions-for-availability)
-   - 4.33 [Include aiohttp When Using Python Async SDK](#433-include-aiohttp-when-using-python-async-sdk)
-   - 4.34 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#434-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
-   - 4.35 [Handle 429 Errors with Retry-After](#435-handle-429-errors-with-retry-after)
-   - 4.36 [Use consistent enum serialization between Cosmos SDK and application layer](#436-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
-   - 4.37 [Reuse CosmosClient as Singleton](#437-reuse-cosmosclient-as-singleton)
-   - 4.38 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#438-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
-   - 4.39 [Use CosmosRepository correctly and handle Iterable return types](#439-use-cosmosrepository-correctly-and-handle-iterable-return-types)
+   - 4.13 [Use current Go Cosmos DB SDK versions and explicit partition-key metadata](#413-use-current-go-cosmos-db-sdk-versions-and-explicit-partition-key-metadata)
+   - 4.14 [Unwrap CosmosItemResponse and enable content response in Java SDK](#414-unwrap-cosmositemresponse-and-enable-content-response-in-java-sdk)
+   - 4.15 [Use dependent @Bean methods for Cosmos DB initialization in Spring Boot](#415-use-dependent-bean-methods-for-cosmos-db-initialization-in-spring-boot)
+   - 4.16 [Spring Boot and Java version compatibility for Cosmos DB SDK](#416-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
+   - 4.17 [Initialize Async Cosmos DB Container Before CosmosDBSaver](#417-initialize-async-cosmos-db-container-before-cosmosdbsaver)
+   - 4.18 [Use CosmosDBSaver for LangGraph Checkpointing](#418-use-cosmosdbsaver-for-langgraph-checkpointing)
+   - 4.19 [Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS](#419-use-azurecosmosdbnosqlchatmessagehistory-for-persistent-conversations-in-js-ts)
+   - 4.20 [Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain](#420-configure-azure-openai-embedding-deployment-name-for-js-ts-langchain)
+   - 4.21 [Prevent Filter Injection in JS/TS LangChain Vector Store Queries](#421-prevent-filter-injection-in-js-ts-langchain-vector-store-queries)
+   - 4.22 [Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search](#422-configure-full-text-prerequisites-before-js-ts-langchain-hybrid-search)
+   - 4.23 [Use Managed Identity for JS/TS LangChain Cosmos DB Integration](#423-use-managed-identity-for-js-ts-langchain-cosmos-db-integration)
+   - 4.24 [Choose the Correct Search Type for JS/TS LangChain Vector Store](#424-choose-the-correct-search-type-for-js-ts-langchain-vector-store)
+   - 4.25 [Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS](#425-use-azurecosmosdbnosqlsemanticcache-for-llm-cost-reduction-in-js-ts)
+   - 4.26 [Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript](#426-correctly-initialize-azurecosmosdbnosqlvectorstore-in-javascript-typescript)
+   - 4.27 [Use Persistent MCP Client Sessions for Multi-Agent Applications](#427-use-persistent-mcp-client-sessions-for-multi-agent-applications)
+   - 4.28 [Handle MCP ToolMessage Content Format Variations](#428-handle-mcp-toolmessage-content-format-variations)
+   - 4.29 [Filter MCP Tools by Name Prefix for Agent Assignment](#429-filter-mcp-tools-by-name-prefix-for-agent-assignment)
+   - 4.30 [Configure local development environment to avoid cloud connection conflicts](#430-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
+   - 4.31 [Explicitly reference Newtonsoft.Json package](#431-explicitly-reference-newtonsoft-json-package)
+   - 4.32 [Use the Patch API for atomic counter increments](#432-use-the-patch-api-for-atomic-counter-increments)
+   - 4.33 [Configure Preferred Regions for Availability](#433-configure-preferred-regions-for-availability)
+   - 4.34 [Include aiohttp When Using Python Async SDK](#434-include-aiohttp-when-using-python-async-sdk)
+   - 4.35 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#435-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
+   - 4.36 [Handle 429 Errors with Retry-After](#436-handle-429-errors-with-retry-after)
+   - 4.37 [Use consistent enum serialization between Cosmos SDK and application layer](#437-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
+   - 4.38 [Reuse CosmosClient as Singleton](#438-reuse-cosmosclient-as-singleton)
+   - 4.39 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#439-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
+   - 4.40 [Use CosmosRepository correctly and handle Iterable return types](#440-use-cosmosrepository-correctly-and-handle-iterable-return-types)
 5. [Indexing Strategies](#5-indexing-strategies) — **MEDIUM-HIGH**
    - 5.1 [Composite Index Directions Must Match ORDER BY](#51-composite-index-directions-must-match-order-by)
    - 5.2 [Use Composite Indexes for ORDER BY](#52-use-composite-indexes-for-order-by)
@@ -145,6 +147,20 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 11.4 [Configure Vector Indexes in Indexing Policy](#114-configure-vector-indexes-in-indexing-policy)
    - 11.5 [Normalize Embeddings for Cosine Similarity](#115-normalize-embeddings-for-cosine-similarity)
    - 11.6 [Implement Repository Pattern for Vector Search](#116-implement-repository-pattern-for-vector-search)
+12. [Full-Text Search](#12-full-text-search) — **HIGH**
+   - 12.1 [Add Full-Text Index in the Indexing Policy](#121-add-full-text-index-in-the-indexing-policy)
+   - 12.2 [Define Full-Text Policy on the Container](#122-define-full-text-policy-on-the-container)
+   - 12.3 [Enable Full-Text Search Capability on Account](#123-enable-full-text-search-capability-on-account)
+   - 12.4 [Combine FTS predicates with range or equality filters for hybrid queries](#124-combine-fts-predicates-with-range-or-equality-filters-for-hybrid-queries)
+   - 12.5 [Use FullTextContains for keyword matching on indexed text fields](#125-use-fulltextcontains-for-keyword-matching-on-indexed-text-fields)
+   - 12.6 [Use FullTextScore with ORDER BY RANK for BM25 relevance ranking](#126-use-fulltextscore-with-order-by-rank-for-bm25-relevance-ranking)
+13. [Security](#13-security) — **HIGH**
+   - 13.1 [Enable Continuous Backup for Point-in-Time Restore](#131-enable-continuous-backup-for-point-in-time-restore)
+   - 13.2 [Disable Local Authentication (Keys)](#132-disable-local-authentication-keys-)
+   - 13.3 [Use Managed Identity with DefaultAzureCredential](#133-use-managed-identity-with-defaultazurecredential)
+   - 13.4 [Restrict Network Access](#134-restrict-network-access)
+   - 13.5 [Configure Private Endpoints with Correct DNS Resolution](#135-configure-private-endpoints-with-correct-dns-resolution)
+   - 13.6 [Assign Minimum RBAC Roles with Narrow Scope](#136-assign-minimum-rbac-roles-with-narrow-scope)
 
 ---
 
@@ -591,6 +607,63 @@ This is a cross-SDK issue affecting any SDK using Gateway mode. The Python SDK u
 | Any non-ASCII | Encoded differently across clients; known issues in ADF / Spark / Kafka connectors |
 
 **Safe synthetic-id separators:** `_`, `-`, `:`
+
+### The `id` property is always a string
+
+Azure Cosmos DB stores and indexes the `id` system property as a JSON string. There is no numeric `id` type.
+
+When migrating from a relational database, keep the primary-key value but store it as a string `id` value:
+
+| Relational key | Cosmos DB `id` |
+|---------------|---------------|
+| `42` | `"42"` |
+| `90001` | `"90001"` |
+
+Bind `id` to a string type in DTOs, domain models, and API contracts.
+
+**Incorrect:**
+
+```csharp
+public record Product(int Id, string Name);
+```
+
+**Correct:**
+
+```csharp
+public record Product(string Id, string Name);
+```
+
+### SQL to NoSQL migration guidance
+
+Do not introduce a parallel numeric copy of `id` solely for sorting or pagination.
+
+**Incorrect:**
+
+```sql
+SELECT * FROM c
+ORDER BY c.idNum
+```
+
+**Correct (for string ordering by id):**
+
+```sql
+SELECT * FROM c
+ORDER BY c.id
+```
+
+If numeric ordering is required, use a dedicated business field such as `sku`, `sequenceNumber`, or another domain-specific numeric property:
+
+```sql
+SELECT * FROM c
+ORDER BY c.sequenceNumber
+```
+
+Do not introduce a numeric shadow copy of `id` solely for sorting or pagination.
+
+| Symptom | Cause |
+|----------|--------|
+| Could not convert `$.id` to `Int32` | DTO binds `id` to a numeric type |
+| Unexpected pagination ordering | Sorting by a numeric shadow id instead of `c.id` |
 
 **Incorrect (oversized or problematic IDs):**
 
@@ -1326,7 +1399,89 @@ Always increment version when:
 
 Reference: [Schema evolution in Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/modeling-data)
 
-### 1.11 Use Type Discriminators for Polymorphic Data
+### 1.11 Use TTL for Automatic Data Expiration
+
+**Impact: MEDIUM** (removes stale data without custom cleanup jobs)
+
+## Use TTL for Automatic Data Expiration
+
+Use Azure Cosmos DB time to live (TTL) for data that has a natural retention window, such as session tokens, event logs, temporary cache entries, invitations, one-time codes, or short-lived processing state. TTL lets the service expire items automatically instead of requiring a scheduled cleanup job that scans and deletes old records.
+
+TTL is configured in seconds. The expiration countdown is based on the item's last modified timestamp (`_ts`), so updating an item resets its TTL window.
+
+**Incorrect (scheduled cleanup job scans and deletes expired items):**
+
+```csharp
+// Anti-pattern: periodic cleanup query scans old items and deletes them one by one.
+var query = new QueryDefinition(
+    "SELECT * FROM c WHERE c.type = 'session' AND c.expiresAt < @now")
+    .WithParameter("@now", DateTimeOffset.UtcNow);
+
+using var iterator = container.GetItemQueryIterator<Session>(query);
+while (iterator.HasMoreResults)
+{
+    foreach (var session in await iterator.ReadNextAsync())
+    {
+        await container.DeleteItemAsync<Session>(
+            session.Id,
+            new PartitionKey(session.UserId));
+    }
+}
+```
+
+```json
+{
+  "id": "session-123",
+  "userId": "user-42",
+  "type": "session",
+  "expiresAt": "2026-06-11T13:00:00Z"
+}
+```
+
+**Correct (enable TTL and set per-item expiration):**
+
+```csharp
+// Enable TTL on the container without a default expiration.
+// Items expire only when they include their own ttl value.
+await database.DefineContainer("sessions", "/userId")
+    .WithDefaultTimeToLive(-1)
+    .CreateAsync();
+
+var session = new
+{
+    id = "session-123",
+    userId = "user-42",
+    type = "session",
+    ttl = 3600, // Expire one hour after the item is created or last modified.
+    createdAt = DateTimeOffset.UtcNow
+};
+
+await container.CreateItemAsync(session, new PartitionKey(session.userId));
+```
+
+```json
+{
+  "id": "session-123",
+  "userId": "user-42",
+  "type": "session",
+  "ttl": 3600,
+  "createdAt": "2026-06-11T12:00:00Z"
+}
+```
+
+Use the right TTL mode for the retention pattern:
+
+- Leave container TTL unset or `null` when items should never expire automatically.
+- Set container `DefaultTimeToLive` to a positive number when every item should expire after the same retention period.
+- Set container `DefaultTimeToLive` to `-1` when TTL should be enabled but only specific items should expire.
+- Set item-level `ttl` to a positive number to override the container default for that item.
+- Set item-level `ttl` to `-1` for items that should not expire in a TTL-enabled container.
+
+TTL is best for automatic retention, not exact scheduling. Expired items stop appearing in query results after the TTL expires, but physical deletion happens asynchronously in the background. In provisioned throughput accounts, TTL deletes use leftover RUs; in serverless accounts, deletes are charged like delete item operations.
+
+Reference: [Time to Live in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/time-to-live)
+
+### 1.12 Use Type Discriminators for Polymorphic Data
 
 **Impact: MEDIUM** (enables efficient single-container design)
 
@@ -3214,6 +3369,63 @@ match response {
 }
 ```
 
+```go
+// ❌ Query instead of point read (Go SDK)
+func GetOrder(container *azcosmos.ContainerClient, customerID string, orderID string) (Order, error) {
+    pk := azcosmos.NewPartitionKeyString(customerID)
+
+    query := azcosmos.NewQueryDefinition("SELECT * FROM c WHERE c.id = @id").
+        WithParameter("@id", orderID)
+
+    pager := container.NewQueryItemsPager(query, nil)
+
+    ctx := context.Background()
+    for pager.More() {
+        resp, err := pager.NextPage(ctx)
+        if err != nil {
+            return Order{}, err
+        }
+
+        var orders []Order
+        err = json.Unmarshal(resp.Value, &orders)
+        if err != nil {
+            return Order{}, err
+        }
+
+        if len(orders) > 0 {
+            return orders[0], nil
+        }
+    }
+
+    return Order{}, nil
+}
+```
+
+```go
+// ✅ Point read in Go SDK
+func GetOrder(container *azcosmos.ContainerClient, customerID string, orderID string) (Order, error) {
+    pk := azcosmos.NewPartitionKeyString(customerID)
+
+    response, err := container.ReadItem(
+        context.Background(),
+        pk,
+        orderID,
+        nil,
+    )
+    if err != nil {
+        return Order{}, err
+    }
+
+    var order Order
+    err = json.Unmarshal(response.Value, &order)
+    if err != nil {
+        return Order{}, err
+    }
+
+    return order, nil
+}
+```
+
 ### Multiple Known Documents — ReadMany vs. Parallel Point Reads
 
 When fetching multiple documents by known `(id, partitionKey)` pairs, you have two options:
@@ -4210,6 +4422,10 @@ Reference: [Query with continuation tokens (Java SDK)](https://learn.microsoft.c
 
 Capture and log diagnostics from Cosmos DB responses, especially for slow or failed operations. Diagnostics contain crucial information for troubleshooting.
 
+`CosmosException.Diagnostics` (type `CosmosDiagnostics`) is a first-class structured signal the SDK provides for debugging failures (RU spend, latency tails, 429s, region selection, and channel reuse). Demonstrating the pattern is not enough — it must be applied at the point of failure.
+
+**Required (strict syntactic minimum):** Every `catch` block whose declared exception type is `Microsoft.Azure.Cosmos.CosmosException` (or a subclass) **must reference `.Diagnostics` on the caught exception variable somewhere inside the catch-block body** — either by logging it as a structured field, or by attaching it to a re-thrown exception's message/data. A catch block that swallows the exception (e.g., `catch (CosmosException) { }`, or returning `null` / `default` / `new T()`) is a violation unless the block first surfaces `.Diagnostics` (for example, by logging it before returning).
+
 **Incorrect (ignoring diagnostics):**
 
 ```csharp
@@ -4226,6 +4442,27 @@ public async Task<Order> GetOrder(string orderId, string customerId)
         _logger.LogError("Failed to read order: {Message}", ex.Message);
         throw;
     }
+}
+```
+
+```csharp
+// Pattern A — log message text only, drop Diagnostics (VIOLATION)
+catch (CosmosException ex)
+{
+    _logger.LogError(ex, "Cosmos call failed: {Message}", ex.Message);
+    throw;
+}
+
+// Pattern B — re-wrap without surfacing Diagnostics (VIOLATION)
+catch (CosmosException ex)
+{
+    throw new InvalidOperationException($"Cosmos error: {ex.StatusCode}", ex);
+}
+
+// Pattern C — bare swallow (VIOLATION)
+catch (CosmosException)
+{
+    return null;
 }
 ```
 
@@ -4313,6 +4550,29 @@ _logger.LogInformation(
 // IndexMetrics shows which indexes were used/not used
 ```
 
+Minimal acceptable catch block — `ex.Diagnostics` is the non-negotiable part. `StatusCode`, `ActivityId`, and `RequestCharge` are strongly recommended (`CosmosDiagnostics.ToString()` includes the latter two, but having them as structured fields makes log search trivial):
+
+```csharp
+catch (CosmosException ex)
+{
+    _logger.LogError(ex,
+        "Cosmos call failed. StatusCode={Status} ActivityId={ActivityId} " +
+        "RequestCharge={RU} Diagnostics={Diagnostics}",
+        ex.StatusCode, ex.ActivityId, ex.RequestCharge, ex.Diagnostics);
+    throw;
+}
+```
+
+If you must re-wrap, carry the diagnostics forward so they are not lost:
+
+```csharp
+catch (CosmosException ex)
+{
+    throw new InvalidOperationException(
+        $"Cosmos error: {ex.StatusCode}. Diagnostics={ex.Diagnostics}", ex);
+}
+```
+
 Key diagnostic fields:
 - `GetClientElapsedTime()`: Total client-side time
 - `RequestCharge`: RU consumed
@@ -4320,7 +4580,11 @@ Key diagnostic fields:
 - Retry information
 - Connection information
 
-Reference: [Capture diagnostics](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-dotnet-sdk)
+**Detector (mechanical check):** For each `catch` clause whose declared type binds to `Microsoft.Azure.Cosmos.CosmosException` (or a subclass), verify the block body contains a member access ending in `.Diagnostics` on the caught variable. If absent, flag the catch-block source range. This is expressible as a Roslyn analyzer or a regex over `.cs` files (excluding `bin/`, `obj/`, and test directories).
+
+**Why it matters:** `RequestCharge` and `ActivityId` provide immediate cost/correlation context, and `Diagnostics` provides the detailed timeline, regions contacted, and retry/transient-failure context (on a 429 it also includes retry details). Without diagnostics, the operator loses the detailed information needed to debug the failure. See the throughput / RU rules for why `RequestCharge` matters at observability time, and the retry / 429 handling guidance for why 429 catch blocks must capture diagnostics.
+
+Reference: [Capture diagnostics — Troubleshoot .NET SDK](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-dotnet-sdk#capture-diagnostics)
 
 ### 4.8 Use Microsoft.Azure.Cosmos package, not abandoned Azure.Cosmos
 
@@ -4453,6 +4717,8 @@ The Azure Cosmos DB Emulator uses a self-signed SSL certificate that requires sp
 
 ---
 
+**Incorrect (using emulator defaults without gateway mode or trusted local SSL handling):**
+
 ### .NET SDK
 
 ```csharp
@@ -4514,6 +4780,8 @@ const client = new CosmosClient({
 ```
 
 ---
+
+**Correct (configuring emulator-specific gateway mode and certificate handling per SDK):**
 
 ### Java SDK (Detailed)
 
@@ -4812,7 +5080,7 @@ Reference: [Use the Azure Cosmos DB Emulator for local development](https://lear
 
 When performing read-modify-write operations (read a document, update a field, write it back), always use ETags to prevent lost updates from concurrent writes. Without ETags, the last writer silently overwrites changes from other operations.
 
-**Problem: Lost updates without ETag checks**
+**Incorrect (performing read-modify-write updates without an ETag precondition):**
 
 ```csharp
 // Anti-pattern: Read-modify-write without concurrency control
@@ -4839,7 +5107,7 @@ public async Task UpdatePlayerStatsAsync(string playerId, int newScore)
 }
 ```
 
-**Solution: ETag-based optimistic concurrency with retry**
+**Correct (using ETag-based optimistic concurrency and retrying on HTTP 412):**
 
 ```csharp
 // Correct: Use ETag to detect concurrent modifications and retry
@@ -5187,7 +5455,78 @@ var outageOptions = new ItemRequestOptions
 Reference: [Performance tips - .NET SDK Excluded Regions](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-dotnet-sdk-v3#excluded-regions)
 Reference: [Performance tips - Java SDK Excluded Regions](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-java-sdk-v4#excluded-regions)
 
-### 4.13 Unwrap CosmosItemResponse and enable content response in Java SDK
+### 4.13 Use current Go Cosmos DB SDK versions and explicit partition-key metadata
+
+**Impact: HIGH** (prevents cross-SDK partition-key metadata incompatibilities)
+
+## Use current Go Cosmos DB SDK versions and explicit partition-key metadata
+
+When creating Azure Cosmos DB containers from Go with `github.com/Azure/azure-sdk-for-go/sdk/data/azcosmos`, avoid stale SDK pins such as `v1.0.0`. The primary fix is **upgrading the SDK**: `azcosmos v1.0.0` serializes a `Paths`-only `PartitionKeyDefinition` as `{"paths":["/h3Cell"]}` — omitting `kind` entirely — whereas `v1.3.0` serializes `{"kind":"Hash","paths":["/h3Cell"]}`. A container created without `kind` will cause a `KeyError: 'kind'` when another SDK (e.g. Python `azure-cosmos`) later reads its partition-key metadata.
+
+Setting `Kind` explicitly in the struct is good defensive practice; the SDK upgrade alone is the load-bearing change. Note: `Version: 2` enables large partition keys (up to 2 KB) and is unrelated to this cross-SDK `kind` incompatibility — omit it unless your application specifically needs large keys.
+
+**Note:** This failure reproduces reliably on the Cosmos DB vNext emulator. Real Azure Cosmos DB may inject a default `kind` server-side; however, writing complete partition-key metadata is correct regardless and avoids relying on server-side normalization.
+
+**Incorrect (stale SDK pin — serializes without `kind`):**
+
+```go.mod
+require (
+    github.com/Azure/azure-sdk-for-go/sdk/azcore v1.10.0
+    github.com/Azure/azure-sdk-for-go/sdk/data/azcosmos v1.0.0
+)
+```
+
+```go
+props := azcosmos.ContainerProperties{
+    ID: "driver_state",
+    PartitionKeyDefinition: azcosmos.PartitionKeyDefinition{
+        Paths: []string{"/h3Cell"},
+    },
+}
+
+_, err := db.CreateContainer(ctx, props, nil)
+if err != nil {
+    return err
+}
+```
+
+**Correct (current SDK — serializes `kind:"Hash"`; explicit `Kind` is defensive best practice):**
+
+```go.mod
+require (
+    github.com/Azure/azure-sdk-for-go/sdk/azcore v1.16.0
+    github.com/Azure/azure-sdk-for-go/sdk/data/azcosmos v1.3.0
+)
+```
+
+```go
+props := azcosmos.ContainerProperties{
+    ID: "driver_state",
+    PartitionKeyDefinition: azcosmos.PartitionKeyDefinition{
+        Paths: []string{"/h3Cell"},
+        Kind:  azcosmos.PartitionKeyKindHash,
+    },
+}
+
+_, err := db.CreateContainer(ctx, props, nil)
+if err != nil {
+    return fmt.Errorf("create container: %w", err)
+}
+
+pk := azcosmos.NewPartitionKeyString(doc.H3Cell)
+_, err = container.UpsertItem(ctx, pk, body, nil)
+if err != nil {
+    return fmt.Errorf("upsert %s: %w", doc.ID, err)
+}
+```
+
+Use the same explicit partition key value for writes and partition-scoped queries. Only use `MultiHash` for true hierarchical partition keys.
+
+References:
+- [Azure Cosmos DB for NoSQL partitioning overview](https://learn.microsoft.com/azure/cosmos-db/partitioning-overview)
+- [Azure Cosmos DB Go SDK (`azcosmos`) package docs](https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/data/azcosmos)
+
+### 4.14 Unwrap CosmosItemResponse and enable content response in Java SDK
 
 **Impact: MEDIUM** (prevents type errors from missing getItem() on reads and null content on writes)
 
@@ -5393,7 +5732,7 @@ Enabling content response does NOT increase RU cost - the document is already fe
 
 Reference: [Azure Cosmos DB Java SDK best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-java)
 
-### 4.14 Use dependent @Bean methods for Cosmos DB initialization in Spring Boot
+### 4.15 Use dependent @Bean methods for Cosmos DB initialization in Spring Boot
 
 **Impact: HIGH** (prevents circular dependency, startup failures, class name collisions, and compile errors)
 
@@ -5654,7 +5993,7 @@ References:
 - [`CosmosAsyncClient.createDatabaseIfNotExists()` Javadoc](https://learn.microsoft.com/java/api/com.azure.cosmos.cosmosasyncclient?view=azure-java-stable)
 - [`AbstractCosmosConfiguration` Javadoc](https://learn.microsoft.com/java/api/com.azure.spring.data.cosmos.config.abstractcosmosconfiguration?view=azure-java-stable)
 
-### 4.15 Spring Boot and Java version compatibility for Cosmos DB SDK
+### 4.16 Spring Boot and Java version compatibility for Cosmos DB SDK
 
 **Impact: CRITICAL** (Prevents build failures due to version incompatibility between Spring Boot and Java)
 
@@ -5662,7 +6001,7 @@ References:
 
 The Azure Cosmos DB Java SDK works with various Spring Boot versions, but each Spring Boot version has **strict Java version requirements** that must be met for the project to build successfully.
 
-**Problem:**
+**Incorrect (combining Spring Boot and Java versions that do not satisfy each other's requirements):**
 
 Developers may encounter build failures with cryptic error messages when the Java version doesn't match Spring Boot requirements:
 
@@ -5676,7 +6015,7 @@ These errors occur when:
 - The JAVA_HOME environment variable points to an incompatible Java version
 - Maven/Gradle is configured to use a different Java version than expected
 
-**Solution:**
+**Correct (pinning compatible Spring Boot, Java, and build-tool versions together):**
 
 Always match your Java version to your Spring Boot requirements:
 
@@ -5785,7 +6124,7 @@ export PATH=$JAVA_HOME/bin:$PATH
 - [Spring Boot 2.7.x System Requirements](https://docs.spring.io/spring-boot/docs/2.7.x/reference/html/getting-started.html#getting-started-system-requirements)
 - [Azure Cosmos DB Java SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-java-v4)
 
-### 4.16 Initialize Async Cosmos DB Container Before CosmosDBSaver
+### 4.17 Initialize Async Cosmos DB Container Before CosmosDBSaver
 
 **Impact: HIGH** (prevents credential and event-loop errors in async applications)
 
@@ -5847,7 +6186,7 @@ async def setup():
 
 Reference: [Azure Cosmos DB async Python SDK](https://learn.microsoft.com/python/api/azure-cosmos/azure.cosmos.aio?view=azure-python)
 
-### 4.17 Use CosmosDBSaver for LangGraph Checkpointing
+### 4.18 Use CosmosDBSaver for LangGraph Checkpointing
 
 **Impact: HIGH** (enables persistent multi-turn conversation state across restarts)
 
@@ -5909,7 +6248,7 @@ async def initialize_checkpointer():
 
 Reference: [langchain-azure-cosmosdb documentation](https://python.langchain.com/docs/integrations/providers/azure_cosmos_db/)
 
-### 4.18 Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS
+### 4.19 Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS
 
 **Impact: HIGH** (enables persistent multi-turn conversations that survive restarts and scale horizontally)
 
@@ -5994,7 +6333,7 @@ const response = await withHistory.invoke(
 
 Reference: [LangChain.js Azure Cosmos DB Chat History](https://js.langchain.com/docs/integrations/chat_memory/azure_cosmosdb_nosql/)
 
-### 4.19 Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain
+### 4.20 Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain
 
 **Impact: MEDIUM** (incorrect deployment name causes 404 errors or uses wrong model)
 
@@ -6060,7 +6399,7 @@ const embeddings = new AzureOpenAIEmbeddings({
 
 Reference: [LangChain.js Azure OpenAI Embeddings](https://js.langchain.com/docs/integrations/text_embedding/azure_openai/)
 
-### 4.20 Prevent Filter Injection in JS/TS LangChain Vector Store Queries
+### 4.21 Prevent Filter Injection in JS/TS LangChain Vector Store Queries
 
 **Impact: CRITICAL** (prevents NoSQL injection attacks that can exfiltrate or corrupt data)
 
@@ -6137,7 +6476,7 @@ async function searchFiltered(
 
 Reference: [Azure Cosmos DB Parameterized Queries](https://learn.microsoft.com/azure/cosmos-db/nosql/query/parameterized-queries)
 
-### 4.21 Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search
+### 4.22 Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search
 
 **Impact: HIGH** (full-text and hybrid queries fail at runtime without container-level configuration)
 
@@ -6239,7 +6578,7 @@ const results = await store.similaritySearch("specific keyword plus semantic mea
 
 Reference: [Azure Cosmos DB Full-Text Search](https://learn.microsoft.com/azure/cosmos-db/nosql/query/full-text-search)
 
-### 4.22 Use Managed Identity for JS/TS LangChain Cosmos DB Integration
+### 4.23 Use Managed Identity for JS/TS LangChain Cosmos DB Integration
 
 **Impact: CRITICAL** (zero-secret authentication eliminates credential leakage risk)
 
@@ -6303,7 +6642,7 @@ az cosmosdb sql role assignment create \
 
 Reference: [Azure Cosmos DB RBAC with Azure Identity](https://learn.microsoft.com/azure/cosmos-db/nosql/security/how-to-grant-data-plane-role-based-access)
 
-### 4.23 Choose the Correct Search Type for JS/TS LangChain Vector Store
+### 4.24 Choose the Correct Search Type for JS/TS LangChain Vector Store
 
 **Impact: HIGH** (selecting wrong search type returns irrelevant results or causes errors)
 
@@ -6372,7 +6711,7 @@ const results = await store.similaritySearch("keyword and semantic query", 10, {
 
 Reference: [LangChain.js Azure Cosmos DB NoSQL Vector Store](https://js.langchain.com/docs/integrations/vectorstores/azure_cosmosdb_nosql/)
 
-### 4.24 Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS
+### 4.25 Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS
 
 **Impact: MEDIUM** (reduces LLM API costs and latency by caching semantically similar queries)
 
@@ -6443,7 +6782,7 @@ const response2 = await model.invoke("Tell me about Azure Cosmos DB"); // Cache 
 
 Reference: [LangChain.js Azure Cosmos DB Semantic Cache](https://js.langchain.com/docs/integrations/llm_caching/azure_cosmosdb_nosql/)
 
-### 4.25 Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript
+### 4.26 Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript
 
 **Impact: HIGH** (prevents runtime connection failures and misconfigured vector stores)
 
@@ -6512,7 +6851,7 @@ const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
 
 Reference: [LangChain.js Azure Cosmos DB Integration](https://js.langchain.com/docs/integrations/vectorstores/azure_cosmosdb_nosql/)
 
-### 4.26 Use Persistent MCP Client Sessions for Multi-Agent Applications
+### 4.27 Use Persistent MCP Client Sessions for Multi-Agent Applications
 
 **Impact: HIGH** (prevents session initialization overhead and connection churn)
 
@@ -6599,7 +6938,7 @@ async def cleanup_mcp():
 
 Reference: [langchain-mcp-adapters documentation](https://github.com/langchain-ai/langchain-mcp-adapters)
 
-### 4.27 Handle MCP ToolMessage Content Format Variations
+### 4.28 Handle MCP ToolMessage Content Format Variations
 
 **Impact: HIGH** (prevents JSON parse failures from langchain-mcp-adapters >= 0.2.0)
 
@@ -6649,7 +6988,7 @@ def extract_routing_info(message: ToolMessage):
 
 Reference: [langchain-mcp-adapters changelog](https://github.com/langchain-ai/langchain-mcp-adapters)
 
-### 4.28 Filter MCP Tools by Name Prefix for Agent Assignment
+### 4.29 Filter MCP Tools by Name Prefix for Agent Assignment
 
 **Impact: MEDIUM** (reduces agent confusion and improves routing accuracy)
 
@@ -6705,7 +7044,7 @@ transactions_agent = create_react_agent(model, transactions_tools, prompt=transa
 
 Reference: [LangGraph prebuilt agents](https://langchain-ai.github.io/langgraph/reference/prebuilt/)
 
-### 4.29 Configure local development environment to avoid cloud connection conflicts
+### 4.30 Configure local development environment to avoid cloud connection conflicts
 
 **Impact: MEDIUM** (prevents accidental connections to production instead of emulator)
 
@@ -6713,7 +7052,7 @@ Reference: [LangGraph prebuilt agents](https://langchain-ai.github.io/langgraph/
 
 When developing locally with the Cosmos DB Emulator, system-level environment variables pointing to Azure cloud accounts can override your local configuration, causing unexpected connections to production resources instead of the emulator.
 
-**Problem - System environment variables override local config:**
+**Incorrect (letting ambient environment variables silently override local emulator settings):**
 
 ```python
 # Your .env file (local config)
@@ -6728,7 +7067,7 @@ from dotenv import load_dotenv
 load_dotenv()  # ❌ System COSMOS_ENDPOINT wins - connects to production!
 ```
 
-**Solution - Force override of environment variables:**
+**Correct (using profile-specific config and explicit override behavior for local development):**
 
 **Python:**
 
@@ -6876,7 +7215,7 @@ azure:
 
 Reference: [Azure Cosmos DB Emulator](https://learn.microsoft.com/azure/cosmos-db/emulator)
 
-### 4.30 Explicitly reference Newtonsoft.Json package
+### 4.31 Explicitly reference Newtonsoft.Json package
 
 **Impact: HIGH** (Prevents build failures and security vulnerabilities from missing or outdated Newtonsoft.Json dependency)
 
@@ -6886,7 +7225,7 @@ When creating any .NET project that references `Microsoft.Azure.Cosmos` (version
 
 The Azure Cosmos DB .NET SDK requires an explicit reference to `Newtonsoft.Json` version 13.0.3 or higher. This dependency is not managed automatically - you must add it directly to your project.
 
-**Problem (build fails without explicit reference):**
+**Incorrect (relying on the Cosmos SDK package alone and omitting the explicit Newtonsoft.Json reference):**
 
 ```csharp
 // Your .csproj only references Cosmos DB SDK
@@ -6901,7 +7240,7 @@ The Azure Cosmos DB .NET SDK requires an explicit reference to `Newtonsoft.Json`
 // 'AzureCosmosDisableNewtonsoftJsonCheck' property to 'true' to bypass this check.
 ```
 
-**Solution (add explicit Newtonsoft.Json reference):**
+**Correct (adding an explicit Newtonsoft.Json reference in project or central package management):**
 
 ```xml
 <!-- Standard .csproj projects -->
@@ -6980,7 +7319,7 @@ Solution:
 
 Reference: [Managing Newtonsoft.Json Dependencies](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-dotnet-sdk-v3?tabs=trace-net-core#managing-newtonsoftjson-dependencies)
 
-### 4.31 Use the Patch API for atomic counter increments
+### 4.32 Use the Patch API for atomic counter increments
 
 **Impact: HIGH** (eliminates read-modify-write for counters; reduces RU cost and eliminates concurrency conflicts)
 
@@ -7051,7 +7390,7 @@ return container.patchItem(videoId, new PartitionKey(videoId), ops, Video.class)
 
 Reference: [Partial document update (Patch API)](https://learn.microsoft.com/azure/cosmos-db/partial-document-update)
 
-### 4.32 Configure Preferred Regions for Availability
+### 4.33 Configure Preferred Regions for Availability
 
 **Impact: HIGH** (enables automatic failover, reduces latency)
 
@@ -7147,7 +7486,7 @@ Best practices:
 
 Reference: [Configure preferred regions](https://learn.microsoft.com/azure/cosmos-db/nosql/tutorial-global-distribution)
 
-### 4.33 Include aiohttp When Using Python Async SDK
+### 4.34 Include aiohttp When Using Python Async SDK
 
 **Impact: HIGH** (prevents application startup failure)
 
@@ -7195,7 +7534,7 @@ from azure.cosmos import CosmosClient
 
 Reference: [Azure Cosmos DB Python SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-python)
 
-### 4.34 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
+### 4.35 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
 
 **Impact: HIGH** (causes wrong partition key to be sent, producing silent data corruption or 400/404 errors)
 
@@ -7254,7 +7593,7 @@ usersContainer.createItem(
 
 Reference: [Java SDK createItem](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-get-started)
 
-### 4.35 Handle 429 Errors with Retry-After
+### 4.36 Handle 429 Errors with Retry-After
 
 **Impact: HIGH** (prevents cascading failures)
 
@@ -7371,9 +7710,9 @@ await Task.WhenAll(tasks);
 
 Reference: [Handle rate limiting](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-request-rate-too-large)
 
-### 4.36 Use consistent enum serialization between Cosmos SDK and application layer
+### 4.37 Use consistent enum serialization between Cosmos SDK and application layer
 
-**Impact: critical** (undefined)
+**Impact: CRITICAL** (prevents silent query mismatches caused by enum values being stored in a different JSON shape than the application expects)
 
 # Use Consistent Enum Serialization
 
@@ -7381,7 +7720,7 @@ Reference: [Handle rate limiting](https://learn.microsoft.com/azure/cosmos-db/no
 
 The Cosmos DB SDK's default serializer stores enums as **integers**, but many application frameworks (ASP.NET Core, Spring Boot) serialize enums as **strings** in API responses. This mismatch causes queries to fail silently - returning empty results when filtering by enum values.
 
-## Example Bug
+**Incorrect (querying enum fields without matching the stored JSON representation):**
 
 ```csharp
 // Model with enum
@@ -7395,7 +7734,7 @@ var query = new QueryDefinition("SELECT * FROM c WHERE c.status = @status")
     .WithParameter("@status", "Shipped");  // ❌ Wrong - Cosmos has integer 1
 ```
 
-## Solution
+**Correct (align serializer settings or query using the stored representation):**
 
 ### Option 1: Configure Cosmos SDK to use string serialization (Recommended)
 
@@ -7468,7 +7807,7 @@ The Python `azure-cosmos` SDK serializes request bodies with `json.dumps(data)` 
 
 Always pass `mode="json"` so Pydantic converts these to JSON-safe primitives first.
 
-### Incorrect
+**Incorrect (passing native Pydantic values that are not JSON-serializable to the SDK):**
 
 ```python
 class ScoreDoc(BaseModel):
@@ -7479,7 +7818,7 @@ class ScoreDoc(BaseModel):
 await container.create_item(body=doc.model_dump(by_alias=True))
 ```
 
-### Correct
+**Correct (dumping a JSON-safe payload before writing to Cosmos DB):**
 
 ```python
 # ✅ datetime → ISO-8601 string, UUID → hex string, Decimal → string
@@ -7492,7 +7831,7 @@ await container.create_item(body=doc.model_dump(by_alias=True, mode="json"))
 - Point reads work but filtered queries don't
 - API returns different enum format than stored in Cosmos DB
 
-### 4.37 Reuse CosmosClient as Singleton
+### 4.38 Reuse CosmosClient as Singleton
 
 **Impact: CRITICAL** (prevents connection exhaustion)
 
@@ -7684,7 +8023,7 @@ async fn list_orders(
 
 Reference: [CosmosClient best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-dotnet)
 
-### 4.38 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
+### 4.39 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
 
 **Impact: CRITICAL** (prevents startup failures and data access errors in Spring Data Cosmos applications)
 
@@ -7800,7 +8139,7 @@ Add `@JsonIgnoreProperties(ignoreUnknown = true)` to every Cosmos entity class s
 
 Reference: [Spring Data Azure Cosmos DB annotations](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-spring-data)
 
-### 4.39 Use CosmosRepository correctly and handle Iterable return types
+### 4.40 Use CosmosRepository correctly and handle Iterable return types
 
 **Impact: HIGH** (prevents ClassCastException and query failures in Spring Data Cosmos repositories)
 
@@ -7995,6 +8334,8 @@ Create composite indexes for queries with ORDER BY on multiple properties. Witho
 The default indexing policy indexes every property but does **not** create composite indexes. Any query that combines a `WHERE` equality filter with `ORDER BY` on a different field needs a composite index declared explicitly, or the query will either fail in production or require expensive client-side sorting.
 
 > **Emulator warning:** The Cosmos DB emulator silently permits `ORDER BY` queries without a matching composite index and returns identical RU charges. Production containers reject the same query with *"The order by query does not have a corresponding composite index that it can be served from."* Always declare composite indexes at container-create time — do not rely on emulator success as validation.
+
+> ⚠️ **CreateContainerIfNotExists warning:** Defining a composite index in `CreateContainerIfNotExists` (or `createIfNotExists`) only applies the indexing policy when the container is created for the first time. If the container already exists, Cosmos DB returns the existing container, silently ignores the indexing policy argument, and keeps the existing indexing policy unchanged. To update composite indexes on an existing container, read the container, update its `IndexingPolicy`, and replace the container resource using the SDK's container replace operation. Always read the container back and verify that the expected composite indexes are present.
 
 **Incorrect (ORDER BY without composite index):**
 
@@ -8295,6 +8636,8 @@ Exclude paths from indexing that you never query. Every indexed path adds write 
 // Write cost includes indexing auditLog array - wasted RU
 ```
 
+> ⚠️ **CreateContainerIfNotExists warning:** Custom indexing policies supplied to `CreateContainerIfNotExists` (or `createIfNotExists`) are applied only when the container is created. If the container already exists, the call succeeds, the indexing policy argument is ignored, and the existing indexing policy remains unchanged. To apply new included or excluded paths to an existing container, update the container's `IndexingPolicy` and replace the container resource using the SDK's container replace operation. After deployment, read the container definition back and verify that the expected included and excluded paths are present.
+
 **Correct (exclude-all-first, then include back):**
 
 ```csharp
@@ -8387,6 +8730,8 @@ Reference: [Indexing policies](https://learn.microsoft.com/azure/cosmos-db/index
 
 Choose the appropriate indexing mode based on your workload. Consistent mode ensures query results are current; None disables indexing entirely.
 
+**Incorrect (planning around deprecated lazy indexing mode or keeping default indexing when the workload only needs point reads):**
+
 **Indexing modes explained:**
 
 ```csharp
@@ -8422,7 +8767,7 @@ var nonePolicy = new IndexingPolicy
 // - Time-series data queried via external system (Synapse Link)
 ```
 
-**Correct (choosing mode based on workload):**
+**Correct (choosing between consistent and none based on actual query requirements):**
 
 ```csharp
 // Typical transactional workload - use Consistent
@@ -8588,6 +8933,8 @@ Reference: [Indexing policy path syntax](https://learn.microsoft.com/azure/cosmo
 
 Understand when to use different index types. Range indexes support equality, range, and ORDER BY; Hash indexes are deprecated.
 
+**Incorrect (manually reasoning about deprecated hash indexes or over-specifying index kinds for standard queries):**
+
 **Understanding index types:**
 
 ```csharp
@@ -8615,7 +8962,7 @@ Understand when to use different index types. Range indexes support equality, ra
 }
 ```
 
-**Correct (modern indexing approach):**
+**Correct (letting modern Cosmos DB indexing defaults handle standard paths and adding special indexes only when needed):**
 
 ```csharp
 // Modern Cosmos DB automatically uses optimal index types
@@ -9050,6 +9397,8 @@ Reference: [Burst capacity](https://learn.microsoft.com/azure/cosmos-db/concepts
 
 Decide between container-level (dedicated) and database-level (shared) throughput based on workload isolation needs and cost optimization.
 
+**Incorrect (using dedicated throughput everywhere without considering sharing patterns or cost):**
+
 **Container-level throughput (dedicated):**
 
 ```csharp
@@ -9103,6 +9452,8 @@ var logsContainer = await database.CreateContainerAsync(
 // - Containers accessed at different times
 // - Cost optimization is priority
 ```
+
+**Correct (matching throughput scope to workload isolation and utilization patterns):**
 
 **Hybrid approach:**
 
@@ -9563,6 +9914,8 @@ Reference: [Conflict resolution](https://learn.microsoft.com/azure/cosmos-db/con
 
 Select the consistency level that matches your application's requirements. Each level has different tradeoffs for latency, availability, and consistency.
 
+**Incorrect (defaulting to the strongest consistency level for every workload without evaluating latency and availability needs):**
+
 **Consistency levels (strongest to weakest):**
 
 ```csharp
@@ -9613,7 +9966,7 @@ var client = new CosmosClient(connectionString, new CosmosClientOptions
 // Best performance, lowest cost
 ```
 
-**Correct (choosing based on requirements):**
+**Correct (selecting the weakest consistency level that still satisfies the application contract):**
 
 ```csharp
 // Example: E-commerce platform
@@ -11430,7 +11783,7 @@ Reference(s):
 
 When implementing leaderboards or rankings, avoid scanning an entire partition to determine a single player's rank. Full partition scans for rank lookups are an anti-pattern that becomes unsustainable at scale.
 
-**Problem: Full partition scan to find rank**
+**Incorrect (scanning an entire partition to calculate one player's rank):**
 
 ```csharp
 // Anti-pattern: Reads ALL entries in a partition to find one player's rank
@@ -11461,6 +11814,8 @@ This approach:
 - Consumes thousands of RU per request
 - Has multi-second latency
 - Loads all entries into memory
+
+**Correct (using count-based, cached, or bucketed approaches to avoid full scans):**
 
 **Solution 1: COUNT-based rank query (simplest)**
 
@@ -13586,6 +13941,846 @@ const results = await documentRepo.vectorSearch(embedding, {
 - vector-distance-query.md - VectorDistance() usage
 - query-parameterize.md - Always use parameters
 - query-use-projections.md - Exclude unnecessary fields
+
+---
+
+## 12. Full-Text Search
+
+**Impact: HIGH**
+
+### 12.1 Add Full-Text Index in the Indexing Policy
+
+**Impact: HIGH** (without the index, FTS functions fall back to a full scan)
+
+## Add Full-Text Index in the Indexing Policy
+
+**Impact: HIGH (without the index, FTS functions fall back to a full scan)**
+
+The `fullTextIndexes` array in the `indexingPolicy` tells Cosmos DB to build an inverted index for the corresponding path. This is separate from the range index — a field can have both. Fields covered by a full-text index should **not** also appear in `excludedPaths`.
+
+**Incorrect (field excluded from range index but no FTS index — slow scan):**
+
+```bicep
+excludedPaths: [
+  { path: '/description/?' }   // excluded from range index...
+]                               // ...but no fullTextIndexes entry → full scan
+```
+
+**Correct (Bicep):**
+
+```bicep
+indexingPolicy: {
+  indexingMode: 'consistent'
+  includedPaths: [
+    { path: '/name/?' }
+    { path: '/userid/?' }
+  ]
+  excludedPaths: [
+    { path: '/*' }             // root wildcard
+    // description NOT listed here — managed by FTS index below
+  ]
+  #disable-next-line BCP037
+  fullTextIndexes: [
+    { path: '/description' }   // inverted index — case-insensitive, tokenized
+  ]
+}
+```
+
+> A field under `fullTextIndexes` incurs **extra write RU** for index maintenance. Only index fields that are actually queried with `FullTextContains` or `FullTextScore`.
+
+Reference: [Indexing policy for full-text search](https://learn.microsoft.com/azure/cosmos-db/gen-ai/full-text-search)
+
+### 12.2 Define Full-Text Policy on the Container
+
+**Impact: HIGH** (required for tokenizer and stop-word configuration)
+
+## Define Full-Text Policy on the Container
+
+**Impact: HIGH (required for tokenizer and stop-word configuration)**
+
+The `fullTextPolicy` declares which paths are full-text searchable and their language. Supported languages: `en-US`, `de-DE` (preview), `fr-FR` (preview), `it-IT` (preview), `pt-BR` (preview), `pt-PT` (preview), `es-ES` (preview). Language codes are **case-sensitive** — use the exact casing shown (e.g., `en-US` not `en-us`).
+
+**Incorrect (wrong language casing causes ARM BadRequest):**
+
+```bicep
+fullTextPolicy: {
+  defaultLanguage: 'en-us'       // ❌ lowercase — rejected by ARM
+  fullTextPaths: [
+    { path: '/description', language: 'en-us' }  // ❌
+  ]
+}
+```
+
+**Correct (Bicep):**
+
+```bicep
+#disable-next-line BCP037
+fullTextPolicy: {
+  defaultLanguage: 'en-US'       // ✅ exact casing required
+  fullTextPaths: [
+    {
+      path: '/description'
+      language: 'en-US'          // ✅
+    }
+  ]
+}
+```
+
+**Correct — Java SDK (container creation):**
+
+```java
+FullTextPolicy ftsPolicy = new FullTextPolicy()
+    .setDefaultLanguage("en-US")
+    .setFullTextPaths(List.of(
+        new FullTextPath().setPath("/description").setLanguage("en-US")
+    ));
+
+CosmosContainerProperties props = new CosmosContainerProperties("videos", "/videoid");
+props.setFullTextPolicy(ftsPolicy);
+database.createContainerIfNotExists(props).block();
+```
+
+Reference: [Configure full-text policy](https://learn.microsoft.com/azure/cosmos-db/gen-ai/full-text-search)
+
+### 12.3 Enable Full-Text Search Capability on Account
+
+**Impact: HIGH** (prerequisite — FTS SQL functions fail without it)
+
+## Enable Full-Text Search Capability on Account
+
+**Impact: HIGH (prerequisite — FTS SQL functions fail without it)**
+
+Full-text search is an opt-in account-level capability. The SQL functions `FullTextContains`, `FullTextContainsAll`, `FullTextContainsAny`, and `FullTextScore` all return an error if this capability is not enabled.
+
+**Incorrect (capability absent — FTS queries fail at runtime):**
+
+```sql
+-- This query fails with "Function 'FullTextContains' is not supported"
+-- when EnableNoSQLFullTextSearch capability is missing on the account
+SELECT * FROM c WHERE FullTextContains(c.description, 'cosmos')
+```
+
+**Correct — enable via Azure CLI:**
+
+```bash
+az cosmosdb update \
+  --resource-group <rg> \
+  --name <account-name> \
+  --capabilities EnableNoSQLFullTextSearch
+```
+
+**Correct — enable via Bicep (account resource):**
+
+```bicep
+resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
+  name: cosmosAccountName
+  properties: {
+    // ... other properties ...
+    capabilities: [
+      { name: 'EnableNoSQLFullTextSearch' }
+    ]
+  }
+}
+```
+
+> **Note:** As of Bicep type library v0.41, `fullTextIndexes` and `fullTextPolicy` may emit `BCP037` warnings. Suppress with `#disable-next-line BCP037` — the properties are valid at the ARM REST API level.
+
+Reference: [Full-text search in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/gen-ai/full-text-search)
+
+### 12.4 Combine FTS predicates with range or equality filters for hybrid queries
+
+**Impact: MEDIUM** (avoids full-container scans when combined with equality/range filters)
+
+## Combine FTS with Range Filters for Hybrid Queries
+
+**Impact: MEDIUM (avoids full-container scans when combined with equality/range filters)**
+
+FTS predicates can be combined with standard SQL predicates. Cosmos DB uses the most selective predicate first. Put the most restrictive filter (e.g., equality on a high-cardinality property) before the FTS predicate to reduce the candidate set.
+
+**Incorrect (FTS-only query — no range filters, scans all partitions):**
+
+```sql
+-- ❌ No equality filter — Cosmos DB must scan every partition before ranking
+SELECT * FROM c
+WHERE FullTextContains(c.description, @q)
+ORDER BY RANK FullTextScore(c.description, @q)
+```
+
+**Correct — filter by partition + FTS:**
+
+```sql
+SELECT * FROM c
+WHERE c.type = 'video'
+  AND c.userid = @userid
+  AND FullTextContains(c.description, @q)
+ORDER BY RANK FullTextScore(c.description, @q)
+```
+
+```java
+// Hybrid: exact field filters narrow partition, FTS ranks within results
+String sql = "SELECT * FROM c " +
+    "WHERE c.type = 'video' " +
+    "AND FullTextContains(c.description, @q) " +
+    "ORDER BY RANK FullTextScore(c.description, @q)";
+
+CosmosQueryRequestOptions opts = new CosmosQueryRequestOptions();
+// enableCrossPartitionQuery is true by default for FTS ORDER BY RANK
+
+return container.queryItems(
+    new SqlQuerySpec(sql, new SqlParameter("@q", term)),
+    opts, Video.class
+).byPage(pageSize).next().toFuture();
+```
+
+**Fields that should NOT use FTS:**
+- Short identifiers (`id`, `userid`) — use point read or range index equality
+- Numeric fields — use range index with `=`, `>`, `<`
+- Array elements already indexed with `[]/?` — `CONTAINS(LOWER(t), @q)` via EXISTS is fine
+
+Reference: [Full-text search queries](https://learn.microsoft.com/azure/cosmos-db/gen-ai/full-text-search)
+
+### 12.5 Use FullTextContains for keyword matching on indexed text fields
+
+**Impact: HIGH** (replaces expensive CONTAINS(LOWER(...)) string scans with O(log n) inverted index lookup)
+
+## Use FullTextContains for Keyword Matching
+
+**Impact: HIGH (replaces expensive CONTAINS(LOWER(...)) string scans with O(log n) inverted index lookup)**
+
+`FullTextContains(path, term)` performs a single-keyword lookup against the inverted index and is case-insensitive by design. It is dramatically faster than `CONTAINS(LOWER(c.field), @q)` on large containers because it does an `O(log n)` index lookup instead of a full document scan.
+
+**Incorrect (scan-based — avoid for long text fields with FTS index):**
+
+```sql
+-- Full document scan, case folding at query time
+SELECT * FROM c
+WHERE CONTAINS(LOWER(c.description), @q)
+```
+
+```java
+String sql = "SELECT * FROM c WHERE CONTAINS(LOWER(c.description), @q)";
+```
+
+**Correct:**
+
+```sql
+-- Inverted index lookup — no LOWER() needed, FTS tokenizer handles casing
+SELECT * FROM c
+WHERE FullTextContains(c.description, @q)
+```
+
+```java
+// Java SDK — parameterized query with FullTextContains
+String sql = "SELECT * FROM c WHERE c.type = 'video' " +
+    "AND (CONTAINS(LOWER(c.name), @q) " +          // short field — range index OK
+    "OR FullTextContains(c.description, @q) " +    // long text — FTS index
+    "OR EXISTS(SELECT VALUE t FROM t IN c.tags WHERE CONTAINS(LOWER(t), @q)))";
+
+SqlQuerySpec querySpec = new SqlQuerySpec(sql,
+    new SqlParameter("@q", query.trim().toLowerCase()));
+
+return container.queryItems(querySpec, opts, Video.class)
+    .byPage(continuationToken, pageSize)
+    .next()
+    .map(page -> new ResultListPage<>(page.getResults(), page.getContinuationToken()))
+    .toFuture();
+```
+
+**Variants:**
+- `FullTextContains(path, term)` — document contains the term
+- `FullTextContainsAll(path, term1, term2, ...)` — document contains ALL terms (AND)
+- `FullTextContainsAny(path, term1, term2, ...)` — document contains ANY term (OR)
+
+Reference: [FullTextContains function](https://learn.microsoft.com/azure/cosmos-db/nosql/query/fulltextcontains)
+
+### 12.6 Use FullTextScore with ORDER BY RANK for BM25 relevance ranking
+
+**Impact: MEDIUM-HIGH** (enables BM25-based ranked results instead of arbitrary order)
+
+## Use FullTextScore for Relevance Ranking
+
+**Impact: MEDIUM-HIGH (enables BM25-based ranked results instead of arbitrary order)**
+
+`FullTextScore(path, term)` returns a BM25 relevance score. Use it in `ORDER BY` to surface the most relevant documents first. It **requires** `FullTextContains` in the WHERE clause on the same path.
+
+**Incorrect (FullTextScore without FullTextContains — parse error):**
+
+```sql
+SELECT * FROM c
+ORDER BY FullTextScore(c.description, 'cosmos')  -- ❌ missing WHERE FullTextContains
+```
+
+**Correct:**
+
+```sql
+SELECT c.name, c.description, c.addedDate
+FROM c
+WHERE FullTextContains(c.description, @q)
+ORDER BY RANK FullTextScore(c.description, @q)
+```
+
+```java
+String sql = "SELECT c.name, c.description, c.addedDate FROM c " +
+    "WHERE FullTextContains(c.description, @q) " +
+    "ORDER BY RANK FullTextScore(c.description, @q)";
+
+SqlQuerySpec querySpec = new SqlQuerySpec(sql, new SqlParameter("@q", searchTerm));
+```
+
+> `RANK FullTextScore(...)` is cross-partition — Cosmos DB merges and re-ranks results from all partitions before returning the page.
+
+Reference: [FullTextScore function](https://learn.microsoft.com/azure/cosmos-db/nosql/query/fulltextscore)
+
+---
+
+## 13. Security
+
+**Impact: HIGH**
+
+### 13.1 Enable Continuous Backup for Point-in-Time Restore
+
+**Impact: MEDIUM** (enables recovery from accidental data loss)
+
+## Enable Continuous Backup for Point-in-Time Restore
+
+**Impact: MEDIUM (enables recovery from accidental data loss)**
+
+Data loss is more often caused by mistakes than by attackers. Enable continuous backup (7 or 30 days) to allow point-in-time restore. Enable it at account creation if possible — switching from periodic to continuous is supported but is a one-way change.
+
+**Incorrect (relying on default periodic backup):**
+
+```bash
+# Default periodic backup:
+# - 4 hour intervals between backups
+# - Only 2 copies retained
+# - Recovery requires a support ticket
+# - Cannot restore to a specific point in time
+# - Data written between backups can be lost permanently
+
+az cosmosdb create \
+  --name myaccount \
+  --resource-group myrg
+  # Default periodic backup — limited recovery options
+```
+
+**Correct (continuous backup enabled):**
+
+```bash
+# Enable at account creation (preferred)
+az cosmosdb create \
+  --name myaccount \
+  --resource-group myrg \
+  --backup-policy-type Continuous \
+  --continuous-tier Continuous7Days
+
+# Or upgrade an existing account (one-way change)
+az cosmosdb update \
+  --name myaccount \
+  --resource-group myrg \
+  --backup-policy-type Continuous \
+  --continuous-tier Continuous7Days
+
+# Tiers available:
+# Continuous7Days  — 7-day retention, lower cost
+# Continuous30Days — 30-day retention, for compliance-sensitive workloads
+```
+
+```bash
+# Restore to a specific point in time (self-service, no support ticket)
+az cosmosdb restore \
+  --account-name myaccount \
+  --resource-group myrg \
+  --target-database-account-name myaccount-restored \
+  --restore-timestamp "2026-05-29T10:00:00Z" \
+  --location "East US"
+```
+
+Continuous backup protects against:
+- Accidental deletion of containers or databases
+- Buggy deployments that corrupt data
+- Unintended bulk updates or deletes
+- Ransomware or malicious data modification (when combined with audit logs to identify the point of compromise)
+
+Reference: [Continuous backup with point-in-time restore in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/continuous-backup-restore-introduction)
+
+### 13.2 Disable Local Authentication (Keys)
+
+**Impact: CRITICAL** (eliminates credential leakage risk)
+
+## Disable Local Authentication (Keys)
+
+**Impact: CRITICAL (eliminates credential leakage risk)**
+
+Disable local authentication (shared keys and connection strings) on your Cosmos DB account. Keys are bearer tokens — anyone who has one can read, modify, or delete all data. If a key leaks, the only option is to regenerate it and update every dependent system. Disabling keys forces all access through Entra ID, eliminating this entire class of risk.
+
+**Incorrect (using connection string with keys):**
+
+```csharp
+// WRONG: Connection string contains a master key
+// If this leaks via source control, logs, or config, all data is exposed
+var connectionString = "AccountEndpoint=https://myaccount.documents.azure.com:443/;AccountKey=abc123...==;";
+var client = new CosmosClient(connectionString);
+
+// Risks:
+// - Key in source control (even in .env files that get committed)
+// - Key in CI/CD logs or screenshots
+// - Key shared across teams with no audit trail
+// - No way to attribute access to a specific identity
+// - Rotation requires updating every system simultaneously
+```
+
+**Correct (disable keys, use Entra ID exclusively):**
+
+```bash
+# Disable local authentication on the account
+az cosmosdb update \
+  --name <your-account> \
+  --resource-group <your-rg> \
+  --disable-local-auth true
+```
+
+```csharp
+// Connect using Entra ID — no keys or connection strings needed
+using Azure.Identity;
+using Microsoft.Azure.Cosmos;
+
+var client = new CosmosClient(
+    accountEndpoint: "https://myaccount.documents.azure.com:443/",
+    tokenCredential: new DefaultAzureCredential()
+);
+
+// Benefits:
+// - No secrets to leak
+// - Access is auditable per identity
+// - Revocation is instant and targeted
+// - Works in dev (az login), Azure (managed identity), and CI/CD (service principal)
+```
+
+If you cannot disable keys immediately, at minimum: never store connection strings in source control, use Azure Key Vault for secret storage, and enable secret scanning in your repository.
+
+Reference: [Disable local authentication in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/how-to-setup-rbac#disable-local-auth)
+
+### 13.3 Use Managed Identity with DefaultAzureCredential
+
+**Impact: CRITICAL** (zero-secret authentication for all environments)
+
+## Use Managed Identity with DefaultAzureCredential
+
+**Impact: CRITICAL (zero-secret authentication for all environments)**
+
+Authenticate to Cosmos DB using managed identity and `DefaultAzureCredential`. This provides a single code path that works in local development (via `az login`), Azure compute (via system-assigned managed identity), and CI/CD (via service principal or federated identity) — with no secrets in code or configuration.
+
+**Incorrect (hard-coded keys or environment-specific auth):**
+
+```csharp
+// WRONG: Key stored in configuration
+var client = new CosmosClient(
+    "https://myaccount.documents.azure.com:443/",
+    "abc123masterkey=="
+);
+
+// WRONG: Connection string in environment variable still contains a secret
+var connectionString = Environment.GetEnvironmentVariable("COSMOS_CONNECTION_STRING");
+var client = new CosmosClient(connectionString);
+
+// WRONG: Different auth code per environment
+if (isDevelopment)
+    client = new CosmosClient(connectionString);  // key-based
+else
+    client = new CosmosClient(endpoint, new ManagedIdentityCredential());  // identity
+```
+
+**Correct (DefaultAzureCredential everywhere):**
+
+```csharp
+using Azure.Identity;
+using Microsoft.Azure.Cosmos;
+
+// Same code works in all environments:
+// - Local dev: uses az login / Visual Studio / VS Code credentials
+// - Azure (App Service, Functions, Container Apps, AKS): uses managed identity
+// - CI/CD: uses service principal or workload identity federation
+var client = new CosmosClient(
+    accountEndpoint: "https://myaccount.documents.azure.com:443/",
+    tokenCredential: new DefaultAzureCredential()
+);
+```
+
+```python
+from azure.identity import DefaultAzureCredential
+from azure.cosmos import CosmosClient
+
+credential = DefaultAzureCredential()
+client = CosmosClient("https://myaccount.documents.azure.com:443/", credential)
+```
+
+```javascript
+const { DefaultAzureCredential } = require("@azure/identity");
+const { CosmosClient } = require("@azure/cosmos");
+
+const credential = new DefaultAzureCredential();
+const client = new CosmosClient({
+    endpoint: "https://myaccount.documents.azure.com:443/",
+    aadCredentials: credential
+});
+```
+
+```java
+import com.azure.identity.DefaultAzureCredentialBuilder;
+import com.azure.cosmos.CosmosClientBuilder;
+
+CosmosClient client = new CosmosClientBuilder()
+    .endpoint("https://myaccount.documents.azure.com:443/")
+    .credential(new DefaultAzureCredentialBuilder().build())
+    .buildClient();
+```
+
+For Azure compute, assign a system-assigned managed identity:
+
+```bash
+# App Service
+az webapp identity assign --name <your-app> --resource-group <your-rg>
+
+# Azure Functions
+az functionapp identity assign --name <your-app> --resource-group <your-rg>
+
+# Container Apps
+az containerapp identity assign --name <your-app> --resource-group <your-rg> --system-assigned
+```
+
+Starting with `DefaultAzureCredential` from day one avoids a painful migration later — moving from keys to managed identity means touching every deployment, every environment, and potentially every SDK call.
+
+Reference: [DefaultAzureCredential Class](https://learn.microsoft.com/dotnet/api/azure.identity.defaultazurecredential)
+
+### 13.4 Restrict Network Access
+
+**Impact: HIGH** (reduces attack surface from public internet)
+
+## Restrict Network Access
+
+**Impact: HIGH (reduces attack surface from public internet)**
+
+By default, a Cosmos DB endpoint is publicly reachable from anywhere on the internet. If a credential leaks, nothing stands between an attacker and your data. Restrict access to known IP ranges as a baseline, and plan to move to private endpoints for production workloads.
+
+**Incorrect (unrestricted public access):**
+
+```bash
+# WRONG: Default configuration — account is accessible from any IP address worldwide
+# No --ip-range-filter means open to the internet
+
+az cosmosdb create \
+  --name myaccount \
+  --resource-group myrg
+  # No network restrictions = reachable from anywhere
+```
+
+**Correct (restrict to known IPs as baseline):**
+
+```bash
+# Restrict access to known IP addresses (office, CI/CD egress, developer IPs)
+az cosmosdb update \
+  --name myaccount \
+  --resource-group myrg \
+  --ip-range-filter "203.0.113.10,198.51.100.0/24"
+
+# For production: use private endpoints (no public internet exposure)
+az cosmosdb update \
+  --name myaccount \
+  --resource-group myrg \
+  --public-network-access DISABLED
+
+# Create a private endpoint in your VNet
+az network private-endpoint create \
+  --name myaccount-pe \
+  --resource-group myrg \
+  --vnet-name myvnet \
+  --subnet default \
+  --private-connection-resource-id <cosmos-account-resource-id> \
+  --group-id Sql \
+  --connection-name myaccount-connection
+```
+
+Network restriction tiers (from minimum to most secure):
+1. **IP allowlisting** (day one minimum): restrict to office, CI/CD, and developer IPs
+2. **Service endpoints**: allow access from specific Azure VNet subnets
+3. **Private endpoints** (production goal): no public exposure, traffic stays on Microsoft backbone
+
+Even with Entra ID authentication, network restrictions add defense-in-depth — a compromised token is useless if the attacker cannot reach the endpoint.
+
+Reference: [Configure IP firewall in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/how-to-configure-firewall)
+
+### 13.5 Configure Private Endpoints with Correct DNS Resolution
+
+**Impact: HIGH** (client connectivity failure when public network access is disabled and DNS resolves to the public endpoint)
+
+Private endpoints route Cosmos DB traffic through your VNet instead of the public internet, but they require correct DNS configuration to work. The most common connectivity failures after enabling private endpoints are DNS misconfigurations, VNet peering without private DNS integration, and portal access blocked by browser Private Network Access (PNA) policies.
+
+### Common Issue: DNS Not Resolving to Private IP
+
+**Incorrect (private endpoint created but DNS still resolves to public IP):**
+
+```bash
+# WRONG: Private endpoint created without private DNS zone integration
+az network private-endpoint create \
+  --name myaccount-pe \
+  --resource-group myrg \
+  --vnet-name myvnet \
+  --subnet default \
+  --private-connection-resource-id <cosmos-resource-id> \
+  --group-id Sql \
+  --connection-name myaccount-connection
+  # Missing: DNS zone integration
+
+# Result: myaccount.documents.azure.com still resolves to public IP (104.x.x.x)
+# Applications fail with connection timeout or "unable to reach" errors
+```
+
+**Correct (private endpoint with automatic DNS integration):**
+
+```bash
+# Create private DNS zone for Azure Cosmos DB for NoSQL (documents.azure.com)
+# (Other Cosmos DB APIs use different privatelink zones and Private Link group IDs.)
+az network private-dns zone create \
+  --resource-group myrg \
+  --name privatelink.documents.azure.com
+
+# Link DNS zone to your VNet
+az network private-dns link vnet create \
+  --resource-group myrg \
+  --zone-name privatelink.documents.azure.com \
+  --name myaccount-dnslink \
+  --virtual-network myvnet \
+  --registration-enabled false
+
+# Create private endpoint WITH DNS integration
+az network private-endpoint create \
+  --name myaccount-pe \
+  --resource-group myrg \
+  --vnet-name myvnet \
+  --subnet default \
+  --private-connection-resource-id <cosmos-resource-id> \
+  --group-id Sql \
+  --connection-name myaccount-connection
+
+# Associate the private endpoint with the Private DNS zone (DNS zone group)
+# Note: --zone-name here is a required label for this entry inside the zone
+# group, not a DNS zone name. Any short identifier works.
+az network private-endpoint dns-zone-group create \
+  --resource-group myrg \
+  --endpoint-name myaccount-pe \
+  --name myaccount-zonegroup \
+  --zone-name myzone \
+  --private-dns-zone /subscriptions/<sub>/resourceGroups/myrg/providers/Microsoft.Network/privateDnsZones/privatelink.documents.azure.com
+
+# Verify DNS resolution from a VM in the VNet:
+# nslookup myaccount.documents.azure.com
+# Should return private IP (10.x.x.x), not public (104.x.x.x)
+```
+
+### Customer-Managed DNS Configuration
+
+If your organization uses custom DNS servers (not Azure-provided DNS), you must configure DNS forwarding:
+
+```bash
+# Your custom DNS servers must forward *.privatelink.documents.azure.com queries
+# to Azure DNS (168.63.129.16)
+
+# Option 1: Conditional forwarder on your DNS servers
+# Forward privatelink.documents.azure.com → 168.63.129.16
+
+# Option 2: DNS A records (manual approach, not recommended)
+# Create A record: myaccount.privatelink.documents.azure.com → <private-endpoint-ip>
+# Must update manually if private endpoint IP changes
+```
+
+**Verify DNS resolution from your application host:**
+
+```bash
+# Windows
+nslookup myaccount.documents.azure.com
+
+# Linux
+dig myaccount.documents.azure.com
+
+# Expected: 
+# - Private DNS zone linked to this VNet: resolves to private IP (10.x.x.x)
+# - Private DNS zone not linked / not used: resolves to public IP (104.x.x.x) and will time out when public network access is disabled
+```
+
+### VNet Peering and Hub-Spoke Topologies
+
+Private endpoint DNS integration is **per-VNet**. If you have hub-spoke or peered VNets:
+
+```bash
+# Scenario: Private endpoint in Hub VNet, applications in Spoke VNets
+
+# Link the private DNS zone to ALL VNets that need access
+az network private-dns link vnet create \
+  --resource-group myrg \
+  --zone-name privatelink.documents.azure.com \
+  --name spoke1-dnslink \
+  --virtual-network spoke1-vnet \
+  --registration-enabled false
+
+az network private-dns link vnet create \
+  --resource-group myrg \
+  --zone-name privatelink.documents.azure.com \
+  --name spoke2-dnslink \
+  --virtual-network spoke2-vnet \
+  --registration-enabled false
+
+# VNet peering must allow forwarded traffic:
+az network vnet peering update \
+  --name hub-to-spoke1 \
+  --resource-group myrg \
+  --vnet-name hub-vnet \
+  --allow-forwarded-traffic true
+```
+
+### Portal and Data Explorer Access with Private Endpoints
+
+When you **disable public network access** and use only private endpoints, the Azure Portal and Data Explorer cannot reach your account from your browser (they run client-side, outside your VNet).
+
+**Symptoms:**
+- Portal shows "Unable to load containers" or "Connection timeout"
+- Data Explorer queries fail with network errors
+- Chromium browsers block with **Private Network Access (PNA)** CORS errors
+
+**Solutions (in order of preference):**
+
+**Option 1 (recommended): Manage from inside the VNet.** Run management commands from a host that already has private network access — an Azure Bastion-connected VM, a Cloud Shell session with VNet integration, or a developer workstation on a VPN/ExpressRoute connection.
+
+```bash
+# From a VM in the VNet (e.g., reached via Azure Bastion)
+az cosmosdb sql database list --account-name myaccount --resource-group myrg
+```
+
+**Option 2: VS Code Remote Development.** Connect to a VM inside the VNet via Remote-SSH or Bastion and use the Azure Cosmos DB extension from there.
+
+**Option 3: Allow only the published Azure portal middleware IPs.** This is a narrow allowlist of portal-only addresses. Microsoft publishes the current list per API and cloud environment in [Allow requests from the Azure portal](https://learn.microsoft.com/azure/cosmos-db/how-to-configure-firewall#allow-requests-from-the-azure-portal). Fetch the current values from that doc rather than hardcoding them, because the published IPs change over time. The Azure portal also exposes an **Add Azure Portal Middleware IPs** button that adds the correct set automatically.
+
+**Anti-pattern: do not use `--ip-range-filter "0.0.0.0"` as a "portal exception".**
+The `0.0.0.0` entry corresponds to the **Accept connections from within Azure datacenters** toggle. It is **not** portal-only: it permits inbound traffic from any IP in Azure's datacenter ranges, which includes resources owned by other Azure customers. Microsoft's own firewall documentation warns that this option "configures the firewall to allow all requests from Azure, including requests from the subscriptions of other customers deployed in Azure" and "limits the effectiveness of a firewall policy." Prefer Options 1–3 above.
+
+**Chromium Private Network Access (PNA) blocking:**
+- Affects Chrome, Edge, Brave when the portal tries to reach a private endpoint from a public-internet origin
+- Browser blocks "public-to-private" requests as a security policy
+- Solution: use Option 1 or 2 (browse from inside the VNet); Option 3 also works because the request then originates from a permitted portal IP rather than the user's browser
+
+### Disable Public Access (Production Best Practice)
+
+After private endpoint and DNS are working:
+
+```bash
+# Fully disable public internet access
+az cosmosdb update \
+  --name myaccount \
+  --resource-group myrg \
+  --public-network-access DISABLED
+
+# All traffic must flow through private endpoints
+# Portal access will require Option 2 or 3 above
+```
+
+### Troubleshooting Checklist
+
+| Symptom | Likely Cause | Solution |
+|---|---|---|
+| Connection timeout from application | DNS not configured | Link private DNS zone to VNet |
+| Resolves to public IP (104.x.x.x) | Missing DNS integration | Create/associate a private DNS zone group on the private endpoint and ensure the private DNS zone is linked to the VNet |
+| Works from one VNet, not another | DNS zone not linked to spoke | Link DNS zone to all peered VNets |
+| Portal shows "Unable to load" | Public access disabled | Manage from inside the VNet (Bastion/Cloud Shell) or add only the published portal middleware IPs — do not use `0.0.0.0` |
+| Chromium PNA CORS error | Browser blocks public→private | Access from within the VNet, or use the published portal middleware IPs |
+| Custom DNS servers: no resolution | DNS not forwarding to Azure | Configure conditional forwarder to 168.63.129.16 |
+
+### Connection String Unchanged
+
+**Important:** Your connection string does NOT change when using private endpoints. Applications still use `myaccount.documents.azure.com` — DNS resolution handles routing to the private IP.
+
+```csharp
+// Same connection string before and after private endpoint
+var client = new CosmosClient(
+    "https://myaccount.documents.azure.com:443/",
+    tokenCredential: new DefaultAzureCredential()
+);
+// DNS automatically resolves to private IP when query originates from VNet
+```
+
+References:
+- [Configure private endpoints for Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/how-to-configure-private-endpoints)
+- [Azure Private Endpoint DNS configuration](https://learn.microsoft.com/azure/private-link/private-endpoint-dns)
+- [Troubleshoot Azure Private Endpoint connectivity](https://learn.microsoft.com/azure/private-link/troubleshoot-private-endpoint-connectivity)
+
+### 13.6 Assign Minimum RBAC Roles with Narrow Scope
+
+**Impact: HIGH** (limits blast radius of compromised identities)
+
+## Assign Minimum RBAC Roles with Narrow Scope
+
+**Impact: HIGH (limits blast radius of compromised identities)**
+
+Grant each identity only the Cosmos DB data plane role it needs, scoped to the narrowest resource level possible. Avoid account-wide contributor access when an app only reads from a single container. Separate data plane access (read/write data) from control plane access (manage account settings).
+
+**Incorrect (over-privileged access):**
+
+```bash
+# WRONG: Granting full Contributor at account scope to an app that only reads data
+az cosmosdb sql role assignment create \
+  --account-name myaccount \
+  --resource-group myrg \
+  --role-definition-id "00000000-0000-0000-0000-000000000002" \
+  --principal-id <app-principal-id> \
+  --scope "/"
+
+# WRONG: Giving the app control plane access (can delete containers, change settings)
+az role assignment create \
+  --role "Contributor" \
+  --assignee <app-principal-id> \
+  --scope "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.DocumentDB/databaseAccounts/myaccount"
+
+# WRONG: Sharing one identity across multiple services
+# If one service is compromised, attacker gets access to everything
+```
+
+**Correct (least privilege, narrowly scoped):**
+
+```bash
+# Built-in data plane roles:
+# Cosmos DB Built-in Data Reader:      00000000-0000-0000-0000-000000000001
+# Cosmos DB Built-in Data Contributor: 00000000-0000-0000-0000-000000000002
+
+# Read-only app: grant Reader scoped to specific container
+az cosmosdb sql role assignment create \
+  --account-name myaccount \
+  --resource-group myrg \
+  --role-definition-id "00000000-0000-0000-0000-000000000001" \
+  --principal-id <reader-app-principal-id> \
+  --scope "/dbs/mydb/colls/products"
+
+# Read-write app: grant Contributor scoped to specific database
+az cosmosdb sql role assignment create \
+  --account-name myaccount \
+  --resource-group myrg \
+  --role-definition-id "00000000-0000-0000-0000-000000000002" \
+  --principal-id <writer-app-principal-id> \
+  --scope "/dbs/mydb"
+
+# CI/CD pipeline: only data plane write for schema migrations
+az cosmosdb sql role assignment create \
+  --account-name myaccount \
+  --resource-group myrg \
+  --role-definition-id "00000000-0000-0000-0000-000000000002" \
+  --principal-id <cicd-principal-id> \
+  --scope "/dbs/mydb"
+```
+
+Guidelines for role assignment:
+- **Application**: Data plane only, minimum role (Reader vs Contributor), scoped to its database or container
+- **Developers**: Data plane access on dev accounts, scoped narrowly, using their own Entra ID identity
+- **CI/CD pipeline**: Only permissions required to deploy — often just data plane write, sometimes control plane for container management
+- **Each identity gets its own access** — never share a single credential across users, environments, or systems
+
+Reference: [Use data plane role-based access control with Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/security/how-to-grant-data-plane-role-based-access)
 
 ---
 

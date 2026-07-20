@@ -1,0 +1,75 @@
+# ============================================================================
+# DORMANT TEMPLATE - this file does NOT run as-is.
+#
+# It lives under routing-eval/ci/ on purpose. GitHub only executes workflows
+# located in .github/workflows/. Because this file is NOT there, it cannot be
+# triggered by anyone or anything. It is here as a ready-to-activate template
+# for if/when upstream GitHub Models access is ever granted to Actions.
+#
+# To activate (maintainers only, deliberately):
+#   1. Copy this file to .github/workflows/routing-eval.yml
+#   2. Create a protected Environment named "routing-eval" with required
+#      reviewers, so every run pauses for explicit human approval.
+#   3. Update the actor allowlist below.
+#
+# Security properties by design:
+#   - workflow_dispatch ONLY. No pull_request, pull_request_target, or push
+#     triggers, so it can never be started by a PR.
+#   - workflow_dispatch is restricted by GitHub to users with write access or
+#     above; fork contributors and the public cannot trigger it.
+#   - The "routing-eval" environment adds a required-reviewer approval gate.
+#   - An explicit actor allowlist fails the job immediately for anyone else.
+#   - No repo-wide secrets. Any model token must be an environment-scoped
+#     secret behind the same approval gate.
+# ============================================================================
+
+name: Routing Eval (manual, gated)
+
+on:
+  workflow_dispatch:
+    inputs:
+      arm:
+        description: "Which arm to run"
+        type: choice
+        options: [split, all]
+        default: split
+
+permissions:
+  contents: read
+  models: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restrict to approved actors
+        env:
+          ALLOWED: "TheovanKraay"
+        run: |
+          if ! echo "$ALLOWED" | tr ',' '\n' | grep -qx "${{ github.actor }}"; then
+            echo "Actor ${{ github.actor }} is not on the routing-eval allowlist." >&2
+            exit 1
+          fi
+
+  routing-eval:
+    needs: guard
+    runs-on: ubuntu-latest
+    environment: routing-eval  # required-reviewers gate; approval needed before this job runs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r routing-eval/requirements.txt
+      - name: Run routing classifier
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python routing-eval/src/route_classify.py --arm "${{ inputs.arm }}"
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: routing-eval-report
+          path: routing-eval/results
+          retention-days: 30

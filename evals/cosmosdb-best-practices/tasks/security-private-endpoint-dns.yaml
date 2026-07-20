@@ -1,0 +1,24 @@
+id: security-private-endpoint-dns
+name: Security - Private Endpoint DNS Resolution
+description: |
+  Test that the skill diagnoses the most common private endpoint failure mode:
+  the endpoint is created but DNS still resolves the account FQDN to the public
+  IP because the private DNS zone (privatelink.documents.azure.com) was not
+  created, not linked to the VNet, or not associated with the endpoint via a
+  DNS zone group. The skill should walk through the full DNS setup — zone,
+  VNet link, and dns-zone-group on the endpoint — and explain that the
+  application connection string does not change.
+tags:
+  - security
+  - private-endpoint
+  - dns
+  - connectivity
+inputs:
+  prompt: |
+    I enabled a private endpoint on my Cosmos DB for NoSQL account and disabled
+    public network access. From a VM inside the same VNet, my app still fails
+    with connection timeouts, and nslookup on myaccount.documents.azure.com
+    returns a public IP (104.x.x.x) instead of a private one. What did I miss?
+expected:
+  outcomes:
+    - type: task_completed

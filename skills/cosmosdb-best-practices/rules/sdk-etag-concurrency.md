@@ -9,7 +9,7 @@ tags: sdk, concurrency, etag, consistency, read-modify-write
 
 When performing read-modify-write operations (read a document, update a field, write it back), always use ETags to prevent lost updates from concurrent writes. Without ETags, the last writer silently overwrites changes from other operations.
 
-**Problem: Lost updates without ETag checks**
+**Incorrect (performing read-modify-write updates without an ETag precondition):**
 
 ```csharp
 // Anti-pattern: Read-modify-write without concurrency control
@@ -36,7 +36,7 @@ public async Task UpdatePlayerStatsAsync(string playerId, int newScore)
 }
 ```
 
-**Solution: ETag-based optimistic concurrency with retry**
+**Correct (using ETag-based optimistic concurrency and retrying on HTTP 412):**
 
 ```csharp
 // Correct: Use ETag to detect concurrent modifications and retry

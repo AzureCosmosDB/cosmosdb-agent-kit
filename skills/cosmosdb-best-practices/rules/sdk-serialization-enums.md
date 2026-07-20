@@ -1,6 +1,7 @@
 ---
 title: Use consistent enum serialization between Cosmos SDK and application layer
-impact: critical
+impact: CRITICAL
+impactDescription: prevents silent query mismatches caused by enum values being stored in a different JSON shape than the application expects
 tags: [sdk, serialization, enums, bug-prevention]
 ---
 
@@ -10,7 +11,7 @@ tags: [sdk, serialization, enums, bug-prevention]
 
 The Cosmos DB SDK's default serializer stores enums as **integers**, but many application frameworks (ASP.NET Core, Spring Boot) serialize enums as **strings** in API responses. This mismatch causes queries to fail silently - returning empty results when filtering by enum values.
 
-## Example Bug
+**Incorrect (querying enum fields without matching the stored JSON representation):**
 
 ```csharp
 // Model with enum
@@ -24,7 +25,7 @@ var query = new QueryDefinition("SELECT * FROM c WHERE c.status = @status")
     .WithParameter("@status", "Shipped");  // ❌ Wrong - Cosmos has integer 1
 ```
 
-## Solution
+**Correct (align serializer settings or query using the stored representation):**
 
 ### Option 1: Configure Cosmos SDK to use string serialization (Recommended)
 
@@ -97,7 +98,7 @@ The Python `azure-cosmos` SDK serializes request bodies with `json.dumps(data)` 
 
 Always pass `mode="json"` so Pydantic converts these to JSON-safe primitives first.
 
-### Incorrect
+**Incorrect (passing native Pydantic values that are not JSON-serializable to the SDK):**
 
 ```python
 class ScoreDoc(BaseModel):
@@ -108,7 +109,7 @@ class ScoreDoc(BaseModel):
 await container.create_item(body=doc.model_dump(by_alias=True))
 ```
 
-### Correct
+**Correct (dumping a JSON-safe payload before writing to Cosmos DB):**
 
 ```python
 # ✅ datetime → ISO-8601 string, UUID → hex string, Decimal → string
