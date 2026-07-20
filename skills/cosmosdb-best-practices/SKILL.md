@@ -79,6 +79,7 @@ Reference these guidelines when:
 - [partition-key-length](rules/partition-key-length.md) - Respect partition key value length limits
 - [partition-immutable-key](rules/partition-immutable-key.md) - Choose immutable properties as partition keys
 - [partition-20gb-limit](rules/partition-20gb-limit.md) - Plan for 20GB logical partition limit
+- [partition-rekey-migration](rules/partition-rekey-migration.md) - Re-key a misaligned container with the Change partition key feature
 
 ### 3. Query Optimization (HIGH)
 
@@ -127,6 +128,7 @@ Reference these guidelines when:
 - [sdk-langchain-mcp-tool-content-format](rules/sdk-langchain-mcp-tool-content-format.md) - Handle both string and list formats in MCP ToolMessage content
 - [sdk-langgraph-mcp-tool-filtering](rules/sdk-langgraph-mcp-tool-filtering.md) - Filter MCP tools by name prefix for per-agent assignment
 - [sdk-dotnet-namespace-collision](rules/sdk-dotnet-namespace-collision.md) - Avoid `Microsoft.Azure.Cosmos` namespace collisions with domain models (User, Database, Container, etc.)
+- [sdk-ingestion-rate-control](rules/sdk-ingestion-rate-control.md) - Rate-control high-volume ingestion (concurrency, retry-after, throughput control)
 
 ### 5. Indexing Strategies (MEDIUM-HIGH)
 
@@ -145,6 +147,9 @@ Reference these guidelines when:
 - [throughput-serverless](rules/throughput-serverless.md) - Consider serverless for dev/test
 - [throughput-burst](rules/throughput-burst.md) - Understand burst capacity
 - [throughput-container-vs-database](rules/throughput-container-vs-database.md) - Choose allocation level wisely
+- [throughput-idle-container-review](rules/throughput-idle-container-review.md) - Review idle containers for lifecycle action
+- [throughput-ttl-stale-data](rules/throughput-ttl-stale-data.md) - Expire stale data with TTL before hitting storage limits
+- [throughput-serverless-migration](rules/throughput-serverless-migration.md) - Migrate a low-traffic provisioned account to serverless
 
 ### 7. Global Distribution (MEDIUM)
 
@@ -154,6 +159,7 @@ Reference these guidelines when:
 - [global-failover](rules/global-failover.md) - Configure automatic failover
 - [global-read-regions](rules/global-read-regions.md) - Add read regions near users
 - [global-zone-redundancy](rules/global-zone-redundancy.md) - Enable zone redundancy for HA
+- [global-multi-region-write-antipattern](rules/global-multi-region-write-antipattern.md) - Avoid multi-region writes without an active-active need
 
 ### 8. Monitoring & Diagnostics (LOW-MEDIUM)
 
