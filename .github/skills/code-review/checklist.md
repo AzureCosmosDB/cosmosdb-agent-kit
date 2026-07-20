@@ -53,9 +53,31 @@ Rules in this repo are often created by the automated evaluation loop: an LLM re
 - 🔴 **Over-generalization from single failure**: Rule presents a workaround for one specific test scenario as a universal best practice. The rule should apply broadly — if it only makes sense for the exact code that triggered it, it's not a valid rule.
 - 🟡 **Missing documentation reference**: Rule has no `Reference:` link. High hallucination risk — rules derived from real Cosmos DB behavior almost always have a doc page to cite.
 - 🟡 **Synthetic-looking examples**: The Incorrect/Correct code examples look fabricated (nonsensical variable names, unrealistic usage patterns, code that wouldn't compile) rather than drawn from real SDK documentation or samples.
-- 🟡 **Contradicts existing rules**: New rule conflicts with or duplicates an existing rule in the same skill. Check for overlap.
 
 **Heuristic**: If a rule was created in the same PR as test iteration code (visible in IMPROVEMENTS-LOG.md), treat its technical claims with higher skepticism — it was generated from failure analysis, not from engineering experience or documentation review.
+
+### Duplication, Overlap & Conflicts (compare against ALL existing rules)
+
+A new rule must not restate — or contradict — guidance that an existing rule already
+covers. Duplicates bloat the skill and dilute the index; conflicts give agents
+contradictory advice. Do NOT rely on memory or on the PR diff alone. Actively compare the
+new rule against the existing rule set:
+
+1. **Enumerate existing rules.** Read the rule filenames under `skills/<skill>/rules/` and
+   the category index in `skills/<skill>/SKILL.md`. Check every rule sharing the new
+   rule's prefix (e.g. a new `sdk-` rule vs all existing `sdk-*` rules), and scan the other
+   prefixes too — overlapping guidance often lands under a different category.
+2. **Compare guidance, not just titles.** Does the new rule's core recommendation,
+   Incorrect/Correct pattern, or API usage already appear in — or contradict — an existing rule?
+3. **Classify and flag:**
+   - 🔴 **Duplicate**: the core guidance already exists elsewhere. Block; ask the author to
+     extend/refine the existing rule instead of adding a new one.
+   - 🔴 **Conflict**: the new rule contradicts an existing rule. Block until reconciled.
+   - 🟡 **Partial overlap**: shares significant scope with an existing rule. Recommend
+     consolidating, cross-referencing, or narrowing scope.
+   - 🟢 **Distinct**: no meaningful overlap.
+4. **Name the rules you compared against.** A review that says "no duplicates" without
+   listing the specific existing rule files it checked is not sufficient.
 
 ---
 
