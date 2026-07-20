@@ -39,7 +39,8 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 2.5 [Choose Immutable Properties as Partition Keys](#25-choose-immutable-properties-as-partition-keys)
    - 2.6 [Respect Partition Key Value Length Limits](#26-respect-partition-key-value-length-limits)
    - 2.7 [Align Partition Key with Query Patterns](#27-align-partition-key-with-query-patterns)
-   - 2.8 [Create Synthetic Partition Keys When Needed](#28-create-synthetic-partition-keys-when-needed)
+   - 2.8 [Re-Key a Misaligned Container with the Change Partition Key Feature](#28-re-key-a-misaligned-container-with-the-change-partition-key-feature)
+   - 2.9 [Create Synthetic Partition Keys When Needed](#29-create-synthetic-partition-keys-when-needed)
 3. [Query Optimization](#3-query-optimization) — **HIGH**
    - 3.1 [Compute min/max/avg with one scoped aggregate query](#31-compute-min-max-avg-with-one-scoped-aggregate-query)
    - 3.2 [Minimize Cross-Partition Queries](#32-minimize-cross-partition-queries)
@@ -67,33 +68,34 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 4.11 [Use ETags for optimistic concurrency on read-modify-write operations](#411-use-etags-for-optimistic-concurrency-on-read-modify-write-operations)
    - 4.12 [Configure Excluded Regions for Dynamic Failover](#412-configure-excluded-regions-for-dynamic-failover)
    - 4.13 [Use current Go Cosmos DB SDK versions and explicit partition-key metadata](#413-use-current-go-cosmos-db-sdk-versions-and-explicit-partition-key-metadata)
-   - 4.14 [Unwrap CosmosItemResponse and enable content response in Java SDK](#414-unwrap-cosmositemresponse-and-enable-content-response-in-java-sdk)
-   - 4.15 [Use dependent @Bean methods for Cosmos DB initialization in Spring Boot](#415-use-dependent-bean-methods-for-cosmos-db-initialization-in-spring-boot)
-   - 4.16 [Spring Boot and Java version compatibility for Cosmos DB SDK](#416-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
-   - 4.17 [Initialize Async Cosmos DB Container Before CosmosDBSaver](#417-initialize-async-cosmos-db-container-before-cosmosdbsaver)
-   - 4.18 [Use CosmosDBSaver for LangGraph Checkpointing](#418-use-cosmosdbsaver-for-langgraph-checkpointing)
-   - 4.19 [Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS](#419-use-azurecosmosdbnosqlchatmessagehistory-for-persistent-conversations-in-js-ts)
-   - 4.20 [Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain](#420-configure-azure-openai-embedding-deployment-name-for-js-ts-langchain)
-   - 4.21 [Prevent Filter Injection in JS/TS LangChain Vector Store Queries](#421-prevent-filter-injection-in-js-ts-langchain-vector-store-queries)
-   - 4.22 [Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search](#422-configure-full-text-prerequisites-before-js-ts-langchain-hybrid-search)
-   - 4.23 [Use Managed Identity for JS/TS LangChain Cosmos DB Integration](#423-use-managed-identity-for-js-ts-langchain-cosmos-db-integration)
-   - 4.24 [Choose the Correct Search Type for JS/TS LangChain Vector Store](#424-choose-the-correct-search-type-for-js-ts-langchain-vector-store)
-   - 4.25 [Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS](#425-use-azurecosmosdbnosqlsemanticcache-for-llm-cost-reduction-in-js-ts)
-   - 4.26 [Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript](#426-correctly-initialize-azurecosmosdbnosqlvectorstore-in-javascript-typescript)
-   - 4.27 [Use Persistent MCP Client Sessions for Multi-Agent Applications](#427-use-persistent-mcp-client-sessions-for-multi-agent-applications)
-   - 4.28 [Handle MCP ToolMessage Content Format Variations](#428-handle-mcp-toolmessage-content-format-variations)
-   - 4.29 [Filter MCP Tools by Name Prefix for Agent Assignment](#429-filter-mcp-tools-by-name-prefix-for-agent-assignment)
-   - 4.30 [Configure local development environment to avoid cloud connection conflicts](#430-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
-   - 4.31 [Explicitly reference Newtonsoft.Json package](#431-explicitly-reference-newtonsoft-json-package)
-   - 4.32 [Use the Patch API for atomic counter increments](#432-use-the-patch-api-for-atomic-counter-increments)
-   - 4.33 [Configure Preferred Regions for Availability](#433-configure-preferred-regions-for-availability)
-   - 4.34 [Include aiohttp When Using Python Async SDK](#434-include-aiohttp-when-using-python-async-sdk)
-   - 4.35 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#435-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
-   - 4.36 [Handle 429 Errors with Retry-After](#436-handle-429-errors-with-retry-after)
-   - 4.37 [Use consistent enum serialization between Cosmos SDK and application layer](#437-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
-   - 4.38 [Reuse CosmosClient as Singleton](#438-reuse-cosmosclient-as-singleton)
-   - 4.39 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#439-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
-   - 4.40 [Use CosmosRepository correctly and handle Iterable return types](#440-use-cosmosrepository-correctly-and-handle-iterable-return-types)
+   - 4.14 [Rate-Control High-Volume Ingestion](#414-rate-control-high-volume-ingestion)
+   - 4.15 [Unwrap CosmosItemResponse and enable content response in Java SDK](#415-unwrap-cosmositemresponse-and-enable-content-response-in-java-sdk)
+   - 4.16 [Use dependent @Bean methods for Cosmos DB initialization in Spring Boot](#416-use-dependent-bean-methods-for-cosmos-db-initialization-in-spring-boot)
+   - 4.17 [Spring Boot and Java version compatibility for Cosmos DB SDK](#417-spring-boot-and-java-version-compatibility-for-cosmos-db-sdk)
+   - 4.18 [Initialize Async Cosmos DB Container Before CosmosDBSaver](#418-initialize-async-cosmos-db-container-before-cosmosdbsaver)
+   - 4.19 [Use CosmosDBSaver for LangGraph Checkpointing](#419-use-cosmosdbsaver-for-langgraph-checkpointing)
+   - 4.20 [Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS](#420-use-azurecosmosdbnosqlchatmessagehistory-for-persistent-conversations-in-js-ts)
+   - 4.21 [Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain](#421-configure-azure-openai-embedding-deployment-name-for-js-ts-langchain)
+   - 4.22 [Prevent Filter Injection in JS/TS LangChain Vector Store Queries](#422-prevent-filter-injection-in-js-ts-langchain-vector-store-queries)
+   - 4.23 [Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search](#423-configure-full-text-prerequisites-before-js-ts-langchain-hybrid-search)
+   - 4.24 [Use Managed Identity for JS/TS LangChain Cosmos DB Integration](#424-use-managed-identity-for-js-ts-langchain-cosmos-db-integration)
+   - 4.25 [Choose the Correct Search Type for JS/TS LangChain Vector Store](#425-choose-the-correct-search-type-for-js-ts-langchain-vector-store)
+   - 4.26 [Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS](#426-use-azurecosmosdbnosqlsemanticcache-for-llm-cost-reduction-in-js-ts)
+   - 4.27 [Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript](#427-correctly-initialize-azurecosmosdbnosqlvectorstore-in-javascript-typescript)
+   - 4.28 [Use Persistent MCP Client Sessions for Multi-Agent Applications](#428-use-persistent-mcp-client-sessions-for-multi-agent-applications)
+   - 4.29 [Handle MCP ToolMessage Content Format Variations](#429-handle-mcp-toolmessage-content-format-variations)
+   - 4.30 [Filter MCP Tools by Name Prefix for Agent Assignment](#430-filter-mcp-tools-by-name-prefix-for-agent-assignment)
+   - 4.31 [Configure local development environment to avoid cloud connection conflicts](#431-configure-local-development-environment-to-avoid-cloud-connection-conflicts)
+   - 4.32 [Explicitly reference Newtonsoft.Json package](#432-explicitly-reference-newtonsoft-json-package)
+   - 4.33 [Use the Patch API for atomic counter increments](#433-use-the-patch-api-for-atomic-counter-increments)
+   - 4.34 [Configure Preferred Regions for Availability](#434-configure-preferred-regions-for-availability)
+   - 4.35 [Include aiohttp When Using Python Async SDK](#435-include-aiohttp-when-using-python-async-sdk)
+   - 4.36 [Never share a single CosmosItemRequestOptions instance across multiple createItem calls](#436-never-share-a-single-cosmositemrequestoptions-instance-across-multiple-createitem-calls)
+   - 4.37 [Handle 429 Errors with Retry-After](#437-handle-429-errors-with-retry-after)
+   - 4.38 [Use consistent enum serialization between Cosmos SDK and application layer](#438-use-consistent-enum-serialization-between-cosmos-sdk-and-application-layer)
+   - 4.39 [Reuse CosmosClient as Singleton](#439-reuse-cosmosclient-as-singleton)
+   - 4.40 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#440-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
+   - 4.41 [Use CosmosRepository correctly and handle Iterable return types](#441-use-cosmosrepository-correctly-and-handle-iterable-return-types)
 5. [Indexing Strategies](#5-indexing-strategies) — **MEDIUM-HIGH**
    - 5.1 [Composite Index Directions Must Match ORDER BY](#51-composite-index-directions-must-match-order-by)
    - 5.2 [Use Composite Indexes for ORDER BY](#52-use-composite-indexes-for-order-by)
@@ -106,16 +108,20 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 6.1 [Use Autoscale for Variable Workloads](#61-use-autoscale-for-variable-workloads)
    - 6.2 [Understand Burst Capacity](#62-understand-burst-capacity)
    - 6.3 [Choose Container vs Database Throughput](#63-choose-container-vs-database-throughput)
-   - 6.4 [Use Integrated Cache for Read-Heavy Workloads with Dedicated Gateway](#64-use-integrated-cache-for-read-heavy-workloads-with-dedicated-gateway)
-   - 6.5 [Right-Size Provisioned Throughput](#65-right-size-provisioned-throughput)
-   - 6.6 [Consider Serverless for Dev/Test](#66-consider-serverless-for-dev-test)
+   - 6.4 [Review Idle Containers for Lifecycle Action](#64-review-idle-containers-for-lifecycle-action)
+   - 6.5 [Use Integrated Cache for Read-Heavy Workloads with Dedicated Gateway](#65-use-integrated-cache-for-read-heavy-workloads-with-dedicated-gateway)
+   - 6.6 [Right-Size Provisioned Throughput](#66-right-size-provisioned-throughput)
+   - 6.7 [Migrate a Low-Traffic Provisioned Account to Serverless](#67-migrate-a-low-traffic-provisioned-account-to-serverless)
+   - 6.8 [Consider Serverless for Dev/Test](#68-consider-serverless-for-dev-test)
+   - 6.9 [Expire Stale Data Before It Hits Storage Limits](#69-expire-stale-data-before-it-hits-storage-limits)
 7. [Global Distribution](#7-global-distribution) — **MEDIUM**
    - 7.1 [Implement Conflict Resolution](#71-implement-conflict-resolution)
    - 7.2 [Choose Appropriate Consistency Level](#72-choose-appropriate-consistency-level)
    - 7.3 [Configure Automatic Failover](#73-configure-automatic-failover)
-   - 7.4 [Configure Multi-Region Writes](#74-configure-multi-region-writes)
-   - 7.5 [Add Read Regions Near Users](#75-add-read-regions-near-users)
-   - 7.6 [Configure Zone Redundancy for High Availability](#76-configure-zone-redundancy-for-high-availability)
+   - 7.4 [Avoid Multi-Region Writes Without an Active-Active Need](#74-avoid-multi-region-writes-without-an-active-active-need)
+   - 7.5 [Configure Multi-Region Writes](#75-configure-multi-region-writes)
+   - 7.6 [Add Read Regions Near Users](#76-add-read-regions-near-users)
+   - 7.7 [Configure Zone Redundancy for High Availability](#77-configure-zone-redundancy-for-high-availability)
 8. [Monitoring & Diagnostics](#8-monitoring-diagnostics) — **LOW-MEDIUM**
    - 8.1 [Integrate Azure Monitor](#81-integrate-azure-monitor)
    - 8.2 [Enable Diagnostic Logging](#82-enable-diagnostic-logging)
@@ -2235,7 +2241,68 @@ public class Message
 
 Reference: [Choose a partition key](https://learn.microsoft.com/azure/cosmos-db/partitioning-overview#choose-a-partition-key)
 
-### 2.8 Create Synthetic Partition Keys When Needed
+### 2.8 Re-Key a Misaligned Container with the Change Partition Key Feature
+
+**Impact: CRITICAL** (replaces cross-partition fan-out with single-partition query cost (major RU/latency reduction))
+
+## Re-Key a Misaligned Container with the Change Partition Key Feature
+
+When the dominant query workload structurally fans out across partitions — or one partition runs hot — the partition key is misaligned with the application's access pattern. Adding a partition-key filter to individual queries helps isolated shapes, but it cannot fix a live container whose primary lookup dimension is not the partition key. The partition key is immutable on a container, so the fix is to move the data to a container with a better key.
+
+Prefer the built-in feature over hand-rolling this migration. Azure Cosmos DB for NoSQL provides a built-in **Change partition key** feature (Azure portal) that performs the re-key for you using service-managed [container copy](https://learn.microsoft.com/azure/cosmos-db/container-copy) jobs, so you don't have to write and operate your own dual-write/backfill pipeline. (A hand-rolled migration is only needed when the container falls outside the feature's supported limits below.)
+
+**Incorrect (hand-rolled migration pipeline you must build, run, and reconcile yourself):**
+
+```csharp
+// Bespoke re-key: create a new container, backfill, dual-write, reconcile, cut over.
+// Hundreds of lines of code to write, test, and operate — and easy to get wrong
+// (missed change-feed events, dual-write drift, throttling the copy).
+Container newContainer = await database.CreateContainerAsync(
+    new ContainerProperties("orders-by-customer", "/customerId"), throughput: 10000);
+
+await foreach (var doc in ReadAllFromOldContainerAsync())
+    await newContainer.UpsertItemAsync(doc, new PartitionKey(doc.CustomerId));
+// ...plus change-feed sync, dual-writes during cutover, verification, rollback logic...
+```
+
+**Correct (use the built-in Change partition key feature):**
+
+```text
+Azure portal → your Cosmos DB account → Data Explorer → select the container
+  → Scale & Settings → Partition Keys tab → Change
+
+1. Pick the new partition key path (higher-cardinality, aligned to the dominant
+   access pattern; a /synthetic or hierarchical key is fine).
+2. Create a new destination container (portal copies all settings except the
+   partition key and unique keys) or select an existing one in the same database.
+3. Run the copy as OFFLINE (no writes during copy) or ONLINE (writes continue).
+   For ONLINE, click "Complete" to finalize once the copy has caught up.
+4. After completion, point the app at the new container and, optionally, delete
+   the old one.
+```
+
+```csharp
+// Post-migration, the SDK reads/writes go to the re-keyed container and queries
+// filtered by the new key hit a single partition:
+var query = new QueryDefinition("SELECT * FROM c WHERE c.customerId = @customerId")
+    .WithParameter("@customerId", customerId);
+using var iterator = newContainer.GetItemQueryIterator<Order>(
+    query,
+    requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(customerId) });
+```
+
+Requirements and limitations (verify before starting):
+- **API:** Azure Cosmos DB for **NoSQL** API.
+- **Size/throughput:** container has **< 4 TB** of data and is provisioned with **< 1,000,000 RU/s**. Above either, contact Microsoft support. ([Change partition key — Limitations](https://learn.microsoft.com/azure/cosmos-db/change-partition-key#limitations))
+- **Not supported** on accounts that have the **Merge partition** capability enabled.
+- **Regions:** available only in the [regions supported by container copy](https://learn.microsoft.com/azure/cosmos-db/container-copy#supported-regions).
+- The copy runs on service-managed compute; for very large containers you can request higher-capacity compute via Microsoft support. Choose a **new key with high cardinality** aligned to your dominant access pattern, and validate queries, stored procedures, and indexing policy on the new container after cutover.
+
+When per-query fixes are enough (an occasional cross-partition shape on an otherwise well-keyed container), prefer `query-avoid-cross-partition` instead of re-keying.
+
+Reference: [Change partition key in Azure Cosmos DB for NoSQL](https://learn.microsoft.com/azure/cosmos-db/change-partition-key)
+
+### 2.9 Create Synthetic Partition Keys When Needed
 
 **Impact: HIGH** (optimizes for multiple access patterns)
 
@@ -5526,7 +5593,162 @@ References:
 - [Azure Cosmos DB for NoSQL partitioning overview](https://learn.microsoft.com/azure/cosmos-db/partitioning-overview)
 - [Azure Cosmos DB Go SDK (`azcosmos`) package docs](https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/data/azcosmos)
 
-### 4.14 Unwrap CosmosItemResponse and enable content response in Java SDK
+### 4.14 Rate-Control High-Volume Ingestion
+
+**Impact: HIGH** (prevents sustained 429s and noisy-neighbor latency)
+
+## Rate-Control High-Volume Ingestion
+
+Write-heavy batch or bulk ingestion can push a container past its provisioned throughput faster than it can absorb, causing sustained 429s and latency spikes for other request paths sharing the same container. Scaling RU/s is sometimes necessary, but application-side rate control is the code lever that keeps ingestion stable: cap concurrent writes, honor the server's `x-ms-retry-after-ms` hint on 429, use the SDK's bulk/throughput-control features, and smooth producers through a queue.
+
+**Incorrect (unbounded concurrent ingestion that amplifies throttling):**
+
+```python
+import asyncio
+
+async def ingest(container, documents):
+    # Fires every write at once; on 429 the naive retries pile on more pressure.
+    await asyncio.gather(*[
+        container.upsert_item(doc) for doc in documents
+    ])
+```
+
+**Correct (bounded concurrency with retry-after-aware writes):**
+
+```python
+import asyncio
+from azure.cosmos.exceptions import CosmosHttpResponseError
+
+async def upsert_with_backoff(container, doc, limiter, max_attempts=10):
+    async with limiter:
+        for attempt in range(max_attempts):
+            try:
+                return await container.upsert_item(doc)
+            except CosmosHttpResponseError as ex:
+                if ex.status_code != 429 or attempt == max_attempts - 1:
+                    raise  # bounded: give up after max_attempts instead of looping forever
+                delay_ms = int(ex.headers.get("x-ms-retry-after-ms", "1000"))
+                await asyncio.sleep(delay_ms / 1000)
+
+async def ingest(container, documents, batch_size=1000):
+    limiter = asyncio.Semaphore(50)                    # cap concurrent writes
+    for i in range(0, len(documents), batch_size):     # process in batches — don't create every task at once
+        batch = documents[i:i + batch_size]
+        await asyncio.gather(*[
+            upsert_with_backoff(container, doc, limiter) for doc in batch
+        ])
+```
+
+Additional levers:
+- Prefer the SDK's built-in **throughput control** over hand-rolled fan-out — it caps a workload's RU usage so a bulk job can't starve other traffic (Java SDK and Spark connector shown below). Note that .NET's bulk mode (`AllowBulkExecution`) improves ingestion *efficiency* but does **not** enforce an RU/s cap — pair it with bounded concurrency/backpressure or throughput control.
+- Separate batch ingestion paths from latency-sensitive request paths (different clients, or a queue) so a bulk job cannot starve interactive traffic.
+- Scaling RU/s can complement rate control, but it does not replace it — a burst can still outrun any fixed provisioning.
+
+### Java SDK: throughput control groups
+
+The Java SDK v4 (>= 4.13.0) has built-in **throughput control groups** that cap RU consumption. Use a *local* group to limit a single client, or a *global* group to coordinate one limit across many client instances via a shared metadata container. (These APIs are annotated `@Beta`.)
+
+**Local (limit ingestion to a share of the container's RU/s within one client):**
+
+```java
+ThroughputControlGroupConfig groupConfig =
+    new ThroughputControlGroupConfigBuilder()
+        .groupName("ingestion")
+        .targetThroughputThreshold(0.5) // 50% of provisioned RU/s; or .targetThroughput(5000) for an absolute RU/s cap
+        .build();
+
+container.enableLocalThroughputControlGroup(groupConfig);
+// All operations on `container` in this client are now rate-limited to the group.
+```
+
+**Global (enforce one collective limit across many microservice/worker instances):**
+
+```java
+ThroughputControlGroupConfig groupConfig =
+    new ThroughputControlGroupConfigBuilder()
+        .groupName("ingestion")
+        .targetThroughputThreshold(0.5)
+        .defaultControlGroup(true)
+        .build();
+
+// Metadata container coordinates usage across clients (its partition key is "/groupId").
+GlobalThroughputControlConfig globalControlConfig =
+    client.createGlobalThroughputControlConfigBuilder(
+            "ThroughputControlDatabase", "ThroughputControlContainer")
+        .setControlItemRenewInterval(Duration.ofSeconds(5))
+        .setControlItemExpireInterval(Duration.ofSeconds(11))
+        .build();
+
+container.enableGlobalThroughputControlGroup(groupConfig, globalControlConfig);
+```
+
+### Spark connector: throughput control
+
+For bulk data movement with the Cosmos DB Spark connector, enable throughput control so the job caps its RU usage and leaves headroom for other workloads. First create a throughput-control metadata container (partition key `/groupId`, TTL enabled), then set the config on the job:
+
+```scala
+"spark.cosmos.throughputControl.enabled" -> "true",
+"spark.cosmos.throughputControl.name" -> "ingestion",
+"spark.cosmos.throughputControl.targetThroughputThreshold" -> "0.95", // 95% of provisioned RU/s
+"spark.cosmos.throughputControl.globalControl.database" -> "database-v4",
+"spark.cosmos.throughputControl.globalControl.container" -> "ThroughputControl"
+```
+
+Notes:
+- On **serverless** accounts a percentage threshold isn't supported — set an absolute cap via `spark.cosmos.throughputControl.targetThroughput` instead.
+- With Microsoft Entra ID auth, `targetThroughputThreshold` requires the `.../containers/throughputSettings/read` data action so the connector can read the container's provisioned throughput.
+
+### Server-side isolation: throughput buckets and priority-based execution
+
+The levers above are client-side. Cosmos DB also has two **server-side** controls that isolate a bulk ingestion workload from latency-sensitive traffic on the *same* container. Combine either with the retry/backoff shown earlier so the throttled ingestion path yields instead of failing.
+
+**Priority-based execution (PBE)** — tag requests `High` or `Low`; when the container exceeds its RU/s, Cosmos DB throttles **low-priority requests first** (best-effort, no SLA) and the SDK retries them per its retry policy. Run ingestion at low priority so it backs off under contention while the app's high-priority traffic proceeds. Enable it on the account (portal **Features**, or `az cosmosdb update --enable-priority-based-execution true`). Unspecified requests default to **High**.
+
+```csharp
+// .NET v3 (>= 3.38.0): run bulk ingestion at low priority
+var ingest = new ItemRequestOptions { PriorityLevel = PriorityLevel.Low };
+await container.CreateItemAsync(doc, new PartitionKey(doc.PartitionKey), ingest);
+// The app's user-facing reads/writes use PriorityLevel.High and win under contention.
+```
+
+```java
+// Java v4 (>= 4.45.0): a low-priority throughput-control group, referenced per request
+ThroughputControlGroupConfig low = new ThroughputControlGroupConfigBuilder()
+    .groupName("ingestion").priorityLevel(PriorityLevel.LOW).build();
+container.enableLocalThroughputControlGroup(low);
+
+CosmosItemRequestOptions options = new CosmosItemRequestOptions();
+options.setThroughputControlGroupName("ingestion");
+```
+
+PBE is **not** supported on serverless accounts and is non-deterministic on shared (database-level) throughput.
+
+**Throughput buckets (preview)** — cap the fraction of a container's RU/s a workload may consume (up to five buckets, each with a maximum percentage). Assign the ingestion job to a bucket so it can never use more than, say, 40% of the container, leaving headroom for the app. Register the preview on the subscription, then configure buckets in Data Explorer (Scale & Settings).
+
+```csharp
+// .NET (>= 3.50.0-preview.0): pin all bulk-client requests to bucket 1 (capped in the portal)
+CosmosClient client = new CosmosClientBuilder("<endpoint>", credential)
+    .WithBulkExecution(true)
+    .WithThroughputBucket(1)
+    .Build();
+// Or per request: new ItemRequestOptions { ThroughputBucket = 1 }
+```
+
+```java
+// Java (>= 4.75.0): server-side throughput control assigns the container's requests to bucket 1
+ThroughputControlGroupConfig bucket = new ThroughputControlGroupConfigBuilder()
+    .groupName("ingestion").throughputBucket(1).defaultControlGroup(true).build();
+container.enableServerThroughputControlGroup(bucket);
+```
+
+References:
+- [Bulk import data with the .NET SDK](https://learn.microsoft.com/azure/cosmos-db/nosql/tutorial-dotnet-bulk-import)
+- [Throughput control groups — Java SDK v4](https://learn.microsoft.com/azure/cosmos-db/throughput-control-java)
+- [Throughput control — Spark connector](https://learn.microsoft.com/azure/cosmos-db/throughput-control-spark)
+- [Priority-based execution](https://learn.microsoft.com/azure/cosmos-db/priority-based-execution)
+- [Throughput buckets](https://learn.microsoft.com/azure/cosmos-db/throughput-buckets)
+
+### 4.15 Unwrap CosmosItemResponse and enable content response in Java SDK
 
 **Impact: MEDIUM** (prevents type errors from missing getItem() on reads and null content on writes)
 
@@ -5732,7 +5954,7 @@ Enabling content response does NOT increase RU cost - the document is already fe
 
 Reference: [Azure Cosmos DB Java SDK best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-java)
 
-### 4.15 Use dependent @Bean methods for Cosmos DB initialization in Spring Boot
+### 4.16 Use dependent @Bean methods for Cosmos DB initialization in Spring Boot
 
 **Impact: HIGH** (prevents circular dependency, startup failures, class name collisions, and compile errors)
 
@@ -5993,7 +6215,7 @@ References:
 - [`CosmosAsyncClient.createDatabaseIfNotExists()` Javadoc](https://learn.microsoft.com/java/api/com.azure.cosmos.cosmosasyncclient?view=azure-java-stable)
 - [`AbstractCosmosConfiguration` Javadoc](https://learn.microsoft.com/java/api/com.azure.spring.data.cosmos.config.abstractcosmosconfiguration?view=azure-java-stable)
 
-### 4.16 Spring Boot and Java version compatibility for Cosmos DB SDK
+### 4.17 Spring Boot and Java version compatibility for Cosmos DB SDK
 
 **Impact: CRITICAL** (Prevents build failures due to version incompatibility between Spring Boot and Java)
 
@@ -6124,7 +6346,7 @@ export PATH=$JAVA_HOME/bin:$PATH
 - [Spring Boot 2.7.x System Requirements](https://docs.spring.io/spring-boot/docs/2.7.x/reference/html/getting-started.html#getting-started-system-requirements)
 - [Azure Cosmos DB Java SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-java-v4)
 
-### 4.17 Initialize Async Cosmos DB Container Before CosmosDBSaver
+### 4.18 Initialize Async Cosmos DB Container Before CosmosDBSaver
 
 **Impact: HIGH** (prevents credential and event-loop errors in async applications)
 
@@ -6186,7 +6408,7 @@ async def setup():
 
 Reference: [Azure Cosmos DB async Python SDK](https://learn.microsoft.com/python/api/azure-cosmos/azure.cosmos.aio?view=azure-python)
 
-### 4.18 Use CosmosDBSaver for LangGraph Checkpointing
+### 4.19 Use CosmosDBSaver for LangGraph Checkpointing
 
 **Impact: HIGH** (enables persistent multi-turn conversation state across restarts)
 
@@ -6248,7 +6470,7 @@ async def initialize_checkpointer():
 
 Reference: [langchain-azure-cosmosdb documentation](https://python.langchain.com/docs/integrations/providers/azure_cosmos_db/)
 
-### 4.19 Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS
+### 4.20 Use AzureCosmosDBNoSQLChatMessageHistory for Persistent Conversations in JS/TS
 
 **Impact: HIGH** (enables persistent multi-turn conversations that survive restarts and scale horizontally)
 
@@ -6333,7 +6555,7 @@ const response = await withHistory.invoke(
 
 Reference: [LangChain.js Azure Cosmos DB Chat History](https://js.langchain.com/docs/integrations/chat_memory/azure_cosmosdb_nosql/)
 
-### 4.20 Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain
+### 4.21 Configure Azure OpenAI Embedding Deployment Name for JS/TS LangChain
 
 **Impact: MEDIUM** (incorrect deployment name causes 404 errors or uses wrong model)
 
@@ -6399,7 +6621,7 @@ const embeddings = new AzureOpenAIEmbeddings({
 
 Reference: [LangChain.js Azure OpenAI Embeddings](https://js.langchain.com/docs/integrations/text_embedding/azure_openai/)
 
-### 4.21 Prevent Filter Injection in JS/TS LangChain Vector Store Queries
+### 4.22 Prevent Filter Injection in JS/TS LangChain Vector Store Queries
 
 **Impact: CRITICAL** (prevents NoSQL injection attacks that can exfiltrate or corrupt data)
 
@@ -6476,7 +6698,7 @@ async function searchFiltered(
 
 Reference: [Azure Cosmos DB Parameterized Queries](https://learn.microsoft.com/azure/cosmos-db/nosql/query/parameterized-queries)
 
-### 4.22 Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search
+### 4.23 Configure Full-Text Prerequisites Before JS/TS LangChain Hybrid Search
 
 **Impact: HIGH** (full-text and hybrid queries fail at runtime without container-level configuration)
 
@@ -6578,7 +6800,7 @@ const results = await store.similaritySearch("specific keyword plus semantic mea
 
 Reference: [Azure Cosmos DB Full-Text Search](https://learn.microsoft.com/azure/cosmos-db/nosql/query/full-text-search)
 
-### 4.23 Use Managed Identity for JS/TS LangChain Cosmos DB Integration
+### 4.24 Use Managed Identity for JS/TS LangChain Cosmos DB Integration
 
 **Impact: CRITICAL** (zero-secret authentication eliminates credential leakage risk)
 
@@ -6642,7 +6864,7 @@ az cosmosdb sql role assignment create \
 
 Reference: [Azure Cosmos DB RBAC with Azure Identity](https://learn.microsoft.com/azure/cosmos-db/nosql/security/how-to-grant-data-plane-role-based-access)
 
-### 4.24 Choose the Correct Search Type for JS/TS LangChain Vector Store
+### 4.25 Choose the Correct Search Type for JS/TS LangChain Vector Store
 
 **Impact: HIGH** (selecting wrong search type returns irrelevant results or causes errors)
 
@@ -6711,7 +6933,7 @@ const results = await store.similaritySearch("keyword and semantic query", 10, {
 
 Reference: [LangChain.js Azure Cosmos DB NoSQL Vector Store](https://js.langchain.com/docs/integrations/vectorstores/azure_cosmosdb_nosql/)
 
-### 4.25 Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS
+### 4.26 Use AzureCosmosDBNoSQLSemanticCache for LLM Cost Reduction in JS/TS
 
 **Impact: MEDIUM** (reduces LLM API costs and latency by caching semantically similar queries)
 
@@ -6782,7 +7004,7 @@ const response2 = await model.invoke("Tell me about Azure Cosmos DB"); // Cache 
 
 Reference: [LangChain.js Azure Cosmos DB Semantic Cache](https://js.langchain.com/docs/integrations/llm_caching/azure_cosmosdb_nosql/)
 
-### 4.26 Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript
+### 4.27 Correctly Initialize AzureCosmosDBNoSQLVectorStore in JavaScript/TypeScript
 
 **Impact: HIGH** (prevents runtime connection failures and misconfigured vector stores)
 
@@ -6851,7 +7073,7 @@ const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
 
 Reference: [LangChain.js Azure Cosmos DB Integration](https://js.langchain.com/docs/integrations/vectorstores/azure_cosmosdb_nosql/)
 
-### 4.27 Use Persistent MCP Client Sessions for Multi-Agent Applications
+### 4.28 Use Persistent MCP Client Sessions for Multi-Agent Applications
 
 **Impact: HIGH** (prevents session initialization overhead and connection churn)
 
@@ -6938,7 +7160,7 @@ async def cleanup_mcp():
 
 Reference: [langchain-mcp-adapters documentation](https://github.com/langchain-ai/langchain-mcp-adapters)
 
-### 4.28 Handle MCP ToolMessage Content Format Variations
+### 4.29 Handle MCP ToolMessage Content Format Variations
 
 **Impact: HIGH** (prevents JSON parse failures from langchain-mcp-adapters >= 0.2.0)
 
@@ -6988,7 +7210,7 @@ def extract_routing_info(message: ToolMessage):
 
 Reference: [langchain-mcp-adapters changelog](https://github.com/langchain-ai/langchain-mcp-adapters)
 
-### 4.29 Filter MCP Tools by Name Prefix for Agent Assignment
+### 4.30 Filter MCP Tools by Name Prefix for Agent Assignment
 
 **Impact: MEDIUM** (reduces agent confusion and improves routing accuracy)
 
@@ -7044,7 +7266,7 @@ transactions_agent = create_react_agent(model, transactions_tools, prompt=transa
 
 Reference: [LangGraph prebuilt agents](https://langchain-ai.github.io/langgraph/reference/prebuilt/)
 
-### 4.30 Configure local development environment to avoid cloud connection conflicts
+### 4.31 Configure local development environment to avoid cloud connection conflicts
 
 **Impact: MEDIUM** (prevents accidental connections to production instead of emulator)
 
@@ -7215,7 +7437,7 @@ azure:
 
 Reference: [Azure Cosmos DB Emulator](https://learn.microsoft.com/azure/cosmos-db/emulator)
 
-### 4.31 Explicitly reference Newtonsoft.Json package
+### 4.32 Explicitly reference Newtonsoft.Json package
 
 **Impact: HIGH** (Prevents build failures and security vulnerabilities from missing or outdated Newtonsoft.Json dependency)
 
@@ -7319,7 +7541,7 @@ Solution:
 
 Reference: [Managing Newtonsoft.Json Dependencies](https://learn.microsoft.com/en-us/azure/cosmos-db/performance-tips-dotnet-sdk-v3?tabs=trace-net-core#managing-newtonsoftjson-dependencies)
 
-### 4.32 Use the Patch API for atomic counter increments
+### 4.33 Use the Patch API for atomic counter increments
 
 **Impact: HIGH** (eliminates read-modify-write for counters; reduces RU cost and eliminates concurrency conflicts)
 
@@ -7390,7 +7612,7 @@ return container.patchItem(videoId, new PartitionKey(videoId), ops, Video.class)
 
 Reference: [Partial document update (Patch API)](https://learn.microsoft.com/azure/cosmos-db/partial-document-update)
 
-### 4.33 Configure Preferred Regions for Availability
+### 4.34 Configure Preferred Regions for Availability
 
 **Impact: HIGH** (enables automatic failover, reduces latency)
 
@@ -7486,7 +7708,7 @@ Best practices:
 
 Reference: [Configure preferred regions](https://learn.microsoft.com/azure/cosmos-db/nosql/tutorial-global-distribution)
 
-### 4.34 Include aiohttp When Using Python Async SDK
+### 4.35 Include aiohttp When Using Python Async SDK
 
 **Impact: HIGH** (prevents application startup failure)
 
@@ -7534,7 +7756,7 @@ from azure.cosmos import CosmosClient
 
 Reference: [Azure Cosmos DB Python SDK](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/sdk-python)
 
-### 4.35 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
+### 4.36 Never share a single CosmosItemRequestOptions instance across multiple createItem calls
 
 **Impact: HIGH** (causes wrong partition key to be sent, producing silent data corruption or 400/404 errors)
 
@@ -7593,7 +7815,7 @@ usersContainer.createItem(
 
 Reference: [Java SDK createItem](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-get-started)
 
-### 4.36 Handle 429 Errors with Retry-After
+### 4.37 Handle 429 Errors with Retry-After
 
 **Impact: HIGH** (prevents cascading failures)
 
@@ -7710,7 +7932,7 @@ await Task.WhenAll(tasks);
 
 Reference: [Handle rate limiting](https://learn.microsoft.com/azure/cosmos-db/nosql/troubleshoot-request-rate-too-large)
 
-### 4.37 Use consistent enum serialization between Cosmos SDK and application layer
+### 4.38 Use consistent enum serialization between Cosmos SDK and application layer
 
 **Impact: CRITICAL** (prevents silent query mismatches caused by enum values being stored in a different JSON shape than the application expects)
 
@@ -7831,7 +8053,7 @@ await container.create_item(body=doc.model_dump(by_alias=True, mode="json"))
 - Point reads work but filtered queries don't
 - API returns different enum format than stored in Cosmos DB
 
-### 4.38 Reuse CosmosClient as Singleton
+### 4.39 Reuse CosmosClient as Singleton
 
 **Impact: CRITICAL** (prevents connection exhaustion)
 
@@ -8023,7 +8245,7 @@ async fn list_orders(
 
 Reference: [CosmosClient best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-dotnet)
 
-### 4.39 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
+### 4.40 Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs
 
 **Impact: CRITICAL** (prevents startup failures and data access errors in Spring Data Cosmos applications)
 
@@ -8139,7 +8361,7 @@ Add `@JsonIgnoreProperties(ignoreUnknown = true)` to every Cosmos entity class s
 
 Reference: [Spring Data Azure Cosmos DB annotations](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-spring-data)
 
-### 4.40 Use CosmosRepository correctly and handle Iterable return types
+### 4.41 Use CosmosRepository correctly and handle Iterable return types
 
 **Impact: HIGH** (prevents ClassCastException and query failures in Spring Data Cosmos repositories)
 
@@ -9486,7 +9708,51 @@ Decision matrix:
 
 Reference: [Throughput on containers vs databases](https://learn.microsoft.com/azure/cosmos-db/set-throughput)
 
-### 6.4 Use Integrated Cache for Read-Heavy Workloads with Dedicated Gateway
+### 6.4 Review Idle Containers for Lifecycle Action
+
+**Impact: MEDIUM** (recovers provisioned or autoscale-floor capacity)
+
+## Review Idle Containers for Lifecycle Action
+
+A container on **dedicated (provisioned) throughput** still bills for that throughput at near-zero traffic: **manual** bills its full RU/s 24/7, and **autoscale** [bills each hour for the highest RU/s it scaled to that hour](https://learn.microsoft.com/azure/cosmos-db/provision-throughput-autoscale) (between 10% and 100% of the configured max) — so an idle autoscale container still bills the 10% minimum. (This rule targets that case. A **serverless** container bills per request, so idle costs nothing; a container on database-level **shared** throughput doesn't bill on its own — the RU/s belongs to the database.) Abandoned import staging, deprecated features, and one-off migrations commonly leave such containers behind. The lever that recovers the cost is **decommissioning the container** (or dropping its RU/s if it must stay) — note that **TTL and archival reduce stored *data*, not the provisioned RU/s bill**. Before removing anything, confirm retention, compliance, and recovery requirements.
+
+**Incorrect (leaving an abandoned container provisioned):**
+
+```csharp
+// Legacy import container kept after a migration; no application reads or writes it,
+// yet it bills the 400 RU/s floor continuously.
+await database.CreateContainerIfNotExistsAsync(
+    new ContainerProperties("legacy-imports", "/tenantId"),
+    throughput: 400);
+```
+
+**Correct (decommission to recover cost; TTL only handles data retention):**
+
+```csharp
+// NOTE: TTL only expires data — it does NOT reduce the provisioned/autoscale RU bill.
+// Recovering the throughput cost requires decommissioning the container (or, if it must
+// stay, dropping it to the minimum RU/s).
+
+// 1. Optional retention: expire remaining data instead of holding it forever.
+var properties = await container.ReadContainerAsync();
+properties.Resource.DefaultTimeToLive = 60 * 60 * 24 * 30; // retain 30 days
+await container.ReplaceContainerAsync(properties.Resource);
+
+// 2. After owner approval and a validated backup/export, delete it to stop paying:
+// await container.DeleteContainerAsync();
+```
+
+Safety gates before removing an idle container:
+1. Confirm the container is genuinely idle (no reads or writes over a representative window, not just low RU).
+2. Get owner approval and check retention/compliance requirements.
+3. Take and validate a backup or export.
+4. TTL/archival control *data retention*, not throughput cost. To recover **dedicated** throughput, delete the container (or lower its RU/s); on **shared** database throughput, deleting frees RU back to the database; **serverless** has no idle charge. Delete only after monitoring confirms nothing depends on it.
+
+This differs from `throughput-right-size`, which tunes an *active but oversized* container; here the container is effectively unused and the question is whether it should exist at all.
+
+Reference: [Time to Live (TTL) in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/time-to-live)
+
+### 6.5 Use Integrated Cache for Read-Heavy Workloads with Dedicated Gateway
 
 **Impact: MEDIUM** (Significant RU reduction for repeated point reads and queries — cache hits cost 0 RUs)
 
@@ -9586,7 +9852,7 @@ FeedIterator<Product> iterator = container.GetItemQueryIterator<Product>(
 
 Reference: [Azure Cosmos DB integrated cache](https://learn.microsoft.com/azure/cosmos-db/integrated-cache)
 
-### 6.5 Right-Size Provisioned Throughput
+### 6.6 Right-Size Provisioned Throughput
 
 **Impact: MEDIUM** (balances performance and cost)
 
@@ -9678,7 +9944,60 @@ Throughput guidance:
 
 Reference: [Estimate RU/s](https://learn.microsoft.com/azure/cosmos-db/estimate-ru-with-capacity-planner)
 
-### 6.6 Consider Serverless for Dev/Test
+### 6.7 Migrate a Low-Traffic Provisioned Account to Serverless
+
+**Impact: MEDIUM** (pay-per-request pricing for sporadic workloads)
+
+## Migrate a Low-Traffic Provisioned Account to Serverless
+
+An account with low, sporadic consumption often costs less on serverless (pay-per-RU) than on always-on provisioned throughput, which bills its floor 24/7. Serverless is an account-level capacity mode, so switching a *provisioned* account to serverless is not an in-place toggle — you provision a new serverless account and copy the data, gated by hard feasibility constraints. Importantly, this is not a dead end: if the workload later outgrows serverless, the reverse direction (serverless → provisioned) **is** supported in-place.
+
+**Incorrect (leaving a low-traffic workload on always-on provisioned throughput):**
+
+```csharp
+// Provisioned account pays the 400 RU/s floor continuously even though the workload
+// is idle most of the day and never approaches that throughput.
+await database.CreateContainerIfNotExistsAsync(
+    new ContainerProperties("events", "/tenantId"),
+    throughput: 400);
+```
+
+**Correct (create a new serverless account, then migrate data into it):**
+
+```json
+// Serverless is an account-level capability set at creation (single region).
+{
+  "type": "Microsoft.DocumentDB/databaseAccounts",
+  "apiVersion": "2021-10-15",
+  "name": "events-serverless",
+  "properties": {
+    "databaseAccountOfferType": "Standard",
+    "capabilities": [ { "name": "EnableServerless" } ],
+    "locations": [ { "locationName": "West US 2", "failoverPriority": 0 } ]
+  }
+}
+```
+
+```csharp
+// Then copy data into the new account (change feed or bulk), cut over reads/writes,
+// and retire the old account. Container creation in serverless takes no throughput:
+await database.CreateContainerIfNotExistsAsync(
+    new ContainerProperties("events", "/tenantId"));
+```
+
+Verify these feasibility gates BEFORE migrating:
+- Single region only (serverless does not support multi-region distribution).
+- No database-level (shared) throughput — serverless is per-container consumption.
+- Sustained demand stays well under ~5,000 RU/s per physical partition.
+- A supported API (e.g., NoSQL).
+
+**If serverless is later outgrown:** you can change a serverless account to provisioned capacity **in-place** from the Azure portal (**Change capacity mode to provisioned throughput**). It converts every container to *manual* provisioned throughput (`RU/s = number of partitions × 5,000`), after which you can switch to autoscale. Note that this capacity-mode change is itself one-way — a provisioned account can't be changed back to serverless — so you would again need a new-account migration to return to serverless. For choosing serverless on a new (greenfield) project, see `throughput-serverless`.
+
+References:
+- [Serverless in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/serverless)
+- [Change from serverless to provisioned throughput](https://learn.microsoft.com/azure/cosmos-db/how-to-change-capacity-mode)
+
+### 6.8 Consider Serverless for Dev/Test
 
 **Impact: MEDIUM** (pay-per-request pricing)
 
@@ -9771,6 +10090,62 @@ When NOT to use serverless:
 ```
 
 Reference: [Serverless in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/serverless)
+
+### 6.9 Expire Stale Data Before It Hits Storage Limits
+
+**Impact: MEDIUM** (avoids the partition storage wall on growing data)
+
+## Expire Stale Data Before It Hits Storage Limits
+
+Data that only ever grows will eventually hit a wall: a physical partition holds up to ~50 GB and then splits automatically, but a single logical partition key is hard-capped at 20 GB — once a key reaches it, writes to that key fail (see the partitioning overview). The danger case is a physical partition dominated by one oversized logical key: it can't split, so it trends toward that hard 20 GB wall. Time-series, telemetry, event, and audit workloads are especially prone to this. When storage on the busiest partition is trending toward the limit, expire stale records with TTL, archive cold data to cheaper storage, or re-key so growth spreads across partitions — before the wall, not after.
+
+**Incorrect (records accumulate forever):**
+
+```csharp
+public class TelemetryEvent
+{
+    public string Id { get; set; } = default!;
+    public string DeviceId { get; set; } = default!;   // Partition key
+    public DateTime Timestamp { get; set; }
+    public object Payload { get; set; } = default!;
+    // No TTL: every event persists indefinitely and the partition only grows.
+}
+
+await container.CreateItemAsync(evt, new PartitionKey(evt.DeviceId));
+```
+
+**Correct (container TTL plus a per-item override for stale telemetry):**
+
+```csharp
+// Default TTL expires items after the retention window.
+var props = await container.ReadContainerAsync();
+props.Resource.DefaultTimeToLive = 60 * 60 * 24 * 90; // 90 days
+await container.ReplaceContainerAsync(props.Resource);
+
+public class TelemetryEvent
+{
+    public string Id { get; set; } = default!;
+    public string DeviceId { get; set; } = default!;
+    public DateTime Timestamp { get; set; }
+
+    // Per-item TTL only works if the property serializes to the JSON name "ttl".
+    // The .NET SDK's default (Newtonsoft) serializer uses the property name as-is,
+    // so map it explicitly:
+    [JsonProperty(PropertyName = "ttl")]  // using Newtonsoft.Json;
+    public int? Ttl { get; set; } = 60 * 60 * 24 * 7; // 7 days — overrides the 90-day container default for this item
+}
+
+await container.UpsertItemAsync(evt, new PartitionKey(evt.DeviceId));
+```
+
+Guidance:
+- Set `DefaultTimeToLive` at the container level and override per item where retention varies.
+- If a *single logical key* dominates growth, TTL alone may not be enough — archive cold history by time bucket or re-key for even distribution (see `partition-high-cardinality`).
+- Archival (change feed to blob or another cheaper store) preserves history while keeping the operational container small.
+
+Reference:
+- [Time to Live (TTL) in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/time-to-live)
+- [Partitioning and horizontal scaling — partition storage limits](https://learn.microsoft.com/azure/cosmos-db/partitioning-overview)
 
 ---
 
@@ -10140,7 +10515,57 @@ Automatic failover behavior:
 
 Reference: [Automatic failover](https://learn.microsoft.com/azure/cosmos-db/high-availability)
 
-### 7.4 Configure Multi-Region Writes
+### 7.4 Avoid Multi-Region Writes Without an Active-Active Need
+
+**Impact: MEDIUM** (removes conflict-resolution complexity and replicated write cost)
+
+## Avoid Multi-Region Writes Without an Active-Active Need
+
+Multi-region writes (multi-master) are valuable for true active-active write availability and very low RTO, but they add conflict-resolution complexity and can increase replicated write cost. Enabling them where they provide no benefit is an antipattern: non-production accounts that copy a production template, accounts where the workload only ever writes to one region, or a single-region account with the flag enabled as a latent tripwire. In these cases, disabling multi-region writes removes complexity and surprise cost with no loss of capability.
+
+**Incorrect (cloning production multi-write config into a dev account that writes to one region):**
+
+```json
+{
+  "type": "Microsoft.DocumentDB/databaseAccounts",
+  "name": "orders-dev",
+  "properties": {
+    "enableMultipleWriteLocations": true,
+    "locations": [
+      { "locationName": "West US 2", "failoverPriority": 0 },
+      { "locationName": "East US", "failoverPriority": 1 }
+    ]
+  }
+}
+```
+
+**Correct (disable multi-region writes — the key change is `enableMultipleWriteLocations: false`; keep other regions as read replicas if you want them):**
+
+```json
+{
+  "type": "Microsoft.DocumentDB/databaseAccounts",
+  "name": "orders-dev",
+  "properties": {
+    "enableMultipleWriteLocations": false,
+    "locations": [
+      { "locationName": "West US 2", "failoverPriority": 0 },
+      { "locationName": "East US", "failoverPriority": 1 }
+    ]
+  }
+}
+```
+
+The secondary region stays for reads (and, if `enableAutomaticFailover` is enabled on the account, as a failover target); only the *multi-write* capability is turned off. (For a dev account that needs just one region, you can also drop the extra location — but that is a separate decision from disabling multi-region writes.)
+
+When multi-region writes ARE justified (keep them enabled):
+- The application genuinely writes from multiple regions concurrently and needs local write latency.
+- You require write availability during a regional outage (very low RTO) and have a conflict-resolution policy.
+
+If you enable multi-region writes for those reasons, pair them with a deliberate conflict-resolution strategy (see `global-conflict-resolution`). For the legitimate active-active pattern, see `global-multi-region`.
+
+Reference: [Configure multi-region writes](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-multi-master)
+
+### 7.5 Configure Multi-Region Writes
 
 **Impact: HIGH** (enables local writes, high availability)
 
@@ -10244,7 +10669,7 @@ Considerations:
 
 Reference: [Multi-region writes](https://learn.microsoft.com/azure/cosmos-db/multi-region-writes)
 
-### 7.5 Add Read Regions Near Users
+### 7.6 Add Read Regions Near Users
 
 **Impact: MEDIUM** (reduces read latency globally)
 
@@ -10377,7 +10802,7 @@ Cost considerations:
 
 Reference: [Global distribution](https://learn.microsoft.com/azure/cosmos-db/distribute-data-globally)
 
-### 7.6 Configure Zone Redundancy for High Availability
+### 7.7 Configure Zone Redundancy for High Availability
 
 **Impact: HIGH** (eliminates availability zone failures, increases SLA to 99.995%)
 
