@@ -1,10 +1,16 @@
 name: Publish Benchmark
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'benchmarks/**'
+  # Manual trigger only for now. This workflow publishes benchmark task images to
+  # an internal Azure Container Registry (CES_ACR) via Azure OIDC. Until that
+  # registry and the OIDC secrets (AZURE_CLIENT_ID / AZURE_TENANT_ID /
+  # AZURE_SUBSCRIPTION_ID) are configured in this repo, an automatic push trigger
+  # would fail on every benchmarks/** change on main. Re-add the push trigger once
+  # the registry and OIDC are set up:
+  #   push:
+  #     branches: [main]
+  #     paths:
+  #       - 'benchmarks/**'
   workflow_dispatch:
     inputs:
       force_rebuild:
@@ -79,8 +85,7 @@ jobs:
           ACCESS_TOKEN=$(az account get-access-token --resource "$MSBENCH_TOKEN_RESOURCE" --query accessToken -o tsv)
           echo "::add-mask::$ACCESS_TOKEN"
           pip install harbor-format-curation \
-            --index-url "https://build:${ACCESS_TOKEN}@${MSBENCH_FEED}" \
-            --trusted-host "${MSBENCH_FEED%%/*}"
+            --index-url "https://build:${ACCESS_TOKEN}@${MSBENCH_FEED}"
 
       - name: Import tasks
         working-directory: benchmarks/cosmos-sdk-skills

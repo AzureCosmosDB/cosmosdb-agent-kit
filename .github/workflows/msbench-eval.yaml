@@ -37,6 +37,10 @@ on:
         description: 'Azure tenant to sign into (blank = az default tenant)'
         required: false
         default: ''
+      compare_baseline:
+        description: 'Also run the skill-off baseline and report the efficacy delta (doubles run time)'
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -47,7 +51,8 @@ jobs:
     name: Run skill-efficacy evaluation
     runs-on: ubuntu-latest
     # Generous cap: interactive device-code sign-in (up to ~15 min) plus the run.
-    timeout-minutes: 60
+    # Doubled to allow for the optional skill-off baseline pass (a second full run).
+    timeout-minutes: 120
 
     steps:
       # Check out the repository so the evaluation and issue scripts are available.
@@ -102,8 +107,7 @@ jobs:
           ACCESS_TOKEN=$(az account get-access-token --resource "$MSBENCH_TOKEN_RESOURCE" --query accessToken -o tsv)
           echo "::add-mask::$ACCESS_TOKEN"
           pip install msbench-cli \
-            --extra-index-url "https://build:${ACCESS_TOKEN}@${MSBENCH_FEED}" \
-            --trusted-host "${MSBENCH_FEED%%/*}"
+            --extra-index-url "https://build:${ACCESS_TOKEN}@${MSBENCH_FEED}"
 
       # Run the evaluation script. The script is expected to exit with code 1 if the pass
       # threshold is not met, which will mark the job as failed and trigger the issue step below.
@@ -123,12 +127,16 @@ jobs:
           COSMOS: ${{ secrets.COSMOS }}
           # Remote execution backend, kept out of the public repo (repo variable).
           MSBENCH_BACKEND: ${{ vars.MSBENCH_BACKEND }}
+          # Internal run-analysis web UI URL template (repo variable), e.g.
+          # "https://<host>/run-analysis/{run_id}". Kept out of the public repo.
+          MSBENCH_RUN_ANALYSIS_URL: ${{ vars.MSBENCH_RUN_ANALYSIS_URL }}
         run: |
           python scripts/msbench-eval.py \
             --benchmark "${{ inputs.benchmark }}" \
             --repeat "${{ inputs.repeat }}" \
             --threshold "${{ inputs.threshold }}" \
             ${{ inputs.model && format('--model {0}', inputs.model) || '' }} \
+            ${{ inputs.compare_baseline && '--baseline' || '' }} \
             --output results.json
 
       # If the evaluation step fails and a results file was produced, create a GitHub issue
@@ -143,9 +151,14 @@ jobs:
             --repo "${{ github.repository }}"
 
       # Always upload the results so they can be inspected even when the workflow fails.
+      # Includes the skill-off baseline and comparison files when --baseline was used.
       - name: Upload results artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: msbench-results
-          path: results.json
+          path: |
+            results.json
+            results-baseline.json
+            results-comparison.json
+          if-no-files-found: ignore
