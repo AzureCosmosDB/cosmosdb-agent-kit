@@ -100,7 +100,7 @@ npm run validate
 
 ## Writing Tests (Optional)
 
-The repo includes a [Waza](https://github.com/microsoft/waza) eval framework under `evals/`. Eval tasks are not currently enforced in CI (the mock executor cannot validate response content), but you're encouraged to add them alongside new rules for future use.
+The repo includes a [Vally](https://github.com/microsoft/vally) eval framework under `evals/`. Eval tasks are not currently enforced in CI (the mock executor cannot validate response content), but you're encouraged to add them alongside new rules for future use.
 
 ### Adding a task for a new rule
 
@@ -121,14 +121,16 @@ expected:
 ### Running tests locally
 
 ```bash
+# Install Vally by following the instructions at https://github.com/microsoft/vally
+
 # Run all eval tasks (mock executor — no API key needed)
-waza run evals/cosmosdb-best-practices/eval.yaml -v
+vally run evals/cosmosdb-best-practices/eval.yaml -v
 
 # Run a single task by name
-waza run evals/cosmosdb-best-practices/eval.yaml --task "Your Task Name"
+vally run evals/cosmosdb-best-practices/eval.yaml --task "Your Task Name"
 
 # Check skill readiness
-waza check skills/cosmosdb-best-practices
+vally check skills/cosmosdb-best-practices
 ```
 
 ## Rule File Format

@@ -3,8 +3,8 @@ node_modules/
 *.log
 __pycache__/
 
-# Waza eval results and cache
-.waza-cache/
+# Vally eval results and cache
+.vally-cache/
 results/
 
 # Testing iteration extracted source (keep only zips)

@@ -17,7 +17,7 @@ the agent must first decide **which** skill to load, based only on each skill's
 `name` and `description` (the part loaded at startup). That selection step is a
 **new risk** the split introduces.
 
-Our existing test approaches (waza content evals, MSBench, scope) inject a chosen
+Our existing test approaches (Vally content evals, MSBench, scope) inject a chosen
 skill's rules straight into context. They validate **rule content** but bypass the
 **routing** decision entirely. This harness fills that gap.
 

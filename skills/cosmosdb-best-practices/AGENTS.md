@@ -4716,6 +4716,8 @@ The Azure Cosmos DB Emulator uses a self-signed SSL certificate that requires sp
 
 ---
 
+**Incorrect (using emulator defaults without gateway mode or trusted local SSL handling):**
+
 ### .NET SDK
 
 ```csharp
@@ -4777,6 +4779,8 @@ const client = new CosmosClient({
 ```
 
 ---
+
+**Correct (configuring emulator-specific gateway mode and certificate handling per SDK):**
 
 ### Java SDK (Detailed)
 
@@ -5075,7 +5079,7 @@ Reference: [Use the Azure Cosmos DB Emulator for local development](https://lear
 
 When performing read-modify-write operations (read a document, update a field, write it back), always use ETags to prevent lost updates from concurrent writes. Without ETags, the last writer silently overwrites changes from other operations.
 
-**Problem: Lost updates without ETag checks**
+**Incorrect (performing read-modify-write updates without an ETag precondition):**
 
 ```csharp
 // Anti-pattern: Read-modify-write without concurrency control
@@ -5102,7 +5106,7 @@ public async Task UpdatePlayerStatsAsync(string playerId, int newScore)
 }
 ```
 
-**Solution: ETag-based optimistic concurrency with retry**
+**Correct (using ETag-based optimistic concurrency and retrying on HTTP 412):**
 
 ```csharp
 // Correct: Use ETag to detect concurrent modifications and retry
@@ -5996,7 +6000,7 @@ References:
 
 The Azure Cosmos DB Java SDK works with various Spring Boot versions, but each Spring Boot version has **strict Java version requirements** that must be met for the project to build successfully.
 
-**Problem:**
+**Incorrect (combining Spring Boot and Java versions that do not satisfy each other's requirements):**
 
 Developers may encounter build failures with cryptic error messages when the Java version doesn't match Spring Boot requirements:
 
@@ -6010,7 +6014,7 @@ These errors occur when:
 - The JAVA_HOME environment variable points to an incompatible Java version
 - Maven/Gradle is configured to use a different Java version than expected
 
-**Solution:**
+**Correct (pinning compatible Spring Boot, Java, and build-tool versions together):**
 
 Always match your Java version to your Spring Boot requirements:
 
@@ -7047,7 +7051,7 @@ Reference: [LangGraph prebuilt agents](https://langchain-ai.github.io/langgraph/
 
 When developing locally with the Cosmos DB Emulator, system-level environment variables pointing to Azure cloud accounts can override your local configuration, causing unexpected connections to production resources instead of the emulator.
 
-**Problem - System environment variables override local config:**
+**Incorrect (letting ambient environment variables silently override local emulator settings):**
 
 ```python
 # Your .env file (local config)
@@ -7062,7 +7066,7 @@ from dotenv import load_dotenv
 load_dotenv()  # ❌ System COSMOS_ENDPOINT wins - connects to production!
 ```
 
-**Solution - Force override of environment variables:**
+**Correct (using profile-specific config and explicit override behavior for local development):**
 
 **Python:**
 
@@ -7220,7 +7224,7 @@ When creating any .NET project that references `Microsoft.Azure.Cosmos` (version
 
 The Azure Cosmos DB .NET SDK requires an explicit reference to `Newtonsoft.Json` version 13.0.3 or higher. This dependency is not managed automatically - you must add it directly to your project.
 
-**Problem (build fails without explicit reference):**
+**Incorrect (relying on the Cosmos SDK package alone and omitting the explicit Newtonsoft.Json reference):**
 
 ```csharp
 // Your .csproj only references Cosmos DB SDK
@@ -7235,7 +7239,7 @@ The Azure Cosmos DB .NET SDK requires an explicit reference to `Newtonsoft.Json`
 // 'AzureCosmosDisableNewtonsoftJsonCheck' property to 'true' to bypass this check.
 ```
 
-**Solution (add explicit Newtonsoft.Json reference):**
+**Correct (adding an explicit Newtonsoft.Json reference in project or central package management):**
 
 ```xml
 <!-- Standard .csproj projects -->
@@ -7707,7 +7711,7 @@ Reference: [Handle rate limiting](https://learn.microsoft.com/azure/cosmos-db/no
 
 ### 4.37 Use consistent enum serialization between Cosmos SDK and application layer
 
-**Impact: critical** (undefined)
+**Impact: CRITICAL** (prevents silent query mismatches caused by enum values being stored in a different JSON shape than the application expects)
 
 # Use Consistent Enum Serialization
 
@@ -7715,7 +7719,7 @@ Reference: [Handle rate limiting](https://learn.microsoft.com/azure/cosmos-db/no
 
 The Cosmos DB SDK's default serializer stores enums as **integers**, but many application frameworks (ASP.NET Core, Spring Boot) serialize enums as **strings** in API responses. This mismatch causes queries to fail silently - returning empty results when filtering by enum values.
 
-## Example Bug
+**Incorrect (querying enum fields without matching the stored JSON representation):**
 
 ```csharp
 // Model with enum
@@ -7729,7 +7733,7 @@ var query = new QueryDefinition("SELECT * FROM c WHERE c.status = @status")
     .WithParameter("@status", "Shipped");  // ❌ Wrong - Cosmos has integer 1
 ```
 
-## Solution
+**Correct (align serializer settings or query using the stored representation):**
 
 ### Option 1: Configure Cosmos SDK to use string serialization (Recommended)
 
@@ -7802,7 +7806,7 @@ The Python `azure-cosmos` SDK serializes request bodies with `json.dumps(data)` 
 
 Always pass `mode="json"` so Pydantic converts these to JSON-safe primitives first.
 
-### Incorrect
+**Incorrect (passing native Pydantic values that are not JSON-serializable to the SDK):**
 
 ```python
 class ScoreDoc(BaseModel):
@@ -7813,7 +7817,7 @@ class ScoreDoc(BaseModel):
 await container.create_item(body=doc.model_dump(by_alias=True))
 ```
 
-### Correct
+**Correct (dumping a JSON-safe payload before writing to Cosmos DB):**
 
 ```python
 # ✅ datetime → ISO-8601 string, UUID → hex string, Decimal → string
@@ -8725,6 +8729,8 @@ Reference: [Indexing policies](https://learn.microsoft.com/azure/cosmos-db/index
 
 Choose the appropriate indexing mode based on your workload. Consistent mode ensures query results are current; None disables indexing entirely.
 
+**Incorrect (planning around deprecated lazy indexing mode or keeping default indexing when the workload only needs point reads):**
+
 **Indexing modes explained:**
 
 ```csharp
@@ -8760,7 +8766,7 @@ var nonePolicy = new IndexingPolicy
 // - Time-series data queried via external system (Synapse Link)
 ```
 
-**Correct (choosing mode based on workload):**
+**Correct (choosing between consistent and none based on actual query requirements):**
 
 ```csharp
 // Typical transactional workload - use Consistent
@@ -8926,6 +8932,8 @@ Reference: [Indexing policy path syntax](https://learn.microsoft.com/azure/cosmo
 
 Understand when to use different index types. Range indexes support equality, range, and ORDER BY; Hash indexes are deprecated.
 
+**Incorrect (manually reasoning about deprecated hash indexes or over-specifying index kinds for standard queries):**
+
 **Understanding index types:**
 
 ```csharp
@@ -8953,7 +8961,7 @@ Understand when to use different index types. Range indexes support equality, ra
 }
 ```
 
-**Correct (modern indexing approach):**
+**Correct (letting modern Cosmos DB indexing defaults handle standard paths and adding special indexes only when needed):**
 
 ```csharp
 // Modern Cosmos DB automatically uses optimal index types
@@ -9388,6 +9396,8 @@ Reference: [Burst capacity](https://learn.microsoft.com/azure/cosmos-db/concepts
 
 Decide between container-level (dedicated) and database-level (shared) throughput based on workload isolation needs and cost optimization.
 
+**Incorrect (using dedicated throughput everywhere without considering sharing patterns or cost):**
+
 **Container-level throughput (dedicated):**
 
 ```csharp
@@ -9441,6 +9451,8 @@ var logsContainer = await database.CreateContainerAsync(
 // - Containers accessed at different times
 // - Cost optimization is priority
 ```
+
+**Correct (matching throughput scope to workload isolation and utilization patterns):**
 
 **Hybrid approach:**
 
@@ -9801,6 +9813,8 @@ Reference: [Conflict resolution](https://learn.microsoft.com/azure/cosmos-db/con
 
 Select the consistency level that matches your application's requirements. Each level has different tradeoffs for latency, availability, and consistency.
 
+**Incorrect (defaulting to the strongest consistency level for every workload without evaluating latency and availability needs):**
+
 **Consistency levels (strongest to weakest):**
 
 ```csharp
@@ -9851,7 +9865,7 @@ var client = new CosmosClient(connectionString, new CosmosClientOptions
 // Best performance, lowest cost
 ```
 
-**Correct (choosing based on requirements):**
+**Correct (selecting the weakest consistency level that still satisfies the application contract):**
 
 ```csharp
 // Example: E-commerce platform
@@ -11668,7 +11682,7 @@ Reference(s):
 
 When implementing leaderboards or rankings, avoid scanning an entire partition to determine a single player's rank. Full partition scans for rank lookups are an anti-pattern that becomes unsustainable at scale.
 
-**Problem: Full partition scan to find rank**
+**Incorrect (scanning an entire partition to calculate one player's rank):**
 
 ```csharp
 // Anti-pattern: Reads ALL entries in a partition to find one player's rank
@@ -11699,6 +11713,8 @@ This approach:
 - Consumes thousands of RU per request
 - Has multi-second latency
 - Loads all entries into memory
+
+**Correct (using count-based, cached, or bucketed approaches to avoid full scans):**
 
 **Solution 1: COUNT-based rank query (simplest)**
 
