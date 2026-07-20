@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Azure Cosmos DB Agent Kit</title>
+    <title>Cosmos DB Agent Kit for AI Coding Agents</title>
     <meta
       name="description"
       content="A curated, production-ready toolkit of Azure Cosmos DB agent skills, testing scenarios, and best-practice rules."
@@ -14,9 +14,9 @@
 
     <!-- Open Graph / Facebook / LinkedIn -->
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Azure Cosmos DB Agent Kit" />
+    <meta property="og:site_name" content="Cosmos DB Agent Kit for AI Coding Agents" />
     <meta property="og:url" content="https://azurecosmosdb.github.io/cosmosdb-agent-kit/" />
-    <meta property="og:title" content="Azure Cosmos DB Agent Kit" />
+    <meta property="og:title" content="Cosmos DB Agent Kit for AI Coding Agents" />
     <meta
       property="og:description"
       content="A curated, production-ready toolkit of Azure Cosmos DB agent skills, testing scenarios, and best-practice rules."
@@ -30,7 +30,7 @@
 
     <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Azure Cosmos DB Agent Kit" />
+    <meta name="twitter:title" content="Cosmos DB Agent Kit for AI Coding Agents" />
     <meta
       name="twitter:description"
       content="A curated, production-ready toolkit of Azure Cosmos DB agent skills, testing scenarios, and best-practice rules."
@@ -55,167 +55,256 @@
     </script>
   </head>
   <body>
-    <div class="noise" aria-hidden="true"></div>
-
     <header class="site-header">
       <a class="logo" href="#top">
         <img src="logo.svg" alt="Azure Cosmos DB Logo" class="logo-icon" />
         Azure Cosmos DB Agent Kit
       </a>
       <nav>
-        <a href="#highlights">Highlights</a>
-        <a href="#skills">Skills</a>
-        <a href="#compatibility">Compatibility</a>
-        <a href="#testing">Testing</a>
-        <a href="#integrations">Integrations</a>
-        <a href="#survey">Survey</a>
+        <a href="#overview">Overview</a>
+        <a href="#install">Install</a>
+        <a href="#coverage">Coverage</a>
+        <a href="#workflow">Workflow</a>
+        <a href="#ecosystem">Ecosystem</a>
+        <a href="#survey">Feedback</a>
       </nav>
     </header>
 
     <main id="top">
       <section class="hero reveal">
-        <p class="eyebrow">Agent skills for real-world Azure Cosmos DB decisions</p>
-        <h1>Build Better AI Coding Agents for Azure Cosmos DB</h1>
-        <p class="lead">
-          Azure Cosmos DB Agent Kit packages practical rules, deterministic scenarios, and evaluation workflows
-          so your agents ship faster, spend fewer RUs, and avoid costly modeling mistakes.
-        </p>
-        <div class="hero-actions">
-          <a class="btn primary" href="https://github.com/AzureCosmosDB/cosmosdb-agent-kit" target="_blank" rel="noreferrer">View on GitHub</a>
-          <a class="btn ghost" href="https://github.com/AzureCosmosDB/cosmosdb-agent-kit#installation" target="_blank" rel="noreferrer">Install Kit</a>
-          <a class="btn ghost" href="https://www.youtube.com/watch?v=44xvW6QoL84" target="_blank" rel="noreferrer">Watch Demo</a>
-        </div>
-        <div class="hero-metrics">
-          <article>
-            <h2>110+</h2>
-            <p>Azure Cosmos DB best-practice rules</p>
-          </article>
-          <article>
-            <h2>5</h2>
-            <p>Core test scenarios for multi-language iterations</p>
-          </article>
-          <article>
-            <h2>2</h2>
-            <p>End-to-end tests and automated tests</p>
-          </article>
+        <div class="hero-layout">
+          <div class="hero-copy">
+            <p class="eyebrow">Agent skills for real Azure Cosmos DB architecture work</p>
+            <h1>Azure Cosmos DB Agent Kit</h1>
+            <p class="lead">
+              Production-tested skills, rules, and evaluation workflows for AI coding agents building on Azure Cosmos DB.
+            </p>
+            <a
+              class="hero-media hero-video-link"
+              href="https://www.youtube.com/watch?v=GWid8x3i9Cc"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Watch the Azure Cosmos DB Agent Kit overview on YouTube"
+            >
+              <img
+                src="https://i.ytimg.com/vi/GWid8x3i9Cc/hqdefault.jpg"
+                alt="Azure Cosmos DB Agent Kit overview video thumbnail"
+                loading="lazy"
+              />
+              <span class="video-overlay">
+                <span class="video-badge">Overview Video</span>
+                <span class="video-title">Watch on YouTube</span>
+              </span>
+            </a>
+            <div class="hero-actions">
+              <a class="btn primary" href="https://github.com/AzureCosmosDB/cosmosdb-agent-kit" target="_blank" rel="noreferrer">View on GitHub</a>
+              <a class="btn ghost" href="#install">Install the kit</a>
+              <a class="btn ghost" href="#coverage">See coverage</a>
+            </div>
+            <div class="hero-metrics">
+              <article>
+                <h2>129</h2>
+                <p>compiled rules in the stable Cosmos DB skill</p>
+              </article>
+              <article>
+                <h2>12</h2>
+                <p>rule categories spanning modeling through diagnostics</p>
+              </article>
+              <article>
+                <h2>5</h2>
+                <p>testing-v2 scenarios for repeatable iteration workflows</p>
+              </article>
+            </div>
+          </div>
+
+          <aside class="hero-aside">
+            <div class="signal-card">
+              <p class="signal-label">Works best with</p>
+              <h2>progressive skill loading</h2>
+              <p>
+                Use hosts that discover and load a relevant skill on demand, or pair the kit with large-context
+                models when the full skill payload is injected.
+              </p>
+              <ul class="signal-list">
+                <li>Recommended: GitHub Copilot in VS Code and other on-demand hosts</li>
+                <li>Also viable: large-context models around 200K+ tokens</li>
+                <li>Use caution: always-on injection with smaller prompt budgets</li>
+              </ul>
+            </div>
+          </aside>
         </div>
       </section>
 
-      <section id="highlights" class="panel reveal stagger-parent">
-        <h2>Why Teams Use It</h2>
-        <div class="card-grid">
+      <section id="overview" class="panel overview reveal stagger-parent">
+        <div class="section-heading">
+          <p class="section-kicker">Overview</p>
+          <h2>What ships today.</h2>
+          <p>
+            One stable Cosmos DB skill, a static GitHub Pages site, local-first Vally evaluation, and install surfaces
+            for Copilot, Claude Code, Cursor, Codex, and Gemini CLI.
+          </p>
+        </div>
+
+        <div class="overview-grid">
+          <div class="overview-copy stagger-item">
+            <div class="fact-stack fact-stack-wide">
+              <article class="fact-card">
+                <span>Primary skill</span>
+                <strong>cosmosdb-best-practices</strong>
+                <p>Stable guidance for Azure Cosmos DB application design and implementation.</p>
+              </article>
+              <article class="fact-card">
+                <span>Evaluation model</span>
+                <strong>Local-first with Vally</strong>
+                <p>Run evals locally to sanity-check changes without wiring the content scoring into CI.</p>
+              </article>
+              <article class="fact-card">
+                <span>Docs target</span>
+                <strong>GitHub Pages in docs/</strong>
+                <p>The website ships as static HTML, CSS, and JS with no backend dependency.</p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel reveal stagger-parent">
+        <div class="section-heading">
+          <p class="section-kicker">Why teams use it</p>
+          <h2>It narrows the gap between generic code generation and Cosmos DB-specific engineering judgment.</h2>
+        </div>
+        <div class="card-grid insight-grid">
           <article class="card stagger-item">
-            <h3>High-Impact Rules First</h3>
+            <h3>High-impact rules first</h3>
             <p>
-              Critical guidance for partition strategy, data modeling, and query tuning is prioritized so agents
-              make correct architectural choices before code generation drifts.
+              Critical guidance for partition strategy, data modeling, and query tuning is prioritized so the agent
+              makes architectural decisions before code generation drifts into expensive rework.
             </p>
           </article>
           <article class="card stagger-item">
-            <h3>Deterministic Evaluations</h3>
+            <h3>Deterministic iteration loops</h3>
             <p>
-              Scenario contracts and stable test harnesses make regressions visible quickly and reduce noise across
-              iteration comparisons.
+              Scenario contracts, harness templates, and improvements logs make regressions visible and keep rule
+              changes tied to concrete failures.
             </p>
           </article>
           <article class="card stagger-item">
-            <h3>Portable Skill Format</h3>
+            <h3>Portable skill packaging</h3>
             <p>
-              Skills follow the Agent Skills format, making the same guidance reusable across Copilot, Claude Code,
-              and other compatible tools.
+              The kit follows the Agent Skills format so the same knowledge can be reused across Copilot, Claude
+              Code, Cursor, Codex, Gemini, and adjacent toolchains.
             </p>
           </article>
         </div>
       </section>
 
-      <section id="skills" class="panel alt reveal">
-        <h2>Skill Coverage Snapshot</h2>
-        <div class="pill-row">
-          <span>Data Modeling</span>
-          <span>Partition Design</span>
-          <span>Query Optimization</span>
-          <span>SDK Practices</span>
-          <span>Indexing</span>
-          <span>Throughput</span>
-          <span>Global Distribution</span>
-          <span>Monitoring</span>
+      <section id="install" class="panel alt reveal stagger-parent">
+        <div class="section-heading">
+          <p class="section-kicker">Install</p>
+          <h2>Start with a universal install, then validate and build locally when you contribute.</h2>
         </div>
-        <p>
-          The <code>cosmosdb-best-practices</code> skill includes tactical guidance for SQL API usage, vector search setup,
-          full-text search, consistency, and operational diagnostics.
-        </p>
-      </section>
 
-      <section id="compatibility" class="panel reveal">
-        <h2>Where This Works Best</h2>
-        <p>
-          This agent kit is designed for <strong>progressive (on-demand) skill delivery</strong>: hosts that load a
-          relevant skill only when it is needed, rather than injecting the entire skill set into every prompt.
-          For the best results:
-        </p>
-        <div class="compat-cards">
-          <article class="card compat-good">
-            <h3>Recommended</h3>
-            <p>
-              Agent hosts that support progressive or on-demand skill loading (for example, GitHub Copilot in VS Code),
-              or models with a large context window (roughly <strong>200K+ tokens</strong>).
-            </p>
+        <div class="install-layout">
+          <article class="code-card stagger-item">
+            <h3>Fastest install</h3>
+            <pre><code>npx skills add AzureCosmosDB/cosmosdb-agent-kit</code></pre>
+            <p>Drops the skill catalog into the compatible agent host you are using.</p>
           </article>
-          <article class="card compat-caution">
-            <h3>Use with caution</h3>
-            <p>
-              Hosts that inject the <strong>entire</strong> skill set as always-on context (some IDE agents and CLI
-              tools) combined with models that have a smaller usable prompt budget (roughly
-              <strong>128K tokens or less</strong>). In this configuration the full skill payload can consume, or
-              overflow, the context window, which degrades output quality or causes the agent to stop making progress.
-            </p>
+
+          <article class="code-card stagger-item">
+            <h3>All supported harnesses</h3>
+            <pre><code>apm install AzureCosmosDB/cosmosdb-agent-kit</code></pre>
+            <p>Installs across GitHub Copilot, Claude Code, Cursor, Codex, and Gemini in one command.</p>
+          </article>
+
+          <article class="install-card stagger-item">
+            <h3>Local contributor flow</h3>
+            <pre><code>npm install
+npm run validate
+npm run build</code></pre>
+            <p>Use this after changing rules, scenarios, or generated skill outputs.</p>
           </article>
         </div>
-        <p>
-          <strong>If you are in a constrained setup</strong> (always-on injection plus a smaller-context model),
-          prefer one of the following:
-        </p>
-        <ul class="compat-list">
-          <li>Load a <strong>single, focused skill</strong> for the task at hand instead of the full set, or</li>
-          <li>Switch to a <strong>larger-context model</strong>, or</li>
-          <li>Use a host that supports <strong>on-demand skill discovery</strong>.</li>
-        </ul>
-        <p class="compat-note">
-          These recommendations are based on internal skill-efficacy testing across multiple models and delivery
-          mechanisms. Exact context limits vary by model and host.
-        </p>
       </section>
 
-      <section id="testing" class="panel reveal stagger-parent">
-        <h2>Testing Workflows</h2>
+      <section id="coverage" class="panel reveal stagger-parent">
+        <div class="section-heading">
+          <p class="section-kicker">Coverage</p>
+          <h2>The current stable skill spans the Cosmos DB decisions agents most often get wrong.</h2>
+        </div>
+        <div class="coverage-layout">
+          <div class="pill-row stagger-item">
+            <span>Data Modeling</span>
+            <span>Partition Key Design</span>
+            <span>Query Optimization</span>
+            <span>SDK Best Practices</span>
+            <span>Design Patterns</span>
+            <span>Vector Search</span>
+            <span>Full-Text Search</span>
+            <span>Security</span>
+            <span>Indexing Strategies</span>
+            <span>Throughput &amp; Scaling</span>
+            <span>Global Distribution</span>
+            <span>Monitoring &amp; Diagnostics</span>
+          </div>
+
+          <div class="coverage-cards">
+            <article class="card stagger-item">
+              <h3>Use it when</h3>
+              <p>Designing a model, choosing a partition key, reviewing Cosmos DB code, or tuning queries and throughput.</p>
+            </article>
+            <article class="card stagger-item">
+              <h3>What it contains</h3>
+              <p>Source rules, compiled AGENTS output, metadata, and portable skill instructions for agent activation.</p>
+            </article>
+            <article class="card stagger-item">
+              <h3>What is planned</h3>
+              <p>Additional skills such as migration capacity planning can extend the catalog without inflating every prompt.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="workflow" class="panel reveal stagger-parent">
+        <div class="section-heading">
+          <p class="section-kicker">Workflow</p>
+          <h2>Contribute with an evaluation loop that stays concrete.</h2>
+        </div>
         <div class="timeline">
           <article class="timeline-item stagger-item">
             <h3>1. Pick a scenario</h3>
-            <p>Use the templates in <code>testing-v2/scenarios/</code> to define <code>SCENARIO.md</code> and API contracts.</p>
+            <p>Use the templates in <code>testing-v2/scenarios/</code> to define a scenario brief, contract, and iteration target.</p>
           </article>
           <article class="timeline-item stagger-item">
             <h3>2. Run an iteration</h3>
-            <p>Create iteration folders, generate implementation code, and track per-iteration outcomes.</p>
+            <p>Create an iteration folder, generate or revise implementation code, and keep outcomes tied to the scenario.</p>
           </article>
           <article class="timeline-item stagger-item">
-            <h3>3. Evaluate + improve</h3>
-            <p>Classify failures, add/adjust rules, rebuild AGENTS docs, and update improvement logs.</p>
+            <h3>3. Evaluate and improve</h3>
+            <p>Use Vally for local skill checks, classify failures, adjust rules, rebuild AGENTS output, and record the improvement.</p>
           </article>
+        </div>
+
+        <div class="eval-strip stagger-item">
+          <div>
+            <span>Local evaluation</span>
+            <strong>vally run evals/cosmosdb-best-practices/eval.yaml -v</strong>
+          </div>
+          <div>
+            <span>Skill readiness</span>
+            <strong>vally check skills/cosmosdb-best-practices</strong>
+          </div>
         </div>
       </section>
 
-      <section class="panel quickstart reveal">
-        <h2>Quick Start</h2>
-        <pre><code>npx skills add AzureCosmosDB/cosmosdb-agent-kit
-npm install
-npm run validate
-npm run build</code></pre>
-      </section>
-
-      <section id="integrations" class="panel alt reveal stagger-parent">
-        <h2>Integrations & Extensions</h2>
+      <section id="ecosystem" class="panel alt reveal stagger-parent">
+        <div class="section-heading">
+          <p class="section-kicker">Ecosystem</p>
+          <h2>Use the same kit across agent hosts, marketplaces, and companion tooling.</h2>
+        </div>
         <p>
-          Extend Agent Kit capabilities with the MCP Server and plugins for your favorite AI development tools.
+          The repository ships ready-made manifests and companion links so the same Cosmos DB guidance can travel
+          between editors, marketplaces, and MCP-based tooling.
         </p>
         
         <div class="integration-content">
@@ -256,9 +345,9 @@ npm run build</code></pre>
           </article>
 
           <article class="integration-card stagger-item">
-            <h3>More Tools</h3>
+            <h3>Agent manifests</h3>
             <p>
-              Available across other AI development platforms and agent frameworks compatible with Agent Skills format.
+              The repo includes manifests for Claude Code, Codex, Cursor, Gemini CLI, and GitHub Copilot auto-detection.
             </p>
           </article>
         </div>
@@ -345,7 +434,7 @@ npm run build</code></pre>
     </main>
 
     <footer class="site-footer">
-      <p>Built for the Azure Cosmos DB agent ecosystem.</p>
+      <p>Built for the Azure Cosmos DB agent ecosystem and published from <code>docs/</code> on GitHub Pages.</p>
       <a href="https://github.com/AzureCosmosDB/cosmosdb-agent-kit" target="_blank" rel="noreferrer">Contribute on GitHub</a>
     </footer>
 
