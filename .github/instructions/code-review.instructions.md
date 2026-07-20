@@ -22,7 +22,7 @@ When performing a code review, apply these checks for the cosmosdb-agent-kit rep
 - Filename: `{prefix}-{description}.md` (model-, partition-, query-, sdk-, index-, throughput-, global-, monitoring-, pattern-, tooling-, vector-)
 
 **Build**:
-- Rules changed → AGENTS.md must be regenerated (`npm run build`)
+- `AGENTS.md` is generated on demand (`npm run build`) and is not committed; do not require it in rule PRs
 
 **Eval tasks** (`evals/**/*.yaml`):
 - Required fields: `id`, `name`, `description`, `tags`, `inputs.prompt`, `expected.outcomes`

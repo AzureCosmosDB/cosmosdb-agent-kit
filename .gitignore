@@ -3,6 +3,9 @@ node_modules/
 *.log
 __pycache__/
 
+# Compiled skill monolith is generated on demand (release CI + benchmarking), not committed
+skills/*/AGENTS.md
+
 # Vally eval results and cache
 .vally-cache/
 results/
