@@ -151,8 +151,7 @@ Optimize this Cosmos DB query
 ## Skill Structure
 
 Each skill contains:
-- `SKILL.md` - Instructions for the agent (triggers activation)
-- `AGENTS.md` - Compiled rules (what agents read)
+- `SKILL.md` - Instructions and index for the agent (what agents read; links to rules)
 - `rules/` - Individual rule files
 - `metadata.json` - Version and metadata
 

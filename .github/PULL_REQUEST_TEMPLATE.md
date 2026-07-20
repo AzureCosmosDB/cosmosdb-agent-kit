@@ -19,7 +19,6 @@
 
 - [ ] I have read the [Contributing Guide](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/blob/main/CONTRIBUTING.md)
 - [ ] I ran `npm run validate` and it passed
-- [ ] I ran `npm run build` to regenerate AGENTS.md (if adding/updating rules)
 - [ ] My rule file follows the naming convention: `{prefix}-{description}.md`
 - [ ] My rule includes valid frontmatter (`title`, `impact`, `tags`)
 

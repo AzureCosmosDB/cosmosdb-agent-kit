@@ -51,8 +51,7 @@ cp -r skills/cosmosdb-best-practices ~/.claude/skills/
 
 ```
 skills/cosmosdb-best-practices/
-├── SKILL.md              # Skill definition (triggers agent activation)
-├── AGENTS.md             # Compiled rules (what agents read)
+├── SKILL.md              # Skill definition and index (what agents read; links to rules)
 ├── metadata.json         # Version and metadata
 ├── README.md             # This file
 └── rules/

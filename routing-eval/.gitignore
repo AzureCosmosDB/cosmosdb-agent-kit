@@ -1,6 +1,0 @@
-# Routing eval is a local, on-demand tool. Never commit run outputs.
-results/
-.tmp/
-*.pyc
-__pycache__/
-.venv/

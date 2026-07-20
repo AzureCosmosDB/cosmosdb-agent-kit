@@ -9,7 +9,7 @@ plus a testing framework that measures how well agents apply those skills when b
 
 ## Key Directories
 
-- `skills/cosmosdb-best-practices/` — The Cosmos DB best practices skill (rules + compiled AGENTS.md)
+- `skills/cosmosdb-best-practices/` — The Cosmos DB best practices skill (`SKILL.md` + `rules/`; `AGENTS.md` is generated on demand, not committed)
 - `testing-v2/` — The testing framework (scenarios, contracts, tests, harness)
 - `scripts/` — Build scripts (compile.js compiles rules into AGENTS.md)
 

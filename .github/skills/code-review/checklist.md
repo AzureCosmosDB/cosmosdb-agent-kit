@@ -61,11 +61,10 @@ Rules in this repo are often created by the automated evaluation loop: an LLM re
 
 ## 2. Build Artifacts & Versioning
 
-### AGENTS.md Regeneration
+### AGENTS.md (generated on demand)
 
-- 🔴 If any file under `skills/*/rules/` changed, `AGENTS.md` in the same skill MUST also be updated
-- The build command is `npm run build` (runs `node scripts/compile.js`)
-- If AGENTS.md is stale, the compiled output diverges from the rules — agents get outdated guidance
+- `AGENTS.md` is no longer committed; it is generated on demand by `npm run build` (used by release CI and benchmarking)
+- Do NOT flag a rules change for a missing `AGENTS.md` update, and do NOT commit a regenerated `AGENTS.md`
 
 ### Version Bumping
 
