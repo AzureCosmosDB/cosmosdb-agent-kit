@@ -1,0 +1,20 @@
+{
+  "name": "azure-cosmosdb",
+  "interface": {
+    "displayName": "Azure Cosmos DB"
+  },
+  "plugins": [
+    {
+      "name": "azure-cosmosdb",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Databases"
+    }
+  ]
+}

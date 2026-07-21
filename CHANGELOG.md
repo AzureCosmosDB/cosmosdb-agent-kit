@@ -9,6 +9,11 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## 2026-07-21 — Add Codex repo marketplace catalog
+
+- **New catalog:** `.agents/plugins/marketplace.json` — Codex-native repo marketplace listing the `azure-cosmosdb` plugin (`source.path: "./"`, `category: "Databases"`), so users can add it with `codex plugin marketplace add AzureCosmosDB/cosmosdb-agent-kit`. Codex also reads the legacy `.claude-plugin/marketplace.json`. The catalog carries no package `version` (schema-only) and is intentionally excluded from `npm run version`.
+- **Docs:** README adds an OpenAI Codex CLI install section and updates the per-agent manifest table to reference both marketplace catalogs.
+
 ## v1.2.0 — 2026-07-21 — Add Kimi Code plugin surface
 
 - **New manifest:** `.kimi-plugin/plugin.json` — Official Kimi Code plugin for Azure Cosmos DB, bundling the skills (`./skills/`) and the Azure MCP server (`@azure/mcp`). Mirrors the Codex `interface` block (display name, category, default prompts, brand color).

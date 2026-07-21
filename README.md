@@ -112,14 +112,24 @@ Or add the custom marketplace catalog, then install from the plugin manager (`/p
 
 The plugin manifest lives at `.kimi-plugin/plugin.json` and the catalog at `kimi-marketplace.json`.
 
+### OpenAI Codex CLI
+
+Add the repo marketplace, then install from the Plugins Directory in the ChatGPT desktop app:
+
+```
+codex plugin marketplace add AzureCosmosDB/cosmosdb-agent-kit
+```
+
+The plugin manifest lives at `.codex-plugin/plugin.json` and the marketplace catalog at `.agents/plugins/marketplace.json` (Codex also reads the legacy `.claude-plugin/marketplace.json`).
+
 ### Per-agent plugin directories
 
 The repository includes ready-made plugin manifests:
 
 | Agent | Manifest |
 |-------|----------|
-| Claude Code | `.claude-plugin/plugin.json` |
-| OpenAI Codex | `.codex-plugin/plugin.json` |
+| Claude Code | `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` |
+| OpenAI Codex | `.codex-plugin/plugin.json` + `.agents/plugins/marketplace.json` |
 | Cursor | `.cursor-plugin/plugin.json` |
 | Gemini CLI | `gemini-extension.json` + `GEMINI.md` |
 | Kimi Code | `.kimi-plugin/plugin.json` |
