@@ -9,7 +9,7 @@ A collection of skills for AI coding agents working with Azure Cosmos DB. Skills
 
 ![agent-kit-cosmosdb (1)](https://github.com/user-attachments/assets/0a2c2e5f-62ee-4741-adda-9af790980761)
 
-Skills follow the [Agent Skills](https://agentskills.io/) format and the kit ships with plugin manifests for **Claude Code**, **Codex**, **Cursor**, **Gemini CLI**, and **GitHub Copilot**.
+Skills follow the [Agent Skills](https://agentskills.io/) format and the kit ships with plugin manifests for **Claude Code**, **Codex**, **Cursor**, **Gemini CLI**, **Kimi Code**, and **GitHub Copilot**.
 
 ## Where this works best
 
@@ -66,7 +66,7 @@ Azure Cosmos DB performance optimization guidelines containing 111 rules across 
 apm install AzureCosmosDB/cosmosdb-agent-kit
 ```
 
-Installs the skill across GitHub Copilot, Claude Code, Cursor, Codex, and Gemini in one command.
+Installs the skill across GitHub Copilot, Claude Code, Cursor, Codex, Gemini, and Kimi Code in one command.
 
 ### Universal one-liner (all agents)
 
@@ -95,6 +95,23 @@ This drops the skill catalog into whichever agent you're using.
 gemini extensions install https://github.com/AzureCosmosDB/cosmosdb-agent-kit
 ```
 
+### Kimi Code CLI
+
+Install directly from GitHub (recommended):
+
+```
+/plugins install https://github.com/AzureCosmosDB/cosmosdb-agent-kit
+/reload
+```
+
+Or add the custom marketplace catalog, then install from the plugin manager (`/plugins`):
+
+```
+/plugins marketplace https://raw.githubusercontent.com/AzureCosmosDB/cosmosdb-agent-kit/main/kimi-marketplace.json
+```
+
+The plugin manifest lives at `.kimi-plugin/plugin.json` and the catalog at `kimi-marketplace.json`.
+
 ### Per-agent plugin directories
 
 The repository includes ready-made plugin manifests:
@@ -105,6 +122,7 @@ The repository includes ready-made plugin manifests:
 | OpenAI Codex | `.codex-plugin/plugin.json` |
 | Cursor | `.cursor-plugin/plugin.json` |
 | Gemini CLI | `gemini-extension.json` + `GEMINI.md` |
+| Kimi Code | `.kimi-plugin/plugin.json` |
 | GitHub Copilot | `skills/cosmosdb-best-practices/SKILL.md` (auto-detected) |
 
 ## Website
@@ -157,7 +175,7 @@ Each skill contains:
 
 ## Compatibility
 
-Works with Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other Agent Skills-compatible tools.
+Works with Claude Code, Codex, Cursor, Gemini CLI, Kimi Code, GitHub Copilot, and other Agent Skills-compatible tools.
 
 ## Contributing
 

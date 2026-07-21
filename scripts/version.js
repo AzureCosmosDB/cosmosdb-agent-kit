@@ -45,6 +45,7 @@ updateJsonFile(path.join(ROOT, 'gemini-extension.json'));
 updateJsonFile(path.join(ROOT, '.claude-plugin', 'plugin.json'));
 updateJsonFile(path.join(ROOT, '.codex-plugin', 'plugin.json'));
 updateJsonFile(path.join(ROOT, '.cursor-plugin', 'plugin.json'));
+updateJsonFile(path.join(ROOT, '.kimi-plugin', 'plugin.json'));
 updateYamlVersion(path.join(ROOT, 'apm.yml'));
 
 // Skill metadata files

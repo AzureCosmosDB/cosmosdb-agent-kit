@@ -1,7 +1,7 @@
 {
   "name": "azure-cosmosdb",
   "version": "1.2.0",
-  "description": "Official Codex plugin for Azure Cosmos DB (NoSQL). Best practice skills for data modeling, queries, indexing, vector search, security, and more.",
+  "description": "Official Kimi Code plugin for Azure Cosmos DB (NoSQL) with bundled skills and MCP access for data modeling, partition key design, query optimization, SDK best practices, indexing, vector search, full-text search, global distribution, and security.",
   "author": {
     "name": "Azure Cosmos DB",
     "email": "cosmosdb-agentfirst@microsoft.com",
@@ -17,12 +17,24 @@
     "nosql",
     "database",
     "vector-search",
+    "mcp",
     "agent-skills"
   ],
   "skills": "./skills/",
+  "mcpServers": {
+    "azure": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@azure/mcp@latest",
+        "server",
+        "start"
+      ]
+    }
+  },
   "interface": {
     "displayName": "Azure Cosmos DB",
-    "shortDescription": "Official Azure Cosmos DB plugin: skills and best practices for NoSQL workflows on Azure.",
+    "shortDescription": "Azure Cosmos DB skills and MCP tools for Kimi Code",
     "longDescription": "The official Azure Cosmos DB plugin bundles a curated set of agent skills covering data modeling, partition key design, query optimization, SDK best practices (singleton client, bulk operations, direct mode), indexing strategies (composite, spatial, exclude unused), vector search (DiskANN, flat, quantized flat), full-text search (BM25, hybrid queries), global distribution (multi-region writes, conflict resolution), security (Entra ID, managed identity, RBAC, network restrictions), throughput and scaling (autoscale, serverless), monitoring and diagnostics, and design patterns (change feed, transactional batch). It gives your agent the knowledge to generate reliable Cosmos DB code and apply best practices end to end.",
     "developerName": "Azure Cosmos DB",
     "category": "Databases",

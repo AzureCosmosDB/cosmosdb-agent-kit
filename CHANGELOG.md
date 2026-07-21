@@ -9,6 +9,15 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## v1.2.0 — 2026-07-21 — Add Kimi Code plugin surface
+
+- **New manifest:** `.kimi-plugin/plugin.json` — Official Kimi Code plugin for Azure Cosmos DB, bundling the skills (`./skills/`) and the Azure MCP server (`@azure/mcp`). Mirrors the Codex `interface` block (display name, category, default prompts, brand color).
+- **Version script:** `scripts/version.js` now bumps `.kimi-plugin/plugin.json` alongside the other vendor manifests so `npm run version` stays atomic.
+- **Manifest validation:** Added `scripts/validate-manifests.js` (`npm run validate:manifests`) that checks every vendor manifest is valid JSON/YAML, version-aligned with `package.json`, and points `skills` at an existing path. Wired into the release workflow.
+- **Docs:** README surfaces list, install description, per-agent plugin-directory table, and compatibility line updated to include Kimi Code. README also adds a Kimi Code CLI install section covering direct GitHub install (`/plugins install`) and the custom marketplace catalog.
+- **New catalog:** `kimi-marketplace.json` — Kimi Code custom marketplace catalog (`version: "2"`) listing the `azure-cosmosdb` plugin with its GitHub source, so users can add it with `/plugins marketplace <url>` or `KIMI_CODE_PLUGIN_MARKETPLACE_URL`. The top-level `version` is the Kimi marketplace schema version and is intentionally excluded from `npm run version`.
+- **Note:** Kimi's Official/curated marketplace tabs are maintained by Moonshot and have no self-serve submission; direct GitHub install and the custom marketplace JSON are the supported publishing paths from this repo.
+
 ## 2026-06-18 — `sdk-diagnostics`: enforce `.Diagnostics` capture in `CosmosException` catch blocks ([#156](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/issues/156))
 
 - **Amended:** `sdk-diagnostics.md` — Rewrote the acceptance criterion as a strict syntactic minimum: every `catch` declaring `CosmosException` (or a subclass) must reference `.Diagnostics` on the caught variable inside the block. Added three violation patterns (log-message-only, diagnostics-dropping re-wrap, bare swallow), a minimal acceptable catch block (`StatusCode`/`ActivityId`/`RequestCharge`/`Diagnostics`), a diagnostics-preserving re-wrap variant, a mechanical detector description (Roslyn/regex), "Why it matters" cross-links to the throughput/RU and 429/retry rules, and a deep-linked reference (`#capture-diagnostics`). Addresses the 0/38 adoption baseline reported in the issue.

@@ -1,5 +1,5 @@
 name: cosmosdb-agent-kit
-version: 1.1.0
+version: 1.2.0
 description: >-
   Azure Cosmos DB best practices and performance optimization skills for AI coding agents.
   Provides expert guidance on data modeling, partition key design, query optimization,
