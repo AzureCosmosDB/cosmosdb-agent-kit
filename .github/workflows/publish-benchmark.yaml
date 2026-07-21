@@ -1,0 +1,109 @@
+name: Publish Benchmark
+
+on:
+  # Manual trigger only for now. This workflow publishes benchmark task images to
+  # an internal Azure Container Registry (CES_ACR) via Azure OIDC. Until that
+  # registry and the OIDC secrets (AZURE_CLIENT_ID / AZURE_TENANT_ID /
+  # AZURE_SUBSCRIPTION_ID) are configured in this repo, an automatic push trigger
+  # would fail on every benchmarks/** change on main. Re-add the push trigger once
+  # the registry and OIDC are set up:
+  #   push:
+  #     branches: [main]
+  #     paths:
+  #       - 'benchmarks/**'
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Rebuild all task images even if unchanged'
+        type: boolean
+        default: false
+      profile:
+        description: 'Docker profile to use'
+        default: 'prod'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    name: Build & publish benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The prod docker profile targets an internal Azure Container Registry whose name is
+      # kept out of this public repo. It is materialized here from the CES_ACR repo variable
+      # and appended to mosaic.toml so the harbor `--profile prod` steps below are unchanged.
+      - name: Configure prod registry profile
+        working-directory: benchmarks/cosmos-sdk-skills
+        env:
+          CES_ACR: ${{ vars.CES_ACR }}
+        run: |
+          if [ -z "$CES_ACR" ]; then
+            echo "Repo variable CES_ACR (Azure Container Registry name) must be set." >&2
+            exit 1
+          fi
+          {
+            printf '\n[docker.prod]\n'
+            printf 'registry = "%s.azurecr.io"\n' "$CES_ACR"
+            printf 'provider = "Azure container registry"\n'
+            printf 'benchmark = "cosmos-sdk-skills"\n'
+            printf 'type = "eval"\n'
+            printf 'architecture = "x86_64"\n'
+            printf 'version = "0.0.1"\n'
+          } >> mosaic.toml
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to ACR
+        env:
+          CES_ACR: ${{ vars.CES_ACR }}
+        run: az acr login --name "$CES_ACR"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Install harbor-format-curation from the internal Azure Artifacts feed. Feed path and
+      # AAD token resource are supplied via the MSBENCH_FEED / MSBENCH_TOKEN_RESOURCE repo
+      # variables so they are not hardcoded in this public workflow.
+      - name: Install harbor-format-curation
+        env:
+          MSBENCH_FEED: ${{ vars.MSBENCH_FEED }}
+          MSBENCH_TOKEN_RESOURCE: ${{ vars.MSBENCH_TOKEN_RESOURCE }}
+        run: |
+          if [ -z "$MSBENCH_FEED" ] || [ -z "$MSBENCH_TOKEN_RESOURCE" ]; then
+            echo "Repo variables MSBENCH_FEED and MSBENCH_TOKEN_RESOURCE must be set." >&2
+            exit 1
+          fi
+          ACCESS_TOKEN=$(az account get-access-token --resource "$MSBENCH_TOKEN_RESOURCE" --query accessToken -o tsv)
+          echo "::add-mask::$ACCESS_TOKEN"
+          pip install harbor-format-curation \
+            --index-url "https://build:${ACCESS_TOKEN}@${MSBENCH_FEED}"
+
+      - name: Import tasks
+        working-directory: benchmarks/cosmos-sdk-skills
+        run: harbor-format-curation import mosaic.toml
+
+      - name: Build Docker images
+        working-directory: benchmarks/cosmos-sdk-skills
+        run: |
+          BUILD_ARGS="--profile ${{ inputs.profile || 'prod' }} mosaic.toml"
+          if [ "${{ inputs.force_rebuild }}" = "true" ]; then
+            BUILD_ARGS="--skip-published-images $BUILD_ARGS"
+          fi
+          harbor-format-curation build $BUILD_ARGS
+
+      - name: Update benchmark database
+        working-directory: benchmarks/cosmos-sdk-skills
+        run: harbor-format-curation update-database --profile ${{ inputs.profile || 'prod' }} mosaic.toml
+
+      - name: Publish images to ACR
+        working-directory: benchmarks/cosmos-sdk-skills
+        run: harbor-format-curation publish --profile ${{ inputs.profile || 'prod' }} mosaic.toml

@@ -1,0 +1,69 @@
+{
+  "scenario": "iot",
+  "database_env": "COSMOS_DATABASE",
+  "database_default": "sensorgrid",
+  "health_path": "/health",
+  "roots": [
+    {
+      "name": "device",
+      "container_env": "COSMOS_DEVICES_CONTAINER",
+      "container_default": "devices",
+      "create": { "path": "/devices", "duplicate_status": 409 },
+      "compare_fields": ["name", "location", "type"],
+      "ordered_array_fields": [],
+      "string_array_fields": [],
+      "string_fields": ["name", "location", "type"],
+      "int_fields": [],
+      "partition": { "value_equals_id": true, "forbid_paths": [] },
+      "modeling": { "type_discriminator": true, "schema_version": true, "timestamp_field": "createdAt" },
+      "indexing": { "require_non_default": true, "require_excludes": false },
+      "throughput": { "required": true },
+      "seed": [
+        { "id": "dev-100", "name": "Boiler Room Sensor",  "location": "Plant A / Boiler Room", "type": "temperature" },
+        { "id": "dev-200", "name": "Humidity Probe",      "location": "Plant A / Cold Storage", "type": "humidity" },
+        { "id": "dev-300", "name": "Line Pressure Gauge", "location": "Plant B / Line 3",       "type": "pressure" }
+      ]
+    }
+  ],
+  "children": [
+    {
+      "name": "reading",
+      "container_env": "COSMOS_READINGS_CONTAINER",
+      "container_default": "readings",
+      "parent": "device",
+      "partition_field": "deviceId",
+      "create": { "path": "/readings", "duplicate_status": null },
+      "time_range": {
+        "path": "/devices/{parentId}/readings",
+        "start_param": "start",
+        "end_param": "end",
+        "time_field": "timestamp"
+      },
+      "summary": {
+        "path": "/devices/{parentId}/summary",
+        "value_field": "value",
+        "count_field": "count",
+        "min_field": "min",
+        "max_field": "max",
+        "avg_field": "avg"
+      },
+      "compare_fields": ["value", "unit", "timestamp"],
+      "string_fields": ["unit", "timestamp"],
+      "modeling": { "type_discriminator": true, "schema_version": true, "timestamp_field": "timestamp" },
+      "range_query": {
+        "parentId": "dev-100",
+        "start": "2026-09-01T00:00:00Z",
+        "end": "2026-09-01T23:59:59Z",
+        "expected_ids": ["r-1", "r-2", "r-3"]
+      },
+      "seed": [
+        { "parentId": "dev-100", "id": "r-1", "timestamp": "2026-09-01T00:00:00Z", "value": 70.0, "unit": "C" },
+        { "parentId": "dev-100", "id": "r-2", "timestamp": "2026-09-01T06:00:00Z", "value": 72.4, "unit": "C" },
+        { "parentId": "dev-100", "id": "r-3", "timestamp": "2026-09-01T12:00:00Z", "value": 75.1, "unit": "C" },
+        { "parentId": "dev-100", "id": "r-4", "timestamp": "2026-09-02T00:00:00Z", "value": 68.9, "unit": "C" },
+        { "parentId": "dev-200", "id": "r-10", "timestamp": "2026-09-01T03:00:00Z", "value": 45.0, "unit": "%" },
+        { "parentId": "dev-300", "id": "r-20", "timestamp": "2026-09-01T09:00:00Z", "value": 3.2, "unit": "bar" }
+      ]
+    }
+  ]
+}

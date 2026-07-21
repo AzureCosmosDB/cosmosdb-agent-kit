@@ -1,0 +1,164 @@
+name: SDK Skill-Efficacy Evaluation
+
+# Manually-triggered only (workflow_dispatch, no schedule). This pipeline
+# authenticates to Azure / the remote execution backend as the PERSON who triggers
+# the run, using an interactive device-code sign-in — the same identity the
+# evaluation harness authenticates you with when you run the eval locally.
+# No service principal is required for this path.
+#
+# Whoever dispatches the workflow MUST:
+#   1. have an Azure account that is entitled to submit to the remote execution
+#      backend (and has read access to the internal Azure Artifacts feed), and
+#   2. watch this job's logs for the device-code prompt and complete the browser
+#      sign-in as that account within the timeout, otherwise the job fails.
+#
+# To instead run this unattended/automated via a service principal (e.g. for a
+# scheduled run), see the "Set up a service principal for the evaluation
+# pipeline" tracking issue — that path needs extra permissions granted to the
+# SP first.
+on:
+  workflow_dispatch:
+    inputs:
+      benchmark:
+        description: 'Benchmark name'
+        default: 'cosmos-sdk-skills'
+      repeat:
+        description: 'Number of independent attempts per instance'
+        default: '3'
+      threshold:
+        description: 'Pass rate threshold (0-1)'
+        default: '0.9'
+      model:
+        # Drives the in-container @github/copilot CLI via COPILOT_MODEL.
+        description: 'Copilot model (blank = runner default claude-sonnet-4.6)'
+        required: false
+        default: ''
+      tenant_id:
+        description: 'Azure tenant to sign into (blank = az default tenant)'
+        required: false
+        default: ''
+      compare_baseline:
+        description: 'Also run the skill-off baseline and report the efficacy delta (doubles run time)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  issues: write # Required if the evaluation fails and an issue must be created.
+
+jobs:
+  evaluate:
+    name: Run skill-efficacy evaluation
+    runs-on: ubuntu-latest
+    # Generous cap: interactive device-code sign-in (up to ~15 min) plus the run.
+    # Doubled to allow for the optional skill-off baseline pass (a second full run).
+    timeout-minutes: 120
+
+    steps:
+      # Check out the repository so the evaluation and issue scripts are available.
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Sign in to Azure interactively as the person who triggered this run. az prints
+      # a URL + one-time code to the logs; open it in a browser and authenticate as your
+      # evaluation-entitled account. The device-code flow polls for completion, so nothing
+      # needs to be typed back into the runner. All later az / msbench-cli calls in this
+      # job then run as that identity — which is how the evaluation harness authorizes
+      # the submission.
+      #
+      # Note: if your tenant's Conditional Access blocks device-code sign-in, use a
+      # self-hosted runner where you are already `az login`ed instead (see the SP issue
+      # for the fully-unattended alternative).
+      - name: Sign in to Azure (device code — triggerer's identity)
+        run: |
+          echo "=============================================================="
+          echo "Complete the device-code sign-in below as your evaluation-entitled"
+          echo "Azure account. The run waits until you finish (or it times out)."
+          echo "=============================================================="
+          if [ -n "${{ inputs.tenant_id }}" ]; then
+            az login --use-device-code --tenant "${{ inputs.tenant_id }}"
+          else
+            az login --use-device-code
+          fi
+
+      # Use Python 3.11 for the evaluation tooling and repository scripts.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Install msbench-cli from the internal Azure Artifacts feed. The feed path and
+      # AAD token resource are kept out of this public workflow and supplied via repo
+      # variables (Settings > Secrets and variables > Actions > Variables):
+      #   MSBENCH_FEED           - feed host+path, no scheme (e.g. host/_packaging/<feed>/pypi/simple/)
+      #   MSBENCH_TOKEN_RESOURCE - AAD resource id used to mint the feed access token
+      # The access token is minted from the signed-in user's identity and passed via
+      # environment variable to avoid persisting credentials in pip config. The signed-in
+      # account must have read access to the feed.
+      - name: Install msbench-cli
+        env:
+          MSBENCH_FEED: ${{ vars.MSBENCH_FEED }}
+          MSBENCH_TOKEN_RESOURCE: ${{ vars.MSBENCH_TOKEN_RESOURCE }}
+        run: |
+          if [ -z "$MSBENCH_FEED" ] || [ -z "$MSBENCH_TOKEN_RESOURCE" ]; then
+            echo "Repo variables MSBENCH_FEED and MSBENCH_TOKEN_RESOURCE must be set." >&2
+            exit 1
+          fi
+          ACCESS_TOKEN=$(az account get-access-token --resource "$MSBENCH_TOKEN_RESOURCE" --query accessToken -o tsv)
+          echo "::add-mask::$ACCESS_TOKEN"
+          pip install msbench-cli \
+            --extra-index-url "https://build:${ACCESS_TOKEN}@${MSBENCH_FEED}"
+
+      # Run the evaluation script. The script is expected to exit with code 1 if the pass
+      # threshold is not met, which will mark the job as failed and trigger the issue step below.
+      #
+      # GITHUB_TOKEN here must be a github.com PAT belonging to an account with a Copilot
+      # subscription — the in-container runner (shared/ces/runner.sh) uses it to authenticate
+      # the baked @github/copilot CLI. The default Actions token has no Copilot access, so a
+      # dedicated COPILOT_GITHUB_TOKEN secret is required. msbench-eval.py forwards it into the
+      # remote-backend container via --encrypted-env GITHUB_TOKEN.
+      #
+      # COSMOS is an optional Cosmos DB connection string secret. When configured, the script
+      # forwards it (encrypted) so the verifier grades against a real Cosmos account instead of
+      # the bundled emulator. Leave the secret unset to run against the emulator.
+      - name: Run skill-efficacy evaluation
+        env:
+          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          COSMOS: ${{ secrets.COSMOS }}
+          # Remote execution backend, kept out of the public repo (repo variable).
+          MSBENCH_BACKEND: ${{ vars.MSBENCH_BACKEND }}
+          # Internal run-analysis web UI URL template (repo variable), e.g.
+          # "https://<host>/run-analysis/{run_id}". Kept out of the public repo.
+          MSBENCH_RUN_ANALYSIS_URL: ${{ vars.MSBENCH_RUN_ANALYSIS_URL }}
+        run: |
+          python scripts/msbench-eval.py \
+            --benchmark "${{ inputs.benchmark }}" \
+            --repeat "${{ inputs.repeat }}" \
+            --threshold "${{ inputs.threshold }}" \
+            ${{ inputs.model && format('--model {0}', inputs.model) || '' }} \
+            ${{ inputs.compare_baseline && '--baseline' || '' }} \
+            --output results.json
+
+      # If the evaluation step fails and a results file was produced, create a GitHub issue
+      # summarizing the results so the regression can be tracked.
+      - name: Create issue if threshold not met
+        if: failure() && hashFiles('results.json') != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/create-skills-issue.py \
+            --results-file results.json \
+            --repo "${{ github.repository }}"
+
+      # Always upload the results so they can be inspected even when the workflow fails.
+      # Includes the skill-off baseline and comparison files when --baseline was used.
+      - name: Upload results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: msbench-results
+          path: |
+            results.json
+            results-baseline.json
+            results-comparison.json
+          if-no-files-found: ignore
