@@ -26,6 +26,9 @@ jobs:
       - name: Validate rules
         run: npm run validate || true
 
+      - name: Validate plugin manifests
+        run: npm run validate:manifests
+
       - name: Build AGENTS.md
         run: npm run build
 

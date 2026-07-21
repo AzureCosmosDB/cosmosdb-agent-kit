@@ -1,0 +1,11 @@
+{
+  "version": "2",
+  "plugins": [
+    {
+      "id": "azure-cosmosdb",
+      "displayName": "Azure Cosmos DB",
+      "description": "Azure Cosmos DB best practices skills and MCP tools for data modeling, partition key design, query optimization, SDK usage, indexing, vector search, full-text search, global distribution, and security.",
+      "source": "https://github.com/AzureCosmosDB/cosmosdb-agent-kit"
+    }
+  ]
+}
