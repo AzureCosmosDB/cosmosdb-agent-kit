@@ -191,4 +191,57 @@ async fn list_orders(
 }
 ```
 
+```csharp
+// .NET Aspire: Register ONE client, share across keyed containers
+// ❌ ANTI-PATTERN (creates multiple separate clients per framework internals):
+var builder = Host.CreateApplicationBuilder();
+builder.AddAzureCosmosClient("cosmosdb");
+
+// Adding multiple keyed containers this way can create separate clients internally
+builder.AddKeyedAzureCosmosContainer("orders");
+builder.AddKeyedAzureCosmosContainer("products");
+builder.AddKeyedAzureCosmosContainer("customers");
+
+// ✅ CORRECT (one shared client, explicit container references):
+var builder = Host.CreateApplicationBuilder();
+
+// Register single CosmosClient
+var cosmosClient = builder.AddAzureCosmosClient("cosmosdb");
+
+// Explicitly inject the same client into container references via DI
+builder.Services.AddKeyedSingleton<Container>(
+    "orders",
+    (sp, key) => sp.GetRequiredService<CosmosClient>()  // ← Reuse shared client
+        .GetContainer("mydb", "orders"));
+
+builder.Services.AddKeyedSingleton<Container>(
+    "products", 
+    (sp, key) => sp.GetRequiredService<CosmosClient>()  // ← Reuse shared client
+        .GetContainer("mydb", "products"));
+
+builder.Services.AddKeyedSingleton<Container>(
+    "customers",
+    (sp, key) => sp.GetRequiredService<CosmosClient>()  // ← Reuse shared client
+        .GetContainer("mydb", "customers"));
+
+// Or use a loop for multiple containers
+var containerNames = new[] { "orders", "products", "customers" };
+foreach (var containerName in containerNames)
+{
+    builder.Services.AddKeyedSingleton<Container>(
+        containerName,
+        (sp, key) => sp.GetRequiredService<CosmosClient>()
+            .GetContainer("mydb", (string)key));
+}
+
+// Inject container by key
+public class OrderService
+{
+    private readonly Container _container;
+    
+    public OrderService([FromKeyedServices("orders")] Container container)
+        => _container = container;  // ← Uses the SAME CosmosClient instance
+}
+```
+
 Reference: [CosmosClient best practices](https://learn.microsoft.com/azure/cosmos-db/nosql/best-practice-dotnet)
