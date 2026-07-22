@@ -203,23 +203,23 @@ builder.AddKeyedAzureCosmosContainer("products");
 builder.AddKeyedAzureCosmosContainer("customers");
 
 // ✅ CORRECT (one shared client, explicit container references):
-var builder = Host.CreateApplicationBuilder();
+var correctBuilder = Host.CreateApplicationBuilder();
 
 // Register single CosmosClient
-var cosmosClient = builder.AddAzureCosmosClient("cosmosdb");
+var cosmosClient = correctBuilder.AddAzureCosmosClient("cosmosdb");
 
 // Explicitly inject the same client into container references via DI
-builder.Services.AddKeyedSingleton<Container>(
+correctBuilder.Services.AddKeyedSingleton<Container>(
     "orders",
     (sp, key) => sp.GetRequiredService<CosmosClient>()  // ← Reuse shared client
         .GetContainer("mydb", "orders"));
 
-builder.Services.AddKeyedSingleton<Container>(
+correctBuilder.Services.AddKeyedSingleton<Container>(
     "products", 
     (sp, key) => sp.GetRequiredService<CosmosClient>()  // ← Reuse shared client
         .GetContainer("mydb", "products"));
 
-builder.Services.AddKeyedSingleton<Container>(
+correctBuilder.Services.AddKeyedSingleton<Container>(
     "customers",
     (sp, key) => sp.GetRequiredService<CosmosClient>()  // ← Reuse shared client
         .GetContainer("mydb", "customers"));
@@ -228,7 +228,7 @@ builder.Services.AddKeyedSingleton<Container>(
 var containerNames = new[] { "orders", "products", "customers" };
 foreach (var containerName in containerNames)
 {
-    builder.Services.AddKeyedSingleton<Container>(
+    correctBuilder.Services.AddKeyedSingleton<Container>(
         containerName,
         (sp, key) => sp.GetRequiredService<CosmosClient>()
             .GetContainer("mydb", (string)key));
