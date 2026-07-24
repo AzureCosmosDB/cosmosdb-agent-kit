@@ -98,46 +98,24 @@ class TestDotnetForbiddenPackage:
 # Python: async client required inside async web frameworks
 # ---------------------------------------------------------------------
 
-# Frameworks whose presence implies an asyncio event loop is running.
-_PY_ASYNC_FRAMEWORKS = [
-    "fastapi", "FastAPI",
-    "from quart", "import quart",
-    "from sanic", "import sanic",
-    "starlette.applications",
-    "azure.functions.AsyncApp",
-    "langgraph.",
-]
-
-
 class TestPythonAsyncClient:
-    """Rule sdk-python-async-deps: don't run the sync Cosmos client
-    inside an asyncio event loop. If the source imports an async web
-    framework, the Cosmos client must come from azure.cosmos.aio and
-    at least one route handler must be `async def`."""
-
-    def test_async_client_when_async_framework_present(self, sdk, source_text):
-        _need(sdk, "python")
-        is_async_app = any(marker in source_text for marker in _PY_ASYNC_FRAMEWORKS)
-        if not is_async_app:
-            pytest.skip("No async web framework detected; sync client is acceptable.")
-        assert "azure.cosmos.aio" in source_text, (
-            "Detected an async web framework (FastAPI / Quart / Sanic / Starlette / "
-            "Azure Functions async / LangGraph) but the Cosmos client is the sync "
-            "`azure.cosmos.CosmosClient`. Rule sdk-python-async-deps: switch to "
-            "`from azure.cosmos.aio import CosmosClient` (and pin `aiohttp` in "
-            "requirements.txt). The sync client blocks the event loop and can deadlock."
-        )
+    """Rule sdk-python-async-deps: keep async Cosmos usage consistent.
+    These checks are gated on the async Cosmos client (azure.cosmos.aio)
+    actually being used -- an app that pairs an async web framework with
+    the sync client and plain `def` handlers is acceptable (the handlers
+    run in a threadpool), so framework presence alone is never flagged.
+    When the aio client is used, at least one route handler must be
+    `async def`, and `aiohttp` must be pinned as a dependency."""
 
     def test_at_least_one_async_handler(self, sdk, source_text):
         _need(sdk, "python")
-        is_async_app = any(marker in source_text for marker in _PY_ASYNC_FRAMEWORKS)
-        if not is_async_app:
-            pytest.skip("No async web framework detected.")
+        if "azure.cosmos.aio" not in source_text:
+            pytest.skip("Async Cosmos client not in use; sync client with `def` handlers is acceptable.")
         assert re.search(r"async\s+def\s+\w+\s*\(", source_text), (
-            "No `async def` handler found. With the async Cosmos client, every "
-            "handler that touches Cosmos must be `async def` and `await` the call. "
-            "Plain `def` handlers force FastAPI to run them in a threadpool, which "
-            "negates the point of the async client."
+            "The async Cosmos client (azure.cosmos.aio) is in use but no `async def` "
+            "handler was found. Every handler that awaits a Cosmos call must be "
+            "`async def`; calling the aio client from plain `def` handlers means the "
+            "coroutines are never awaited on the event loop. Rule sdk-python-async-deps."
         )
 
     def test_aiohttp_dependency_pinned(self, sdk, source_text):

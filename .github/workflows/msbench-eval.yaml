@@ -1,21 +1,30 @@
 name: SDK Skill-Efficacy Evaluation
 
-# Manually-triggered only (workflow_dispatch, no schedule). This pipeline
-# authenticates to Azure / the remote execution backend as the PERSON who triggers
-# the run, using an interactive device-code sign-in — the same identity the
-# evaluation harness authenticates you with when you run the eval locally.
-# No service principal is required for this path.
+# Triggered two ways:
+#   1. workflow_dispatch — run it manually from the Actions tab (optionally
+#      overriding the benchmark / repeat / threshold / model / baseline inputs).
+#   2. pull_request_target, label-gated — when a maintainer adds the `run-msbench`
+#      label to a PR (including PRs from forks), this evaluates the PR's version of
+#      the skill/benchmark. The label IS the security gate: pull_request_target runs
+#      in the BASE repo's context WITH secrets and the OIDC identity, so a maintainer
+#      must review the PR diff (especially scripts/, shared/ces/, and the dataset)
+#      BEFORE adding the label. Never label a PR whose runner/eval code is unreviewed.
 #
-# Whoever dispatches the workflow MUST:
-#   1. have an Azure account that is entitled to submit to the remote execution
-#      backend (and has read access to the internal Azure Artifacts feed), and
-#   2. watch this job's logs for the device-code prompt and complete the browser
-#      sign-in as that account within the timeout, otherwise the job fails.
+# Authentication is fully unattended via a user-assigned managed identity using
+# GitHub OIDC (federated credentials) — no device-code sign-in and no client secret.
+# azure/login@v2 exchanges the workflow's OIDC token for an Azure token, so every
+# later az / msbench-cli call runs as that identity. The identity must be entitled to
+# submit to the remote execution backend and have read access to the internal Azure
+# Artifacts feed. Required repo secrets:
+#   AZURE_CLIENT_ID        - client ID of the user-assigned managed identity
+#   AZURE_TENANT_ID        - its Entra tenant ID
+#   AZURE_SUBSCRIPTION_ID  - subscription to select after login
+# The managed identity needs a federated credential whose subject matches this repo's
+# pull_request (and/or branch) — see the identity's "Federated credentials" in Azure.
 #
-# To instead run this unattended/automated via a service principal (e.g. for a
-# scheduled run), see the "Set up a service principal for the evaluation
-# pipeline" tracking issue — that path needs extra permissions granted to the
-# SP first.
+# NOTE: pull_request_target always uses the workflow file from the DEFAULT branch, so
+# these trigger/auth changes only take effect once merged to main — the label will
+# not run this on the PR that introduces it.
 on:
   workflow_dispatch:
     inputs:
@@ -33,53 +42,63 @@ on:
         description: 'Copilot model (blank = runner default claude-sonnet-4.6)'
         required: false
         default: ''
-      tenant_id:
-        description: 'Azure tenant to sign into (blank = az default tenant)'
-        required: false
-        default: ''
       compare_baseline:
         description: 'Also run the skill-off baseline and report the efficacy delta (doubles run time)'
         type: boolean
         default: true
+  # Label-gated: a run is created only when the `run-msbench` label is added to a PR
+  # (the job-level `if` enforces the exact label name). Works for fork PRs too.
+  pull_request_target:
+    types: [labeled]
 
 permissions:
   contents: read
-  issues: write # Required if the evaluation fails and an issue must be created.
+  id-token: write   # Required for the OIDC token exchange in azure/login.
+  issues: write     # Required if the evaluation fails and an issue must be created.
+  pull-requests: read
+
+# One in-flight eval per PR (or per manual ref); a newer trigger cancels the older.
+concurrency:
+  group: msbench-eval-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   evaluate:
     name: Run skill-efficacy evaluation
     runs-on: ubuntu-latest
-    # Generous cap: interactive device-code sign-in (up to ~15 min) plus the run.
-    # Doubled to allow for the optional skill-off baseline pass (a second full run).
+    # Only run when dispatched manually, or when the `run-msbench` label is present
+    # on a PR (a maintainer's review of the diff is the security gate for the
+    # secrets/OIDC identity that pull_request_target exposes).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request_target' &&
+       github.event.label.name == 'run-msbench')
+    # Generous cap; doubled to allow the optional skill-off baseline pass.
     timeout-minutes: 120
 
     steps:
-      # Check out the repository so the evaluation and issue scripts are available.
+      # Check out the code to evaluate. For a labeled PR (including forks) check out
+      # the PR HEAD so the eval tests the PR's actual skill/benchmark changes — safe
+      # ONLY because the `run-msbench` label gate requires a maintainer to have
+      # reviewed the diff first. For workflow_dispatch these fall back to the repo/ref
+      # the run was started on. persist-credentials:false avoids leaving a token in
+      # the checked-out (potentially untrusted) working tree.
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+          persist-credentials: false
 
-      # Sign in to Azure interactively as the person who triggered this run. az prints
-      # a URL + one-time code to the logs; open it in a browser and authenticate as your
-      # evaluation-entitled account. The device-code flow polls for completion, so nothing
-      # needs to be typed back into the runner. All later az / msbench-cli calls in this
-      # job then run as that identity — which is how the evaluation harness authorizes
-      # the submission.
-      #
-      # Note: if your tenant's Conditional Access blocks device-code sign-in, use a
-      # self-hosted runner where you are already `az login`ed instead (see the SP issue
-      # for the fully-unattended alternative).
-      - name: Sign in to Azure (device code — triggerer's identity)
-        run: |
-          echo "=============================================================="
-          echo "Complete the device-code sign-in below as your evaluation-entitled"
-          echo "Azure account. The run waits until you finish (or it times out)."
-          echo "=============================================================="
-          if [ -n "${{ inputs.tenant_id }}" ]; then
-            az login --use-device-code --tenant "${{ inputs.tenant_id }}"
-          else
-            az login --use-device-code
-          fi
+      # Sign in to Azure unattended via the user-assigned managed identity using GitHub
+      # OIDC (federated credentials) — no client secret is stored. All later az /
+      # msbench-cli calls run as this identity, which authorizes the submission.
+      - name: Sign in to Azure (OIDC — managed identity)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       # Use Python 3.11 for the evaluation tooling and repository scripts.
       - name: Set up Python
@@ -121,6 +140,40 @@ jobs:
       # COSMOS is an optional Cosmos DB connection string secret. When configured, the script
       # forwards it (encrypted) so the verifier grades against a real Cosmos account instead of
       # the bundled emulator. Leave the secret unset to run against the emulator.
+      # Resolve run parameters. workflow_dispatch supplies them via inputs; a
+      # label-triggered PR run has no inputs, so fall back to sensible defaults
+      # (baseline on, so PR runs report the skill-on vs skill-off efficacy delta).
+      - name: Resolve run parameters
+        id: params
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          IN_BENCHMARK: ${{ inputs.benchmark }}
+          IN_REPEAT: ${{ inputs.repeat }}
+          IN_THRESHOLD: ${{ inputs.threshold }}
+          IN_MODEL: ${{ inputs.model }}
+          IN_BASELINE: ${{ inputs.compare_baseline }}
+        run: |
+          BENCHMARK="${IN_BENCHMARK:-cosmos-sdk-skills}"
+          REPEAT="${IN_REPEAT:-3}"
+          THRESHOLD="${IN_THRESHOLD:-0.9}"
+          MODEL="${IN_MODEL:-}"
+          # Baseline defaults on; only a manual run that explicitly sets the input to
+          # "false" turns it off.
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$IN_BASELINE" = "false" ]; then
+            BASELINE_FLAG=""
+          else
+            BASELINE_FLAG="--baseline"
+          fi
+          MODEL_FLAG=""
+          [ -n "$MODEL" ] && MODEL_FLAG="--model $MODEL"
+          {
+            echo "benchmark=$BENCHMARK"
+            echo "repeat=$REPEAT"
+            echo "threshold=$THRESHOLD"
+            echo "model_flag=$MODEL_FLAG"
+            echo "baseline_flag=$BASELINE_FLAG"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Run skill-efficacy evaluation
         env:
           GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
@@ -132,11 +185,11 @@ jobs:
           MSBENCH_RUN_ANALYSIS_URL: ${{ vars.MSBENCH_RUN_ANALYSIS_URL }}
         run: |
           python scripts/msbench-eval.py \
-            --benchmark "${{ inputs.benchmark }}" \
-            --repeat "${{ inputs.repeat }}" \
-            --threshold "${{ inputs.threshold }}" \
-            ${{ inputs.model && format('--model {0}', inputs.model) || '' }} \
-            ${{ inputs.compare_baseline && '--baseline' || '' }} \
+            --benchmark "${{ steps.params.outputs.benchmark }}" \
+            --repeat "${{ steps.params.outputs.repeat }}" \
+            --threshold "${{ steps.params.outputs.threshold }}" \
+            ${{ steps.params.outputs.model_flag }} \
+            ${{ steps.params.outputs.baseline_flag }} \
             --output results.json
 
       # If the evaluation step fails and a results file was produced, create a GitHub issue
