@@ -1,6 +1,6 @@
 {
   "name": "cosmosdb-agent-kit",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Azure Cosmos DB best practices for AI coding agents",
   "keywords": [
     "cosmosdb",
