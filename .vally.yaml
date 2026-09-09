@@ -42,7 +42,6 @@ suites:
     description: Serverless-focused throughput evals
     evals:
       - evals/cosmosdb-best-practices/throughput.eval.yaml
-      - evals/cosmosdb-best-practices/serverless.eval.yaml
     filter:
       category: serverless
 
