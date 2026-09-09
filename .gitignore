@@ -9,6 +9,7 @@ skills/*/AGENTS.md
 # Vally eval results and cache
 .vally-cache/
 results/
+vally-results/
 
 # Testing iteration extracted source (keep only zips)
 testing/scenarios/**/iterations/**/ecommerce-order-api/

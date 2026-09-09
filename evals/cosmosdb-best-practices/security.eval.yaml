@@ -1,0 +1,39 @@
+name: cosmosdb-best-practices-security-eval
+description: |
+  Evaluation suite for Cosmos DB security and networking guidance.
+version: "1.0"
+type: capability
+
+agent_environment: cosmosdb-best-practices-env
+
+defaults:
+  runs: 1
+  timeout: 300s
+  model: gpt-5.5
+  executor: copilot-sdk
+  judge_model: gpt-5.5
+
+stimuli:
+  - name: security-private-endpoint-dns
+    prompt: |
+      I enabled a private endpoint on my Cosmos DB for NoSQL account and disabled
+      public network access. From a VM inside the same VNet, my app still fails
+      with connection timeouts, and nslookup on myaccount.documents.azure.com
+      returns a public IP (104.x.x.x) instead of a private one. What did I miss?
+    tags:
+      category: [security, private-endpoint, dns, connectivity]
+    rubric:
+      - Diagnoses missing or incorrect private DNS integration.
+      - "Covers the key DNS setup elements: privatelink.documents.azure.com zone, VNet link, and endpoint DNS association."
+      - Clarifies that clients continue to use the standard Cosmos DB account endpoint/hostname.
+    graders:
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      - type: prompt
+
+scoring:
+  weights:
+    skill-invocation: 0.2
+    prompt: 0.8
+  threshold: 0.8

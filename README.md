@@ -242,11 +242,17 @@ This project includes a [Vally](https://github.com/microsoft/vally) eval framewo
 ```bash
 # Install Vally by following the instructions at https://github.com/microsoft/vally
 
-# Run evaluations
-vally run evals/cosmosdb-best-practices/eval.yaml -v
+# Validate split eval specs (PowerShell)
+$files = @('modeling.eval.yaml','query.eval.yaml','sdk.eval.yaml','throughput.eval.yaml','security.eval.yaml','vector.eval.yaml','guardrails.eval.yaml'); foreach ($f in $files) { vally lint -e (Join-Path './evals/cosmosdb-best-practices' $f) }
 
-# Check skill readiness
-vally check skills/cosmosdb-best-practices
+# Run all Cosmos DB eval suites
+vally eval --suite cosmosdb-all
+
+# Run only serverless-focused throughput checks
+vally eval --suite cosmosdb-serverless --workers 1
+
+# Lint skill references and frontmatter
+vally lint ./skills
 ```
 
 **Looking for a way to help?** Check out our [good first issues](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) or browse the [Discussions](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/discussions) board to share ideas.
@@ -271,14 +277,18 @@ This project uses [Vally](https://github.com/microsoft/vally) to evaluate skill 
 ```bash
 # Install Vally by following the instructions at https://github.com/microsoft/vally
 
-# Run evaluations (mock executor, no API key needed)
-vally run evals/cosmosdb-best-practices/eval.yaml -v
+# Validate split eval specs (PowerShell)
+$files = @('modeling.eval.yaml','query.eval.yaml','sdk.eval.yaml','throughput.eval.yaml','security.eval.yaml','vector.eval.yaml','guardrails.eval.yaml'); foreach ($f in $files) { vally lint -e (Join-Path './evals/cosmosdb-best-practices' $f) }
 
-# Check skill readiness
-vally check skills/cosmosdb-best-practices
+# Lint skill definitions
+vally lint ./skills
 
-# Run with a real model (requires Copilot auth)
-vally run evals/cosmosdb-best-practices/eval.yaml --executor copilot-sdk --model claude-sonnet-4.6
+# Run all split evals
+vally eval --suite cosmosdb-all
+
+# Run by area
+vally eval --suite cosmosdb-throughput
+vally eval --suite cosmosdb-serverless --workers 1
 ```
 
 ## Changelog

@@ -1,0 +1,50 @@
+name: cosmosdb-best-practices-modeling-eval
+description: |
+  Evaluation suite for Cosmos DB data-modeling guidance.
+version: "1.0"
+type: capability
+
+agent_environment: cosmosdb-best-practices-env
+
+defaults:
+  runs: 1
+  timeout: 300s
+  model: gpt-5.5
+  executor: copilot-sdk
+  judge_model: gpt-5.5
+
+stimuli:
+  - name: model-embed-vs-reference-004
+    prompt: |
+      I have a Cosmos DB container for blog posts. Each post can have up to 20 comments.
+      Comments are always displayed with the post. Should I embed comments inside the
+      post document or store them in a separate container?
+    tags:
+      category: [modeling, happy-path, embed]
+    rubric:
+      - Recommends embedding because the relationship is bounded and the comments are read with the post.
+      - Mentions relevant tradeoffs such as item size, update contention, and unbounded growth.
+    graders:
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      - type: prompt
+
+  - name: model-ttl-expiration
+    prompt: "I store short-lived session tokens and temporary cache entries in Cosmos DB. Should I run a nightly job to delete expired records, or is there a built-in way to expire them automatically?"
+    tags:
+      category: [modeling, ttl, retention]
+    rubric:
+      - Recommends Azure Cosmos DB time-to-live instead of a scheduled cleanup job.
+      - Explains container-level defaults and item-level TTL overrides or exclusions.
+    graders:
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      - type: prompt
+
+scoring:
+  weights:
+    skill-invocation: 0.2
+    prompt: 0.8
+  threshold: 0.8
