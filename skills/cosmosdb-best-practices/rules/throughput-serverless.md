@@ -5,7 +5,7 @@ impactDescription: pay-per-request pricing
 tags: throughput, serverless, development, bursty, cost
 ---
 
-## Consider Serverless for Dev/Test
+## Use Serverless for New, Bursty, and Dev/Test Workloads
 
 Use serverless for new workloads with unknown demand and for bursty or low-baseline traffic. Serverless bills per RU consumed, with no always-on throughput floor.
 
@@ -89,9 +89,9 @@ When NOT to use serverless:
 // - No analytical store (Synapse Link)
 
 // Cost comparison:
-// Provisioned 400 RU/s: ~$23/month (always)
-// Serverless with 1M RU/month: ~$0.25/month
-// Break-even depends on your region and pricing; estimate with current usage data.
+// - Use current Azure pricing tools for your region and currency
+// - Compare against your actual RU telemetry, not peak RU/s alone
+// - Re-check around ~90M RU/month for the 400 RU/s provisioned baseline
 ```
 
 Reference: [Serverless in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/serverless)
