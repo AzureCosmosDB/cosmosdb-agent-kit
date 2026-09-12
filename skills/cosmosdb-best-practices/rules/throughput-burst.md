@@ -53,7 +53,7 @@ await database.CreateContainerAsync(props, throughput: 1500);
 await database.CreateContainerAsync(
     props,
     throughputProperties: ThroughputProperties.CreateAutoscaleThroughput(
-        maxThroughput: 2000));  // Scales 200-2000 RU/s
+        autoscaleMaxThroughput: 2000));  // Scales 200-2000 RU/s
 
 // Burst is for:
 // - Momentary spikes (seconds to a few minutes)
