@@ -206,7 +206,7 @@ Reference these guidelines when:
 - [fts-index-policy](rules/fts-add-index.md) - Add `fullTextIndexes` entry in the indexing policy to build the inverted index
 - [fts-contains-query](rules/fts-keyword-matching.md) - Use `FullTextContains` / `FullTextContainsAll` / `FullTextContainsAny` instead of `CONTAINS(LOWER(...))`
 - [fts-score-ranking](rules/fts-relevance-ranking.md) - Use `ORDER BY RANK FullTextScore(path, term)` for BM25 relevance ranking
-- [fts-hybrid-query](rules/fts-hybrid-queries.md) - Combine FTS predicates with range/equality filters; put most selective filter first
+- [fts-hybrid-query](rules/fts-hybrid-queries.md) - Combine FTS predicates with selective indexed equality/range filters; predicate text order does not control execution
 
 ## How to Use
 
