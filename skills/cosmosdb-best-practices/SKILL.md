@@ -89,7 +89,7 @@ Reference these guidelines when:
 - [query-pagination](rules/query-pagination.md) - Use continuation tokens for pagination
 - [query-avoid-scans](rules/query-avoid-scans.md) - Avoid full container scans
 - [query-parameterize](rules/query-parameterize.md) - Use parameterized queries
-- [query-order-filters](rules/query-order-filters.md) - Order filters by selectivity
+- [query-order-filters](rules/query-order-filters.md) - Let the query engine order filters; tune indexed predicates rather than their textual order
 - [query-top-literal](rules/query-top-literal.md) - Use literal integers for TOP, never parameters
 - [query-latest-by-timestamp](rules/query-latest-by-timestamp.md) - Query "latest" documents with explicit ORDER BY and TOP 1
 - [query-olap-detection](rules/query-olap-detection.md) - Detect and redirect analytical queries away from transactional containers
