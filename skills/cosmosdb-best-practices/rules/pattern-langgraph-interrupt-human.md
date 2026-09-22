@@ -59,11 +59,21 @@ graph = builder.compile(checkpointer=CosmosDBSaver(async_container))
 ```
 
 **How it works:**
+
 1. Agent node returns `Command(goto="human")` after processing
 2. The `human_node` calls `interrupt()`, which persists state and pauses
 3. The caller receives a response indicating the graph is waiting
-4. When the user sends a new message, the caller consumes `graph.stream(Command(resume=user_message), config)` using the same `config["configurable"]["thread_id"]` as the interrupted run
+4. When the user sends a new message, the async caller consumes `graph.astream(Command(resume=user_message), config)` using the same `config["configurable"]["thread_id"]` as the interrupted run
 5. The checkpointer restores state from Cosmos DB and the interrupted node restarts; `interrupt()` returns `user_message`, which `human_node` adds to the message history
+
+Consume the resume stream inside an async caller:
+
+```python
+async for update in graph.astream(Command(resume=user_message), config):
+    print(update)
+```
+
+Use the async execution APIs for this graph's async agent node and Cosmos DB checkpointer. If streaming updates are not needed, use `await graph.ainvoke(Command(resume=user_message), config)` instead.
 
 Code before `interrupt()` runs again when the node resumes, so any side effects before it must be idempotent.
 
