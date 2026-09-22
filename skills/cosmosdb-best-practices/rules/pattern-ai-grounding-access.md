@@ -1,7 +1,7 @@
 ---
 title: Use Point Reads for AI-Grounding and RAG Retrieval When ID Is Known
 impact: HIGH
-impactDescription: reduces query overhead and tool-call latency for known-ID grounding fetches
+impactDescription: 1 RU per 1-KB point read at session consistency; avoids query overhead
 tags: pattern, ai, grounding, rag, point-read, tool-call, llm, retrieval
 ---
 
