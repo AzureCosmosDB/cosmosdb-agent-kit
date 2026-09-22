@@ -179,7 +179,8 @@ Denormalize when:
        # 2. Delete all related score documents (different container, same partition key)
        scores_query = "SELECT c.id FROM c WHERE c.playerId = @pid"
        async for page in scores_container.query_items(
-           query=scores_query, parameters=[{"name": "@pid", "value": player_id}]
+           query=scores_query, parameters=[{"name": "@pid", "value": player_id}],
+           partition_key=player_id,
        ):
            await scores_container.delete_item(item=page["id"], partition_key=player_id)
 
