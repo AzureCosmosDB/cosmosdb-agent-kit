@@ -38,18 +38,11 @@ var indexingPolicy = new IndexingPolicy
     
     CompositeIndexes =
     {
-        // Must match ORDER BY exactly (properties and sort order)
+        // Supports this path sequence with these directions or their full reverse
         new Collection<CompositePath>
         {
             new CompositePath { Path = "/createdAt", Order = CompositePathSortOrder.Descending },
             new CompositePath { Path = "/priority", Order = CompositePathSortOrder.Ascending }
-        },
-        
-        // Add reverse order for flexibility
-        new Collection<CompositePath>
-        {
-            new CompositePath { Path = "/createdAt", Order = CompositePathSortOrder.Ascending },
-            new CompositePath { Path = "/priority", Order = CompositePathSortOrder.Descending }
         },
         
         // Optional filter + sort optimization:
@@ -207,17 +200,19 @@ A type discriminator alone does not require a composite index. A query such as `
 
 ### Node.js / TypeScript (@azure/cosmos v4)
 
+The following are independent creation examples using different container IDs. Each assumes its container does not already exist; `create()` fails rather than silently retaining an existing policy. Use equivalent data when comparing request charges. For an existing application container, use the policy-update flow below instead of `createIfNotExists()`.
+
 **Valid baseline (single-property sorting with default range indexes):**
 
 ```typescript
 // The default policy creates range indexes, but no composite indexes.
-await database.containers.createIfNotExists({
-  id: 'orders',
+const { container: baselineContainer } = await database.containers.create({
+    id: 'orders-baseline',
   partitionKey: { paths: ['/userId'] },
 });
 
 // This single-property ORDER BY can use the default range indexes.
-await container.items.query({
+await baselineContainer.items.query({
   query: 'SELECT * FROM c WHERE c.userId = @u ORDER BY c.createdAt DESC',
   parameters: [{ name: '@u', value: userId }],
 }, { partitionKey: userId }).fetchAll();
@@ -249,13 +244,13 @@ const ordersIndexingPolicy: IndexingPolicy = {
   ],
 };
 
-await database.containers.createIfNotExists({
-  id: 'orders',
+const { container: optimizedContainer } = await database.containers.create({
+    id: 'orders-optimized',
   partitionKey: { paths: ['/userId'] },
   indexingPolicy: ordersIndexingPolicy,
 });
 
-await database.container('orders').items.query({
+await optimizedContainer.items.query({
     query: 'SELECT * FROM c WHERE c.userId = @u ORDER BY c.userId ASC, c.createdAt DESC',
     parameters: [{ name: '@u', value: userId }],
 }, { partitionKey: userId }).fetchAll();
@@ -275,9 +270,9 @@ await database.container('orders').replace({
 ```
 
 Rules:
-- Composite index order must match ORDER BY exactly
+- Composite paths must match the `ORDER BY` sequence; directions may match the index or be reversed on every path
 - For equality-filtered sort optimizations, include the equality-filtered paths first in both `ORDER BY` and the composite index
-- Include both ASC/DESC variants for flexibility
+- Do not add a duplicate inverse-direction index; add distinct direction combinations only when queries require them
 - Maximum 8 paths per composite index
 - Composite indexes consume additional write RU — declare only the composites you actually query against
 - Evaluate composite indexes for frequent type-filtered sorting queries; a type filter alone does not require one
