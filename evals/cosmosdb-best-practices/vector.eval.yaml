@@ -1,0 +1,50 @@
+name: cosmosdb-best-practices-vector-eval
+description: |
+  Evaluation suite for Cosmos DB vector-search guidance.
+version: "1.0"
+type: capability
+
+agent_environment: cosmosdb-best-practices-env
+
+defaults:
+  runs: 1
+  timeout: 300s
+  model: gpt-5.5
+  executor: copilot-sdk
+  judge_model: gpt-5.5
+
+stimuli:
+  - name: vector-index-type-013
+    prompt: |
+      Choose an Azure Cosmos DB for NoSQL vector index for each workload and
+      explain the decision criteria:
+
+      1. A compliance search uses 384-dimensional embeddings, must return the
+         exact top results, and searches about 8,000 vectors after its tenant filter.
+      2. A product container holds 1.2 million 1,536-dimensional vectors, but its
+         partition key and category filter leave about 35,000 candidates per query.
+         A small loss from vector compression is acceptable.
+      3. A catalog search uses 1,536-dimensional vectors and important queries span
+         roughly 4 million candidates. Low latency and RU usage matter more than
+         exact, deterministic top-K results.
+
+      Development starts with only 600 indexed vectors before production ingestion.
+      Also explain how to configure the embedding path in the regular indexing
+      policy and how to improve recall for workload 3 if its first results are low.
+    tags:
+      category: [vector, indexing, decision]
+    rubric:
+      - Selects flat for exact search, quantizedFlat for the filtered medium candidate set, and DiskANN for the large approximate search.
+      - Explains the 1,000-vector activation threshold and fallback behavior during initial ingestion.
+      - Recommends excluding the embedding path from the regular index and discusses search-list-size recall tuning for DiskANN.
+    graders:
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      - type: prompt
+
+scoring:
+  weights:
+    skill-invocation: 0.2
+    prompt: 0.8
+  threshold: 0.8

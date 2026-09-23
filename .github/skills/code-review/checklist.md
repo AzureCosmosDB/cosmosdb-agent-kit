@@ -104,19 +104,20 @@ new rule against the existing rule set:
 
 ---
 
-## 3. Eval Tasks (`evals/**/*.yaml`)
+## 3. Vally Eval Files (`evals/**/*.eval.yaml`)
 
 | Field | Required | Type |
 |-------|----------|------|
-| `id` | 🔴 Yes | String (unique identifier) |
 | `name` | 🔴 Yes | String (short descriptive name) |
-| `description` | 🔴 Yes | String (what this test validates) |
-| `tags` | 🔴 Yes | List (should match rule category: sdk, model, partition, query, security, fts, vector, etc.) |
-| `inputs.prompt` | 🔴 Yes | String (realistic user query triggering the rule's guidance) |
-| `expected.outcomes` | 🔴 Yes | List (at minimum `- type: task_completed`) |
+| `description` | 🔴 Yes | String (what this eval file validates) |
+| `version` | 🔴 Yes | String |
+| `type` | 🔴 Yes | String (for example, `capability`) |
+| `agent_environment` | 🔴 Yes | String matching an environment in `.vally.yaml` |
+| `stimuli` | 🔴 Yes | List of tasks with `name`, `prompt`, `tags`, `rubric`, and `graders` |
+| `scoring` | 🔴 Yes | Scoring weights and threshold |
 
-- 🟡 The prompt should be a realistic developer question, not synthetic or overly specific
-- 🟡 Tags should align with the rule categories in `_sections.md`
+- 🟡 Each stimulus prompt should be a realistic developer question, not synthetic or overly specific
+- 🟡 Stimulus tags should align with the rule categories in `_sections.md`
 
 ---
 

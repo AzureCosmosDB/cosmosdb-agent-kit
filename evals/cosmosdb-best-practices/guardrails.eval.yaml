@@ -1,0 +1,33 @@
+name: cosmosdb-best-practices-guardrails-eval
+description: |
+  Evaluation suite for non-trigger and safety boundaries.
+version: "1.0"
+type: capability
+
+agent_environment: cosmosdb-best-practices-env
+
+defaults:
+  runs: 1
+  timeout: 300s
+  model: gpt-5.5
+  executor: copilot-sdk
+  judge_model: gpt-5.5
+
+stimuli:
+  - name: should-not-trigger-001
+    prompt: "How do I create an index in PostgreSQL for a users table?"
+    tags:
+      category: [anti-trigger, negative-test]
+    rubric:
+      - Answers the PostgreSQL question without introducing unrelated Azure Cosmos DB guidance.
+    graders:
+      - type: skill-invocation
+        config:
+          disallowed: [cosmosdb-best-practices]
+      - type: prompt
+
+scoring:
+  weights:
+    skill-invocation: 0.2
+    prompt: 0.8
+  threshold: 0.8

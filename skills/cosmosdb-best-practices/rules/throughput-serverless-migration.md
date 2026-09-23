@@ -1,13 +1,18 @@
 ---
-title: Migrate a Low-Traffic Provisioned Account to Serverless
+title: Choose the Correct Serverless and Provisioned Migration Path
 impact: MEDIUM
-impactDescription: pay-per-request pricing for sporadic workloads
-tags: throughput, serverless, migration, cost, irreversible
+impactDescription: align capacity mode, cost, and scale with the workload
+tags: throughput, serverless, provisioned, migration, cost, irreversible
 ---
 
-## Migrate a Low-Traffic Provisioned Account to Serverless
+## Choose the Correct Serverless and Provisioned Migration Path
 
-An account with low, sporadic consumption often costs less on serverless (pay-per-RU) than on always-on provisioned throughput, which bills its floor 24/7. Serverless is an account-level capacity mode, so switching a *provisioned* account to serverless is not an in-place toggle — you provision a new serverless account and copy the data, gated by hard feasibility constraints. Importantly, this is not a dead end: if the workload later outgrows serverless, the reverse direction (serverless → provisioned) **is** supported in-place.
+Choose migration direction from measured RU usage, required features, and cost.
+
+- **Provisioned → serverless:** use this for intermittent traffic, long idle periods, or low average-to-peak utilization (for example, under 10%), if single-region is acceptable and shared database throughput is not required. This is **not** in-place: create a new serverless account and migrate data.
+- **Serverless → provisioned:** use this when traffic becomes sustained or predictable, provisioned pricing is better, a physical partition needs more than 5,000 RU/s, or you need provisioned-only features (for example, multiple regions or shared database throughput). For Azure Cosmos DB for NoSQL, this direction is **in-place**.
+
+Do not decide from a single spike. Review representative Azure Monitor **Request Units consumed** data, partition-level distribution, required regions, and monthly cost.
 
 **Incorrect (leaving a low-traffic workload on always-on provisioned throughput):**
 
@@ -45,10 +50,37 @@ await database.CreateContainerIfNotExistsAsync(
 Verify these feasibility gates BEFORE migrating:
 - Single region only (serverless does not support multi-region distribution).
 - No database-level (shared) throughput — serverless is per-container consumption.
-- Sustained demand stays well under ~5,000 RU/s per physical partition.
-- A supported API (e.g., NoSQL).
+- Demand on each physical partition does not exceed 5,000 RU/s.
+- A supported API and account configuration.
 
-**If serverless is later outgrown:** you can change a serverless account to provisioned capacity **in-place** from the Azure portal (**Change capacity mode to provisioned throughput**). It converts every container to *manual* provisioned throughput (`RU/s = number of partitions × 5,000`), after which you can switch to autoscale. Note that this capacity-mode change is itself one-way — a provisioned account can't be changed back to serverless — so you would again need a new-account migration to return to serverless. For choosing serverless on a new (greenfield) project, see `throughput-serverless`.
+**Incorrect (trying to migrate a serverless account by assigning throughput to a container):**
+
+```csharp
+// Adding throughput does not convert a serverless container or account.
+// A throughput value on container creation in a serverless account is rejected.
+await database.CreateContainerAsync(
+    new ContainerProperties("orders", "/customerId"),
+    throughput: 10000);
+```
+
+**Correct (change the existing NoSQL account's capacity mode):**
+
+```text
+Azure portal > Azure Cosmos DB for NoSQL account > Overview
+  > Change capacity mode to provisioned throughput
+  > Review changes and initial throughput > Confirm
+  > Wait until the account state is no longer Updating
+  > Optionally change each container from manual throughput to autoscale
+```
+
+Before confirming a serverless → provisioned migration:
+
+- Estimate initial cost for **every** container. Migration converts each container to manual throughput using `RU/s = number of physical partitions × 5,000`.
+- Plan a temporary management freeze. Account management operations are blocked during migration, and there is no migration-duration SLA.
+- Treat this as irreversible in-place. You cannot switch that account back to serverless in-place; returning to serverless requires a new account plus data migration.
+- After migration, right-size manual throughput or move containers to autoscale. Add provisioned-only settings (for example, extra regions) after the migration completes.
+
+For choosing serverless on a new (greenfield) project, see `throughput-serverless`.
 
 References:
 - [Serverless in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/serverless)

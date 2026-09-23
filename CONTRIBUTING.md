@@ -99,22 +99,34 @@ npm run validate
 
 ## Writing Tests (Optional)
 
-The repo includes a [Vally](https://github.com/microsoft/vally) eval framework under `evals/`. Eval tasks are not currently enforced in CI (the mock executor cannot validate response content), but you're encouraged to add them alongside new rules for future use.
+The repo includes a [Vally](https://github.com/microsoft/vally) eval framework under `evals/`. Evals are split by area (`*.eval.yaml`) and run with suites from `.vally.yaml`.
 
-### Adding a task for a new rule
+### Adding an eval stimulus for a new rule
 
-Create a YAML file in `evals/cosmosdb-best-practices/tasks/`:
+Update the relevant area file in `evals/cosmosdb-best-practices/`:
+- `modeling.eval.yaml`
+- `query.eval.yaml`
+- `sdk.eval.yaml`
+- `throughput.eval.yaml`
+- `security.eval.yaml`
+- `vector.eval.yaml`
+- `guardrails.eval.yaml`
+
+Add a new `stimuli` entry using this shape:
 
 ```yaml
-id: your-rule-name
-name: "Short descriptive name"
-description: |
-  What this test validates — should map to a specific rule or behavior.
-inputs:
+- name: your-rule-name-###
   prompt: "A realistic user prompt that should trigger your rule's guidance"
-expected:
-  outcomes:
-    - type: task_completed
+  tags:
+    category: [throughput, serverless]
+  rubric:
+    - Clear criterion 1 for what a correct response must contain.
+    - Clear criterion 2 for what a correct response must contain.
+  graders:
+    - type: skill-invocation
+      config:
+        required: [cosmosdb-best-practices]
+    - type: prompt
 ```
 
 ### Running tests locally
@@ -122,14 +134,17 @@ expected:
 ```bash
 # Install Vally by following the instructions at https://github.com/microsoft/vally
 
-# Run all eval tasks (mock executor — no API key needed)
-vally run evals/cosmosdb-best-practices/eval.yaml -v
+# Validate split eval files (PowerShell)
+$files = @('modeling.eval.yaml','query.eval.yaml','sdk.eval.yaml','throughput.eval.yaml','security.eval.yaml','vector.eval.yaml','guardrails.eval.yaml'); foreach ($f in $files) { vally lint -e (Join-Path './evals/cosmosdb-best-practices' $f) }
 
-# Run a single task by name
-vally run evals/cosmosdb-best-practices/eval.yaml --task "Your Task Name"
+# Run all split evals
+vally eval --suite cosmosdb-all
 
-# Check skill readiness
-vally check skills/cosmosdb-best-practices
+# Run only serverless checks
+vally eval --suite cosmosdb-serverless --workers 1
+
+# Lint skill readiness
+vally lint ./skills
 ```
 
 ## Rule File Format
