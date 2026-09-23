@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "organization": "CosmosDB Agent Kit",
+  "date": "September 2026",
+  "abstract": "Workflow guidance for Cosmos DB Shell and its MCP tools: choosing the integration, establishing availability, explicit target selection, bounded reads, user-authorized changes, destructive-operation confirmations, and credential handling. Includes optional VS Code extension integration.",
+  "references": [
+    "https://learn.microsoft.com/azure/cosmos-db/shell/overview",
+    "https://github.com/Azure/CosmosDBShell",
+    "https://learn.microsoft.com/azure/cosmos-db/nosql/query/"
+  ]
+}

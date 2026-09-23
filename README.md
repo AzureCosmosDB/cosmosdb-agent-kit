@@ -60,6 +60,7 @@ So the combined recommendation is simple: **use a Recommended-tier model *and* d
 | Skill | Description | Status |
 |-------|-------------|--------|
 | [cosmosdb-best-practices](skills/cosmosdb-best-practices/) | Performance optimization (111 rules, 12 categories) | ✅ Stable |
+| [cosmosdb-shell](skills/cosmosdb-shell/) | Cosmos DB Shell and MCP workflows for data exploration and administration | Preview |
 | migration-capacity-planning | RU calculation, data sizing, pre-split partitions | 🚧 Planned |
 
 ### cosmosdb-best-practices
