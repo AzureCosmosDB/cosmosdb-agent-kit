@@ -42,7 +42,7 @@ var containerProperties = new ContainerProperties
 await database.CreateContainerAsync(
     containerProperties,
     throughputProperties: ThroughputProperties.CreateAutoscaleThroughput(
-        maxThroughput: 10000));  // Scales 1,000-10,000 RU/s
+        autoscaleMaxThroughput: 10000));  // Scales 1,000-10,000 RU/s
 
 // Benefits:
 // - Quiet period: Scales down to 1,000 RU/s (10% of max)
@@ -62,7 +62,7 @@ Console.WriteLine($"Current: {throughputResponse.Resource.Throughput} RU/s");
 ```csharp
 // Modify autoscale max throughput
 await container.ReplaceThroughputAsync(
-    ThroughputProperties.CreateAutoscaleThroughput(maxThroughput: 20000));
+    ThroughputProperties.CreateAutoscaleThroughput(autoscaleMaxThroughput: 20000));
 // Now scales between 2,000-20,000 RU/s
 ```
 
