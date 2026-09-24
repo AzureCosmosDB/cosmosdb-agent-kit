@@ -1,77 +1,51 @@
 ---
-title: Order Filters by Selectivity
+title: Let the Query Engine Order Filters
 impact: MEDIUM
-impactDescription: reduces intermediate result sets
+impactDescription: avoids ineffective predicate-order tuning and incorrect execution assumptions
 tags: query, filters, optimization, performance
 ---
 
-## Order Filters by Selectivity
+## Let the Query Engine Order Filters
 
-Place most selective filters first in WHERE clauses. The query engine processes filters left-to-right, so selective filters early reduce data scanned.
+The textual order of equivalent predicates in a `WHERE` clause does not determine their execution order. Cosmos DB's query engine determines which predicates are more selective and how to execute the query. Moving a selective predicate earlier in the SQL text is not a performance optimization.
 
-**Incorrect (least selective filter first):**
-
-```csharp
-// Status has low selectivity (few unique values)
-// Filters 1M items to 300K, then to 100
-var query = @"
-    SELECT * FROM c 
-    WHERE c.status = 'active'        -- 30% of items match
-    AND c.type = 'order'             -- 10% of items match
-    AND c.customerId = @customerId"; -- 0.01% match (highly selective)
-
-// Processes: 1M → 300K → 100K → 100
-// More intermediate processing than necessary
-```
-
-**Correct (most selective filter first):**
+**Incorrect (assuming lower RU cost solely from reordering equivalent predicates):**
 
 ```csharp
-// CustomerId is highly selective (unique per customer)
-var query = @"
-    SELECT * FROM c 
-    WHERE c.customerId = @customerId  -- 0.01% match (filter first!)
-    AND c.type = 'order'              -- Then narrow by type
-    AND c.status = 'active'";         -- Finally by status
+var originalQuery = @"
+    SELECT * FROM c
+    WHERE c.status = 'active'
+    AND c.type = 'order'
+    AND c.customerId = @customerId";
 
-// Processes: 1M → 1K → 100 → 100
-// Much less intermediate data
-```
-
-```csharp
-// Selectivity guidelines (from most to least selective):
-// 1. Unique identifiers: id, customerId, orderId (highest)
-// 2. Foreign keys with many values: productId, userId
-// 3. Timestamps (range queries): createdAt, modifiedAt
-// 4. Categories with many values: categoryId, departmentId
-// 5. Status fields: status, state (low selectivity)
-// 6. Boolean flags: isActive, isDeleted (lowest - only 2 values)
-
-// Example: Combining timestamp with status
-var query = @"
-    SELECT * FROM c 
+var reorderedQuery = @"
+    SELECT * FROM c
     WHERE c.customerId = @customerId
-    AND c.orderDate >= @startDate
-    AND c.orderDate < @endDate
-    AND c.status = 'completed'";
-
-// Even better with composite index
+    AND c.type = 'order'
+    AND c.status = 'active'";
 ```
+
+Both queries are valid and express the same filters. The mistake is claiming that `reorderedQuery` is cheaper merely because `customerId` appears first, or assigning intermediate row counts based on the clauses' textual positions.
+
+**Correct (use readable predicates and optimize actual index usage):**
 
 ```csharp
-// Use BETWEEN with high selectivity values
-var query = @"
-    SELECT * FROM c 
-    WHERE c.orderId >= @startId AND c.orderId <= @endId  -- Very selective range
-    AND c.status = 'active'";
-
-// For OR clauses, check if rewriting helps
-// Less efficient:
-var query1 = "SELECT * FROM c WHERE c.status = 'a' OR c.status = 'b' AND c.customerId = @id";
-// Better (explicit grouping):
-var query2 = "SELECT * FROM c WHERE (c.status = 'a' OR c.status = 'b') AND c.customerId = @id";
-// Best (if possible, use IN):
-var query3 = "SELECT * FROM c WHERE c.status IN ('a', 'b') AND c.customerId = @id";
+var query = new QueryDefinition(@"
+    SELECT * FROM c
+    WHERE c.customerId = @customerId
+    AND c.type = 'order'
+    AND c.status = 'active'")
+    .WithParameter("@customerId", customerId);
 ```
 
-Reference: [Query optimization tips](https://learn.microsoft.com/azure/cosmos-db/nosql/performance-tips-query-sdk)
+The order above is for readability, not an execution hint. To tune performance, inspect index usage and measured request charges/query metrics rather than assuming that swapping the same predicates reduces work.
+
+**Key points:**
+
+- Selectivity depends on the data distribution, not just the property name or type.
+- Add useful filters with appropriate index support; a partition-key equality filter can narrow the query's partition scope regardless of where it appears in the `WHERE` clause.
+- Preserve Boolean grouping when rewriting queries. Adding parentheses around `OR` predicates can change which documents match; it is not merely a performance rewrite.
+
+See also: [Avoid cross-partition queries](query-avoid-cross-partition.md), [avoid full scans](query-avoid-scans.md), [combine FTS with indexed filters](fts-hybrid-queries.md).
+
+Reference: [Index usage and filter-clause ordering](https://learn.microsoft.com/azure/cosmos-db/index-overview#composite-indexes)
