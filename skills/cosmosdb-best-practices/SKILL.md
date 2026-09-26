@@ -148,6 +148,7 @@ Reference these guidelines when:
 - [throughput-burst](rules/throughput-burst.md) - Understand burst capacity
 - [throughput-container-vs-database](rules/throughput-container-vs-database.md) - Choose allocation level wisely
 - [throughput-idle-container-review](rules/throughput-idle-container-review.md) - Review idle containers for lifecycle action
+- [throughput-integrated-cache](rules/throughput-integrated-cache.md) - Use integrated cache for read-heavy workloads with dedicated gateway
 - [throughput-ttl-stale-data](rules/throughput-ttl-stale-data.md) - Expire stale data with TTL before hitting storage limits
 - [throughput-serverless-migration](rules/throughput-serverless-migration.md) - Migrate a low-traffic provisioned account to serverless
 

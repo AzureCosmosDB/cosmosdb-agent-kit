@@ -7,7 +7,7 @@ tags: sdk, connection-mode, direct, performance
 
 ## Use Direct Connection Mode for Production
 
-Use Direct connection mode for production workloads. Gateway mode adds an extra network hop and is only needed for firewall-restricted environments.
+Use Direct connection mode for production workloads. Gateway mode adds an extra network hop and should generally be avoided unless the workload has a specific requirement for Gateway mode, such as firewall restrictions or Azure Cosmos DB integrated cache (via the dedicated gateway).
 
 **Incorrect (defaulting to Gateway mode):**
 
@@ -58,6 +58,7 @@ var gatewayClient = new CosmosClient(connectionString, new CosmosClientOptions
     // 1. Corporate firewall blocks TCP port range 10000-20000
     // 2. Running in Azure Functions Consumption plan (sometimes)
     // 3. Kubernetes with restrictive network policies
+    // 4. Using Azure Cosmos DB Integrated Cache, which requires the dedicated gateway endpoint/connection string
     ConnectionMode = ConnectionMode.Gateway
 });
 ```
