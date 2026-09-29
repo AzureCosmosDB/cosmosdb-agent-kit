@@ -89,7 +89,7 @@ Reference these guidelines when:
 - [query-pagination](rules/query-pagination.md) - Use continuation tokens for pagination
 - [query-avoid-scans](rules/query-avoid-scans.md) - Avoid full container scans
 - [query-parameterize](rules/query-parameterize.md) - Use parameterized queries
-- [query-order-filters](rules/query-order-filters.md) - Order filters by selectivity
+- [query-order-filters](rules/query-order-filters.md) - Let the query engine order filters; tune indexed predicates rather than their textual order
 - [query-top-literal](rules/query-top-literal.md) - Use literal integers for TOP, never parameters
 - [query-latest-by-timestamp](rules/query-latest-by-timestamp.md) - Query "latest" documents with explicit ORDER BY and TOP 1
 - [query-olap-detection](rules/query-olap-detection.md) - Detect and redirect analytical queries away from transactional containers
@@ -206,7 +206,7 @@ Reference these guidelines when:
 - [fts-index-policy](rules/fts-add-index.md) - Add `fullTextIndexes` entry in the indexing policy to build the inverted index
 - [fts-contains-query](rules/fts-keyword-matching.md) - Use `FullTextContains` / `FullTextContainsAll` / `FullTextContainsAny` instead of `CONTAINS(LOWER(...))`
 - [fts-score-ranking](rules/fts-relevance-ranking.md) - Use `ORDER BY RANK FullTextScore(path, term)` for BM25 relevance ranking
-- [fts-hybrid-query](rules/fts-hybrid-queries.md) - Combine FTS predicates with range/equality filters; put most selective filter first
+- [fts-hybrid-query](rules/fts-hybrid-queries.md) - Combine FTS predicates with selective indexed equality/range filters; predicate text order does not control execution
 
 ## How to Use
 
