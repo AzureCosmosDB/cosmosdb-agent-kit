@@ -1,0 +1,82 @@
+name: cosmosdb-best-practices-sdk-eval
+description: |
+  Evaluation suite for Cosmos DB SDK usage and implementation guidance.
+version: "1.0"
+type: capability
+
+agent_environment: cosmosdb-best-practices-env
+
+defaults:
+  runs: 1
+  timeout: 300s
+  model: gpt-5.5
+  executor: copilot-sdk
+  judge_model: gpt-5.5
+
+stimuli:
+  - name: sdk-emulator-ssl-java-linux
+    prompt: |
+      I'm running the Azure Cosmos DB Linux (vNext) emulator in HTTPS mode and connecting
+      with the Java SDK (com.azure:azure-cosmos). I built a trust-all SSLContext in code, but
+      the client still fails with "General OpenSslEngine problem". How do I get the Java SDK to
+      connect to the emulator over HTTPS?
+    tags:
+      category: [sdk, emulator, ssl, java, netty, truststore]
+    rubric:
+      - Explains that the emulator certificate must be imported into the truststore used by the Java SDK.
+      - Uses a certificate SAN-matching host and recommends gateway mode with endpoint discovery disabled for the emulator.
+      - Identifies disabling Netty OpenSSL as a fallback rather than the primary fix.
+    graders:
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      - type: prompt
+
+  - name: sdk-go-partition-key-metadata
+    prompt: |
+      I'm writing a Go service that seeds an Azure Cosmos DB container using
+      github.com/Azure/azure-sdk-for-go/sdk/data/azcosmos v1.0.0. The container
+      is created and all Go reads/writes succeed. But a Python azure-cosmos client
+      that reads the same container later fails with KeyError: 'kind' when
+      processing partition-key metadata. What is the root cause and how do I fix it?
+    tags:
+      category: [sdk, go, azcosmos, partition-key, interoperability, versioning]
+    rubric:
+      - Identifies the stale azcosmos serialization behavior that omits partition-key kind metadata.
+      - Recommends upgrading azcosmos to a current release and treats setting Kind explicitly as defensive practice.
+    graders:
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      - type: prompt
+
+  - name: sdk-singleton-client-002
+    prompt: |
+      Review this C# code for Cosmos DB best practices:
+
+      public class OrderService
+      {
+          public async Task<Order> GetOrder(string id)
+          {
+              var client = new CosmosClient(connectionString);
+              var container = client.GetContainer("mydb", "orders");
+              var response = await container.ReadItemAsync<Order>(id, new PartitionKey(id));
+              return response.Resource;
+          }
+      }
+    tags:
+      category: [sdk, happy-path, singleton]
+    rubric:
+      - Identifies creating CosmosClient per request as an anti-pattern.
+      - Recommends one long-lived singleton CosmosClient and explains connection reuse.
+    graders:
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      - type: prompt
+
+scoring:
+  weights:
+    skill-invocation: 0.2
+    prompt: 0.8
+  threshold: 0.8
