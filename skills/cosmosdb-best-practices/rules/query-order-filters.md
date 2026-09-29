@@ -33,12 +33,59 @@ Both queries are valid and express the same filters. The mistake is claiming tha
 var query = new QueryDefinition(@"
     SELECT * FROM c
     WHERE c.customerId = @customerId
-    AND c.type = 'order'
+    AND c.orderDate >= @startDate
+    AND c.orderDate < @endDate
+    AND c.status = 'completed'")
+    .WithParameter("@customerId", customerId)
+    .WithParameter("@startDate", startDate)
+    .WithParameter("@endDate", endDate);
+```
+
+These predicates select completed orders for one customer within a date interval, including the start and excluding the end. For string-valued `orderDate`, use the same canonical UTC ISO 8601 format for stored values and both bounds. Selectivity depends on the data and parameter values; the predicate order is for readability, not an execution hint. To tune performance, inspect index usage and measured request charges/query metrics rather than assuming that swapping the same predicates reduces work.
+
+**ID range with a status filter:**
+
+```csharp
+var idRangeQuery = new QueryDefinition(@"
+    SELECT * FROM c
+    WHERE c.orderId >= @startId
+    AND c.orderId <= @endId
     AND c.status = 'active'")
+    .WithParameter("@startId", startId)
+    .WithParameter("@endId", endId);
+```
+
+Both ID bounds are inclusive. A range on an ID is not inherently highly selective: its width and the data distribution determine how many items match. Check index utilization and actual request charges rather than assuming savings from the property name or its position in `WHERE`.
+
+**Preserve Boolean grouping when using `OR` or `IN`:**
+
+```csharp
+var groupedQuery = new QueryDefinition(@"
+    SELECT * FROM c
+    WHERE (c.status = 'a' OR c.status = 'b')
+    AND c.customerId = @customerId")
+    .WithParameter("@customerId", customerId);
+
+var inQuery = new QueryDefinition(@"
+    SELECT * FROM c
+    WHERE c.status IN ('a', 'b')
+    AND c.customerId = @customerId")
     .WithParameter("@customerId", customerId);
 ```
 
-The order above is for readability, not an execution hint. To tune performance, inspect index usage and measured request charges/query metrics rather than assuming that swapping the same predicates reduces work.
+These queries select the same documents: either status for the specified customer. `IN` is a concise alternative here, not a claim of lower RU cost.
+
+Removing the parentheses changes the meaning:
+
+```csharp
+var ungroupedQuery = new QueryDefinition(@"
+    SELECT * FROM c
+    WHERE c.status = 'a' OR c.status = 'b'
+    AND c.customerId = @customerId")
+    .WithParameter("@customerId", customerId);
+```
+
+`AND` binds more tightly than `OR`, so this is `status = 'a' OR (status = 'b' AND customerId = @customerId)`. A document with status `'a'` and a different customer matches the ungrouped query but neither of the grouped alternatives. This is a result-set difference, not a performance optimization.
 
 **Key points:**
 
