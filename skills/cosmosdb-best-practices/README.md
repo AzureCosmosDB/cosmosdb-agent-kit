@@ -4,7 +4,7 @@ Azure Cosmos DB best practices for AI coding agents, following the [Agent Skills
 
 ## Overview
 
-This skill contains 137 rules across 13 categories, ordered by impact:
+This skill contains 139 rules across 13 categories, ordered by impact:
 
 | Category | Impact | Description |
 |----------|--------|-------------|

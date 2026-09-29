@@ -1,9 +1,9 @@
-id: tooling-cosmosdb-shell
-name: Developer Tooling - Verify Cosmos DB Shell connection and scope
+id: tooling-cosmosdb-shell-target
+name: Developer Tooling - Verify Cosmos DB Shell account and target before reading
 description: |
-  Test that the rule distinguishes account and endpoint verification from
-  navigation scope, bounds document reads, and checks the explicit target
-  before acting through Cosmos DB Shell MCP tools.
+  Test that the rule separates account verification (info at the account root)
+  from navigation (pwd), targets the database and container explicitly, and
+  bounds the query with --max because query has no default item limit.
 tags:
   - tooling
   - cosmosdb-shell
