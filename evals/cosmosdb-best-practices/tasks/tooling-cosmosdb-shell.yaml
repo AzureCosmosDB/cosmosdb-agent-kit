@@ -1,0 +1,18 @@
+id: tooling-cosmosdb-shell
+name: Developer Tooling - Verify Cosmos DB Shell connection and scope
+description: |
+  Test that the rule distinguishes account and endpoint verification from
+  navigation scope, bounds document reads, and checks the explicit target
+  before acting through Cosmos DB Shell MCP tools.
+tags:
+  - tooling
+  - cosmosdb-shell
+  - mcp
+inputs:
+  prompt: |
+    Use Cosmos DB Shell MCP to show five item IDs from my orders container.
+    I ran pwd earlier and it showed /demo/orders, but I may have switched
+    connections since then. What should you check before running the query?
+expected:
+  outcomes:
+    - type: task_completed

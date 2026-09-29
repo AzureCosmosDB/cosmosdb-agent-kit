@@ -4,11 +4,12 @@ description: |
   Azure Cosmos DB performance optimization and best practices guidelines for NoSQL,
   partitioning, queries, and SDK usage. Use when writing, reviewing, or refactoring
   code that interacts with Azure Cosmos DB, designing data models, optimizing queries,
-  or implementing high-performance database operations.
+  implementing high-performance database operations, or using Cosmos DB Shell and its MCP tools.
   USE FOR: Cosmos DB NoSQL, partition key design, RU optimization, point reads,
   cross-partition queries, SDK singleton, CosmosClient, container modeling,
   change feed, bulk operations, vector search, full-text search, hierarchical
-  partition keys, global distribution, autoscale throughput, indexing policy.
+  partition keys, global distribution, autoscale throughput, indexing policy,
+  Cosmos DB Shell, shell connection troubleshooting, shell data inspection.
   DO NOT USE FOR: PostgreSQL, MySQL, MongoDB (non-Azure), DynamoDB, Cassandra,
   Azure SQL, Cosmos DB for PostgreSQL (vCore), Cosmos DB for MongoDB vCore, Azure DocumentDB,
   general SQL databases, Redis, Elasticsearch.
@@ -21,7 +22,7 @@ metadata:
 
 # Azure Cosmos DB Best Practices
 
-Comprehensive performance optimization guide for Azure Cosmos DB applications, containing 100+ rules across 12 categories, prioritized by impact to guide automated refactoring and code generation.
+Comprehensive best practices for Azure Cosmos DB applications and developer tooling, containing 100+ rules across 13 categories.
 
 ## When to Apply
 
@@ -32,6 +33,7 @@ Reference these guidelines when:
 - Implementing SDK patterns
 - Using the Cosmos DB Emulator for local development
 - Inspecting or managing Cosmos DB data with developer tooling
+- Using Cosmos DB Shell or its MCP tools to inspect or manage Cosmos DB data
 - Implementing vector search or RAG features on Cosmos DB
 - Reviewing code for performance issues
 - Configuring throughput and scaling
@@ -189,6 +191,7 @@ Reference these guidelines when:
 
 - [tooling-vscode-extension](rules/tooling-vscode-extension.md) - Use the VS Code extension for routine inspection and management
 - [tooling-emulator-setup](rules/tooling-emulator-setup.md) - Use the Emulator for local development and testing
+- [tooling-cosmosdb-shell](rules/tooling-cosmosdb-shell.md) - Verify connection and scope for Cosmos DB Shell and MCP operations
 
 ### 11. Vector Search (HIGH)
 
