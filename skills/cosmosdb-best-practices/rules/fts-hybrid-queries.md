@@ -15,7 +15,7 @@ tags:
 
 **Impact: MEDIUM (avoids full-container scans when combined with equality/range filters)**
 
-FTS predicates can be combined with standard SQL predicates. Add selective equality or range filters with appropriate indexes to narrow the matching document set, and include a partition-key equality filter when the query should be scoped to that partition. The query engine determines predicate evaluation order; moving equivalent predicates earlier in the `WHERE` clause does not improve performance.
+FTS predicates can be combined with standard SQL predicates. Add selective equality or range filters with appropriate indexes to narrow the matching document set, and include a partition-key equality filter when the query should be scoped to that partition. Let the query engine choose predicate evaluation order; do not rely on moving a predicate earlier in `WHERE` to reduce query cost.
 
 **Incorrect (FTS-only query — no range filters, scans all partitions):**
 

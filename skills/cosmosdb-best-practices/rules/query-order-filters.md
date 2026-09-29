@@ -7,7 +7,7 @@ tags: query, filters, optimization, performance
 
 ## Let the Query Engine Order Filters
 
-The textual order of equivalent predicates in a `WHERE` clause does not determine their execution order. Cosmos DB's query engine determines which predicates are more selective and how to execute the query. Moving a selective predicate earlier in the SQL text is not a performance optimization.
+Cosmos DB's query engine chooses how to evaluate filters. For index-backed `AND` conditions, it can reorder filter plans based on estimated cost rather than their textual positions. Do not rely on placing the most selective predicate first in `WHERE` as a performance optimization. Write readable predicates and evaluate performance using index utilization, query metrics, and request charges.
 
 **Incorrect (assuming lower RU cost solely from reordering equivalent predicates):**
 
@@ -25,7 +25,7 @@ var reorderedQuery = @"
     AND c.status = 'active'";
 ```
 
-Both queries are valid and express the same filters. The mistake is claiming that `reorderedQuery` is cheaper merely because `customerId` appears first, or assigning intermediate row counts based on the clauses' textual positions.
+Both queries express the same filters. Putting `customerId` first is not, by itself, evidence that `reorderedQuery` costs fewer RUs. Do not infer execution order or intermediate result counts from predicate positions.
 
 **Correct (use readable predicates and optimize actual index usage):**
 
@@ -90,6 +90,7 @@ var ungroupedQuery = new QueryDefinition(@"
 **Key points:**
 
 - Selectivity depends on the data distribution, not just the property name or type.
+- Logically equivalent predicate orderings are not a guarantee of identical execution plans or RU charges. Compare performance using representative data and the same indexing policy and request options.
 - Add useful filters with appropriate index support; a partition-key equality filter can narrow the query's partition scope regardless of where it appears in the `WHERE` clause.
 - Preserve Boolean grouping when rewriting queries. Adding parentheses around `OR` predicates can change which documents match; it is not merely a performance rewrite.
 
