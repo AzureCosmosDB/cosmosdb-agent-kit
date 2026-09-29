@@ -71,7 +71,7 @@ async def get_active_agent(state, config) -> str:
 from azure.cosmos import PartitionKey
 
 def patch_active_agent(tenant_id, user_id, thread_id, new_agent):
-    """Partial update — only modifies the activeAgent field (minimal RU cost)."""
+    """Partial update — only modifies the activeAgent field."""
     container.patch_item(
         item=thread_id,
         partition_key=[tenant_id, user_id, thread_id],
@@ -84,9 +84,9 @@ def patch_active_agent(tenant_id, user_id, thread_id, new_agent):
 **Key design points:**
 1. Use hierarchical partition key (`/tenantId`, `/userId`, `/sessionId`) for efficient multi-tenant lookups
 2. A point read of a 1-KB item costs 1 RU at session, consistent-prefix, or eventual consistency. Larger items cost more; the documented 100-KB example costs 10 RUs. Strong or bounded-staleness consistency doubles the read charge. Measure the actual request charge for the session documents and consistency level used by the application.
-3. Use patch operations (not full replace) to update the active agent — costs fewer RUs
+3. Use patch operations to update only the active agent field without sending the full document. [Patch is billed like other operations](https://learn.microsoft.com/azure/cosmos-db/partial-document-update-faq#how-is-ru-s-pricing-calculated-); measure actual request charges rather than assuming lower RU costs.
 4. Fall back to the coordinator only when `activeAgent` is `null` or `"unknown"`
 5. The routing function must NEVER raise — any exception (404, timeout, credential error) should fall through to the coordinator
 6. Always use `asyncio.to_thread()` for sync Cosmos DB calls in routing functions to avoid blocking the event loop
 
-References: [Azure Cosmos DB point reads](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-read-item), [point-read request charges and consistency levels](https://learn.microsoft.com/azure/cosmos-db/optimize-cost-reads-writes)
+Reference: [Point-read request charges and consistency levels](https://learn.microsoft.com/azure/cosmos-db/optimize-cost-reads-writes)
