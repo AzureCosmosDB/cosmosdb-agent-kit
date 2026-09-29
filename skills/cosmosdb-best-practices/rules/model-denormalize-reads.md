@@ -285,4 +285,4 @@ Denormalize when:
    - If the updated field is a partition key of the derived container, you must delete-and-recreate (Cosmos DB does not support updating partition key values)
    - Consider listing all containers where derived data lives in a comment near each delete/update handler
 
-Reference: [Denormalization patterns](https://learn.microsoft.com/azure/cosmos-db/nosql/modeling-data#denormalization)
+Reference: [Embedding and denormalization](https://learn.microsoft.com/azure/cosmos-db/modeling-data#embed-data)
