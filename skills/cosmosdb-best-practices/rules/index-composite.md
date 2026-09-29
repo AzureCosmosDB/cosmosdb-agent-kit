@@ -256,14 +256,17 @@ await database.containers.createIfNotExists({
 
 **Updating an existing container's indexing policy:**
 
+Modify the full definition returned by `read()` so `replace()` preserves unrelated container settings, such as TTL.
+
 ```typescript
 // Replace indexing policy on an existing container
 const { resource: existing } = await database.container('orders').read();
-await database.container('orders').replace({
-  id: 'orders',
-  partitionKey: existing!.partitionKey,
-  indexingPolicy: ordersIndexingPolicy,
-});
+if (!existing) {
+    throw new Error('Container definition was not returned.');
+}
+
+existing.indexingPolicy = ordersIndexingPolicy;
+await database.container('orders').replace(existing);
 // Indexing is rebuilt in the background; monitor indexTransformationProgress
 ```
 

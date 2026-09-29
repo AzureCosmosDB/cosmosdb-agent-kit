@@ -15,7 +15,7 @@ tags:
 
 **Impact: HIGH (avoids a separate read for counters and eliminates read-modify-write concurrency conflicts)**
 
-For fields that act as counters (view counts, rating totals, like counts), `patchItem` with `CosmosPatchOperations.incr()` performs a server-side atomic increment without a prior read. This avoids the extra read round-trip and its RU charge, and is free of the read-modify-write ETag conflict/retry cycle. The patch write itself still consumes RUs; do not assume a fixed charge or that it is significantly cheaper than replacing the item.
+For fields that act as counters (view counts, rating totals, like counts), `patchItem` with `CosmosPatchOperations.increment()` performs a server-side atomic increment without a prior read. This avoids the extra read round-trip and its RU charge, and is free of the read-modify-write ETag conflict/retry cycle. The patch write itself still consumes RUs; do not assume a fixed charge or that it is significantly cheaper than replacing the item.
 
 **Incorrect (read-modify-write for counters):**
 
@@ -62,7 +62,7 @@ return container.patchItem(videoId, new PartitionKey(videoId), ops, Video.class)
 ```
 
 **Patch operations supported:**
-- `incr(path, value)` — numeric increment (positive or negative)
+- `increment(path, value)` — numeric increment (positive or negative)
 - `set(path, value)` — set a field to a new value
 - `add(path, value)` — add to an array or set a field
 - `remove(path)` — remove a field
@@ -70,9 +70,9 @@ return container.patchItem(videoId, new PartitionKey(videoId), ops, Video.class)
 - `move(from, to)` — rename a field
 
 **Key Points:**
-- `incr()` requires the field to already exist as a numeric type in the document; initialize it to `0` on document creation
+- `increment()` requires the field to already exist as a numeric type in the document; initialize it to `0` on document creation
 - At most 10 patch operations per `patchItem` call
-- Patch is idempotent for `set`/`replace` but **not** for `incr` — a retried increment will double-count. Use conditional patch (`setFilterPredicate`) or accept the retry risk for high-volume counters
+- Patch is idempotent for `set`/`replace` but **not** for `increment` — a retried increment will double-count. Use conditional patch (`setFilterPredicate`) or accept the retry risk for high-volume counters
 - RU cost varies with item size, the update, and indexing policy. Patch is billed like other database operations, not as a fixed 1-RU write. It avoids a separate application read; measure the patch response with `CosmosItemResponse.getRequestCharge()` to evaluate actual costs.
 - Prefer Patch over Stored Procedures for simple counter increments — Patch is natively supported without custom server-side code
 
