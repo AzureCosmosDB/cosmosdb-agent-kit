@@ -76,4 +76,4 @@ return container.patchItem(videoId, new PartitionKey(videoId), ops, Video.class)
 - RU cost varies with item size, the update, and indexing policy. Patch is billed like other database operations, not as a fixed 1-RU write. It avoids a separate application read; measure the patch response with `CosmosItemResponse.getRequestCharge()` to evaluate actual costs.
 - Prefer Patch over Stored Procedures for simple counter increments — Patch is natively supported without custom server-side code
 
-References: [Partial document update (Patch API)](https://learn.microsoft.com/azure/cosmos-db/partial-document-update), [Patch RU pricing](https://learn.microsoft.com/azure/cosmos-db/partial-document-update-faq#how-is-rus-pricing-calculated), [read/write cost factors](https://learn.microsoft.com/azure/cosmos-db/optimize-cost-reads-writes)
+References: [Partial document update (Patch API)](https://learn.microsoft.com/azure/cosmos-db/partial-document-update), [Patch RU pricing](https://learn.microsoft.com/azure/cosmos-db/partial-document-update-faq#how-is-ru-s-pricing-calculated-), [read/write cost factors](https://learn.microsoft.com/azure/cosmos-db/optimize-cost-reads-writes)
