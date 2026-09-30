@@ -4,7 +4,7 @@ description: |
   Azure Cosmos DB performance optimization and best practices guidelines for NoSQL,
   partitioning, queries, and SDK usage. Use when writing, reviewing, or refactoring
   code that interacts with Azure Cosmos DB, designing data models, optimizing queries,
-  implementing high-performance database operations, or using Cosmos DB Shell and its MCP tools.
+  or implementing high-performance database operations.
   USE FOR: Cosmos DB NoSQL, partition key design, RU optimization, point reads,
   cross-partition queries, SDK singleton, CosmosClient, container modeling,
   change feed, bulk operations, vector search, full-text search, hierarchical
@@ -22,7 +22,7 @@ metadata:
 
 # Azure Cosmos DB Best Practices
 
-Comprehensive best practices for Azure Cosmos DB applications and developer tooling, containing 100+ rules across 13 categories.
+Comprehensive performance optimization guide for Azure Cosmos DB applications, containing 100+ rules across 13 categories, prioritized by impact to guide automated refactoring and code generation.
 
 ## When to Apply
 
@@ -33,7 +33,6 @@ Reference these guidelines when:
 - Implementing SDK patterns
 - Using the Cosmos DB Emulator for local development
 - Inspecting or managing Cosmos DB data with developer tooling
-- Using Cosmos DB Shell or its MCP tools to inspect or manage Cosmos DB data
 - Implementing vector search or RAG features on Cosmos DB
 - Reviewing code for performance issues
 - Configuring throughput and scaling

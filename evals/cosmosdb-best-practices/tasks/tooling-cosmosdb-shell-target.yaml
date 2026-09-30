@@ -3,7 +3,8 @@ name: Developer Tooling - Verify Cosmos DB Shell account and target before readi
 description: |
   Test that the rule separates account verification (info at the account root)
   from navigation (pwd), targets the database and container explicitly, and
-  bounds the query with --max because query has no default item limit.
+  bounds the query with --max explicitly (interactive Shell has no default
+  limit; MCP defaults to a 100-item page).
 tags:
   - tooling
   - cosmosdb-shell

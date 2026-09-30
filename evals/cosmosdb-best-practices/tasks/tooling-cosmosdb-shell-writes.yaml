@@ -3,8 +3,8 @@ name: Developer Tooling - Scope and confirm Cosmos DB Shell deletions
 description: |
   Test that the rule recognizes rm patterns match the partition key by default,
   verifies the item's partition key, warns that rm and --dry-run scan the
-  container, checks for exactly one preview match, and relies on the MCP
-  confirmation gate rather than a force argument.
+  container, does not treat a single preview match as safe for an unscoped
+  single-item deletion, and respects the MCP confirmation gate.
 tags:
   - tooling
   - cosmosdb-shell

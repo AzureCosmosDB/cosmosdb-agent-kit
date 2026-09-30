@@ -64,14 +64,13 @@ So the combined recommendation is simple: **use a Recommended-tier model *and* d
 
 ### cosmosdb-best-practices
 
-Azure Cosmos DB best practices containing 139 rules across 13 categories, including Cosmos DB Shell and MCP workflows for [reads](skills/cosmosdb-best-practices/rules/tooling-cosmosdb-shell-target.md), [writes](skills/cosmosdb-best-practices/rules/tooling-cosmosdb-shell-writes.md), and [setup](skills/cosmosdb-best-practices/rules/tooling-cosmosdb-shell-setup.md).
+Azure Cosmos DB performance optimization guidelines containing 139 rules across 13 categories, prioritized by impact.
 
 **Use when:**
 - Writing new code that interacts with Cosmos DB
 - Designing data models or choosing partition keys
 - Reviewing code for performance issues
 - Optimizing queries or throughput configuration
-- Using Cosmos DB Shell or its MCP tools to inspect data or perform user-requested operations
 
 **Categories covered:**
 - Data Modeling (Critical)
