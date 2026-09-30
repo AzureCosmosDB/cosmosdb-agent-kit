@@ -9,7 +9,6 @@ description: |
   cross-partition queries, SDK singleton, CosmosClient, container modeling,
   change feed, bulk operations, vector search, full-text search, hierarchical
   partition keys, global distribution, autoscale throughput, indexing policy,
-  Cosmos DB Shell, shell connection troubleshooting, shell data inspection.
   DO NOT USE FOR: PostgreSQL, MySQL, MongoDB (non-Azure), DynamoDB, Cassandra,
   Azure SQL, Cosmos DB for PostgreSQL (vCore), Cosmos DB for MongoDB vCore, Azure DocumentDB,
   general SQL databases, Redis, Elasticsearch.
