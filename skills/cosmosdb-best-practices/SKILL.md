@@ -129,6 +129,7 @@ Reference these guidelines when:
 - [sdk-langgraph-mcp-tool-filtering](rules/sdk-langgraph-mcp-tool-filtering.md) - Filter MCP tools by name prefix for per-agent assignment
 - [sdk-dotnet-namespace-collision](rules/sdk-dotnet-namespace-collision.md) - Avoid `Microsoft.Azure.Cosmos` namespace collisions with domain models (User, Database, Container, etc.)
 - [sdk-ingestion-rate-control](rules/sdk-ingestion-rate-control.md) - Rate-control high-volume ingestion (concurrency, retry-after, throughput control)
+- [sdk-throughput-create-api](rules/sdk-throughput-create-api.md) - Use `autoscaleMaxThroughput`/`throughput` parameter names for `ThroughputProperties` factory methods (.NET), not `maxThroughput`
 
 ### 5. Indexing Strategies (MEDIUM-HIGH)
 
