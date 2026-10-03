@@ -1,0 +1,19 @@
+id: tooling-cosmosdb-shell-target
+name: Developer Tooling - Verify Cosmos DB Shell account and target before reading
+description: |
+  Test that the rule separates account verification (info at the account root)
+  from navigation (pwd), targets the database and container explicitly, and
+  bounds the query with --max explicitly (interactive Shell has no default
+  limit; MCP defaults to a 100-item page).
+tags:
+  - tooling
+  - cosmosdb-shell
+  - mcp
+inputs:
+  prompt: |
+    Use Cosmos DB Shell MCP to show five item IDs from my orders container.
+    I ran pwd earlier and it showed /demo/orders, but I may have switched
+    connections since then. What should you check before running the query?
+expected:
+  outcomes:
+    - type: task_completed
