@@ -1,0 +1,81 @@
+name: cosmosdb-best-practices-query-eval
+description: |
+  Evaluation suite for Cosmos DB partitioning, indexing, and query guidance.
+version: "1.0"
+type: capability
+
+agent_environment: cosmosdb-best-practices-env
+
+defaults:
+  runs: 1
+  timeout: 300s
+  model: gpt-5.5
+  executor: copilot-sdk
+  judge_model: gpt-5.5
+
+stimuli:
+  - name: basic-usage-001
+    prompt: "I'm designing a Cosmos DB container for an e-commerce app that stores orders. Each order has an orderId, customerId, orderDate, and items array. What should I use as the partition key?"
+    tags:
+      category: [basic, happy-path, partition-key]
+    rubric:
+      - Recommends a high-cardinality partition key aligned with common access patterns for the workload.
+      - Explains tradeoffs between likely key choices (for example customerId versus orderId) instead of giving an unqualified answer.
+    graders:
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      - type: prompt
+
+  - name: edge-case-001
+    prompt: "Review this Cosmos DB query for performance: SELECT * FROM c WHERE c.status = 'active' ORDER BY c.createdAt DESC. The container is partitioned by /tenantId."
+    tags:
+      category: [edge-case, query-optimization]
+    rubric:
+      - Identifies that omitting tenantId makes this a cross-partition query.
+      - Recommends including the partition key when the access pattern permits and discusses indexing for the ORDER BY operation.
+    graders:
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      - type: prompt
+
+  - name: indexing-composite-005
+    prompt: |
+      My Cosmos DB query is slow:
+      SELECT * FROM c WHERE c.status = 'active' ORDER BY c.createdAt DESC, c.priority ASC
+
+      I have the default indexing policy. What should I change?
+    tags:
+      category: [indexing, happy-path]
+    rubric:
+      - Recommends a composite index matching createdAt descending and priority ascending.
+      - Explains that index definition should align with the ORDER BY fields and directions.
+    graders:
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      - type: prompt
+
+  - name: query-optimization-003
+    prompt: |
+      I'm using this query to fetch a single document:
+      SELECT * FROM c WHERE c.id = @id AND c.tenantId = @tenantId
+
+      The container is partitioned by /tenantId. Is there a better approach?
+    tags:
+      category: [query, happy-path, point-read]
+    rubric:
+      - Recommends a point read using both the item id and tenantId partition-key value.
+      - Explains that a point read is more efficient than issuing a SQL query for a known id and partition key.
+    graders:
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      - type: prompt
+
+scoring:
+  weights:
+    skill-invocation: 0.2
+    prompt: 0.8
+  threshold: 0.8

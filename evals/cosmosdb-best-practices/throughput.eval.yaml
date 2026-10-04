@@ -1,0 +1,77 @@
+name: cosmosdb-best-practices-throughput-eval
+description: |
+  Evaluation suite for Cosmos DB throughput and capacity-mode guidance.
+version: "1.0"
+type: capability
+
+agent_environment: cosmosdb-best-practices-env
+
+defaults:
+  runs: 1
+  timeout: 300s
+  model: gpt-5.5
+  executor: copilot-sdk
+  judge_model: gpt-5.5
+
+stimuli:
+  - name: throughput-autoscale-006
+    prompt: |
+      My Cosmos DB container has 10,000 RU/s provisioned manually.
+      During the day we use about 2,000 RU/s but at night during batch
+      processing we spike to 9,000 RU/s. We're getting throttled during
+      spikes. What should we do?
+    tags:
+      category: [throughput, happy-path]
+    rubric:
+      - Recommends evaluating autoscale for the variable workload and sizing its maximum throughput for the peak.
+      - Also addresses throttling diagnostics and retry-after handling rather than assuming autoscale alone guarantees no throttling.
+    graders:
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      - type: prompt
+
+  - name: throughput-serverless-migration-014
+    prompt: |
+      We run Azure Cosmos DB for NoSQL in one region with low, bursty traffic and long idle periods.
+      Right now the account is provisioned at 400 RU/s and costs are mostly idle baseline.
+
+      Should we migrate to serverless, and what exact constraints must we validate first?
+      Also, if traffic later becomes sustained and we need multi-region writes, how do we move
+      from serverless back to provisioned throughput?
+    tags:
+      category: [throughput, serverless, migration, decision]
+    rubric:
+      - Recommends provisioned-to-serverless only when traffic is intermittent and low-baseline, and validates single-region plus no shared database throughput constraints.
+      - States that provisioned-to-serverless is not an in-place toggle and requires creating a new serverless account and migrating data.
+      - Explains that serverless-to-provisioned is supported in-place for NoSQL accounts, and calls out irreversibility plus post-migration throughput tuning.
+    graders:
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      - type: prompt
+
+  - name: throughput-serverless-recommendation-015
+    prompt: |
+      I'm building a new Azure Cosmos DB for NoSQL service.
+      We don't have production traffic data yet, and request volume is expected to stay under
+      5,000 RU/s during early rollout.
+
+      Which capacity mode should I start with and why?
+    tags:
+      category: [throughput, serverless, recommendation, unknown-traffic]
+    rubric:
+      - Recommends starting with serverless for a new workload with unknown traffic and low expected usage.
+      - Explains when provisioned throughput becomes a better fit based on explicit workload constraints.
+      - Provides clear, practical triggers for re-evaluating capacity mode over time.
+    graders:
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      - type: prompt
+
+scoring:
+  weights:
+    skill-invocation: 0.2
+    prompt: 0.8
+  threshold: 0.8

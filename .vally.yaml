@@ -2,32 +2,60 @@ paths:
   skills: skills/
   evals: evals/
   results: results/
-files:
-  evalFile: eval.yaml
-  taskGlob: tasks/*.yaml
-  taskFileSuffix: .yaml
-defaults:
-  engine: mock
-  model: claude-sonnet-4.6
-  timeout: 300
-  parallel: false
-  workers: 4
-  verbose: false
-  sessionLog: false
-cache:
-  enabled: false
-  dir: .vally-cache
-server:
-  port: 3000
-  resultsDir: results/
-dev:
-  model: claude-sonnet-4-20250514
-  target: medium-high
-  maxIterations: 5
-tokens:
-  warningThreshold: 500
-  fallbackLimit: 1000
-graders:
-  programTimeout: 30
-storage:
-  containerName: vally-results
+  evalFilenames:
+    - eval.yaml
+    - "*.eval.yaml"
+
+environments:
+  cosmosdb-best-practices-env:
+    skills:
+      - ../../skills/cosmosdb-best-practices
+
+suites:
+  cosmosdb-all:
+    description: Cosmos DB best-practices split eval suite
+    evals:
+      - evals/cosmosdb-best-practices/*.eval.yaml
+
+  cosmosdb-modeling:
+    description: Data modeling evals
+    evals:
+      - evals/cosmosdb-best-practices/modeling.eval.yaml
+      - evals/cosmosdb-best-practices/query.eval.yaml
+
+  cosmosdb-query:
+    description: Partitioning, indexing, and query evals
+    evals:
+      - evals/cosmosdb-best-practices/query.eval.yaml
+
+  cosmosdb-sdk:
+    description: SDK implementation evals
+    evals:
+      - evals/cosmosdb-best-practices/sdk.eval.yaml
+
+  cosmosdb-throughput:
+    description: Throughput and scaling evals
+    evals:
+      - evals/cosmosdb-best-practices/throughput.eval.yaml
+
+  cosmosdb-serverless:
+    description: Serverless-focused throughput evals
+    evals:
+      - evals/cosmosdb-best-practices/throughput.eval.yaml
+    filter:
+      category: serverless
+
+  cosmosdb-security:
+    description: Security evals
+    evals:
+      - evals/cosmosdb-best-practices/security.eval.yaml
+
+  cosmosdb-vector:
+    description: Vector search evals
+    evals:
+      - evals/cosmosdb-best-practices/vector.eval.yaml
+
+  cosmosdb-guardrails:
+    description: Negative trigger and guardrail evals
+    evals:
+      - evals/cosmosdb-best-practices/guardrails.eval.yaml

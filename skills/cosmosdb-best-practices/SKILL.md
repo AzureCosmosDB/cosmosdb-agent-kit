@@ -144,12 +144,12 @@ Reference these guidelines when:
 
 - [throughput-autoscale](rules/throughput-autoscale.md) - Use autoscale for variable workloads
 - [throughput-right-size](rules/throughput-right-size.md) - Right-size provisioned throughput
-- [throughput-serverless](rules/throughput-serverless.md) - Consider serverless for dev/test
+- [throughput-serverless](rules/throughput-serverless.md) - Use serverless for new, bursty, and dev/test workloads
 - [throughput-burst](rules/throughput-burst.md) - Understand burst capacity
 - [throughput-container-vs-database](rules/throughput-container-vs-database.md) - Choose allocation level wisely
 - [throughput-idle-container-review](rules/throughput-idle-container-review.md) - Review idle containers for lifecycle action
 - [throughput-ttl-stale-data](rules/throughput-ttl-stale-data.md) - Expire stale data with TTL before hitting storage limits
-- [throughput-serverless-migration](rules/throughput-serverless-migration.md) - Migrate a low-traffic provisioned account to serverless
+- [throughput-serverless-migration](rules/throughput-serverless-migration.md) - Choose the correct serverless and provisioned migration path
 
 ### 7. Global Distribution (MEDIUM)
 
