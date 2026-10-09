@@ -36,7 +36,7 @@ stimuli:
         config:
           scoring: binary
           threshold: 1
-          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+          prompt: Evaluate every rubric criterion for technical correctness. Accept semantically equivalent explanations, including concise actionable prose; do not demand exact phrases or code unless the criterion explicitly requires them. Reject substantive omissions, contradictions, and incorrect advice. Mere keyword mentions do not satisfy a criterion.
       -
         type: output-matches
         config: { pattern: '\S' }
@@ -47,8 +47,9 @@ stimuli:
     prompt: |
       A FastAPI chat endpoint waits for optional Cosmos DB debug-log writes before
       returning an agent answer. How can we reduce that response latency?
+      Explain how to surface failed writes and whether deferred work is durable.
     rubric:
-      - Use BackgroundTasks for these noncritical writes with visible error handling; do not describe in-process background tasks as durable delivery for critical state.
+      - Recommend FastAPI BackgroundTasks for the noncritical writes, explicitly directing that write failures be logged or surfaced; actionable prose or code is acceptable. Explain that in-process tasks are not durable delivery for critical state. Reject advice to silently ignore failures.
     graders: *rule-graders
 
   # Materialize alternate views.

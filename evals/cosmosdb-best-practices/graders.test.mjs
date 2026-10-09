@@ -63,6 +63,16 @@ test('every legacy scenario maps to exactly one migrated case', () => {
         [stimulus.tags.legacy, stimulus.name])), legacyScenarios);
 });
 
+test('all judges accept equivalent explanations without excusing incorrect advice', () => {
+    const instructions = new Set(stimuli.map((stimulus) =>
+        stimulus.graders.find((grader) => grader.type === 'prompt').config.prompt));
+    assert.equal(instructions.size, 1);
+    const [prompt] = instructions;
+    assert.match(prompt, /Accept semantically equivalent explanations/);
+    assert.match(prompt, /unless the criterion explicitly requires them/);
+    assert.match(prompt, /Reject substantive omissions, contradictions, and incorrect advice/);
+});
+
 test('cases stay short, commented, and meaningfully graded', () => {
     for (const { spec, source } of specs) {
         assert.equal(spec.scoring.threshold, 1);

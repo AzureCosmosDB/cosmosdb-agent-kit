@@ -36,7 +36,7 @@ stimuli:
         config:
           scoring: binary
           threshold: 1
-          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+          prompt: Evaluate every rubric criterion for technical correctness. Accept semantically equivalent explanations, including concise actionable prose; do not demand exact phrases or code unless the criterion explicitly requires them. Reject substantive omissions, contradictions, and incorrect advice. Mere keyword mentions do not satisfy a criterion.
       -
         type: output-matches
         config: { pattern: '\S' }
@@ -97,7 +97,8 @@ stimuli:
     tags: { category: query, rule: query-order-filters }
     prompt: |
       Will swapping two indexed AND predicates in a Cosmos DB WHERE clause reliably
-      lower RU cost? Explain briefly.
+      lower RU cost? Explain who chooses evaluation order and how indexing, filter
+      selectivity, partition scope, and measurements should guide tuning instead.
     rubric:
       - Explain that the query engine chooses predicate evaluation order; tune indexing, selectivity, and partition scope using query metrics rather than textual order.
     graders: *rule-graders

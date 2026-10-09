@@ -38,7 +38,7 @@ stimuli:
         config:
           scoring: binary
           threshold: 1
-          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+          prompt: Evaluate every rubric criterion for technical correctness. Accept semantically equivalent explanations, including concise actionable prose; do not demand exact phrases or code unless the criterion explicitly requires them. Reject substantive omissions, contradictions, and incorrect advice. Mere keyword mentions do not satisfy a criterion.
       -
         type: output-matches
         config: { pattern: '\S' }
@@ -78,7 +78,8 @@ stimuli:
     tags: { category: throughput, rule: throughput-right-size }
     prompt: |
       Before reducing Cosmos DB provisioned RUs, what workload measurements should
-      we check? Answer briefly.
+      we check at container and partition level? Explain how to distinguish
+      uneven load from insufficient overall capacity. Answer briefly.
     rubric:
       - Use peak and normalized RU consumption, per-partition skew, throttling, and latency requirements to right-size with headroom rather than relying only on averages.
     graders: *rule-graders

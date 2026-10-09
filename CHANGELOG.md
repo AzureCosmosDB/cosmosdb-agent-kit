@@ -14,6 +14,8 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 - Restore all rule links in the skill index and require reading relevant rule bodies before answering.
 - Correct spatial-index paths, Go partition-key metadata version guidance, and Patch increment behavior using official documentation/source.
 - Align evaluation prompts with their required caveats and accept propagated parsing errors and supported Go SDK versions without lowering the pass threshold.
+- Follow-up CI fixes make index-path explanations explicit and accept equivalent partition-risk and background-error guidance; all judges retain strict correctness checks without requiring unrequested code or exact phrases.
+- Clarify that high-cardinality keys do not guarantee balanced traffic, require partition-level RU measurements before downsizing, and distinguish unsafe TLS advice from an omitted boilerplate warning.
 
 ## 2026-07-21 — Add Codex repo marketplace catalog
 

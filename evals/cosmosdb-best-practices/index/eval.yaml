@@ -38,7 +38,7 @@ stimuli:
         config:
           scoring: binary
           threshold: 1
-          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+          prompt: Evaluate every rubric criterion for technical correctness. Accept semantically equivalent explanations, including concise actionable prose; do not demand exact phrases or code unless the criterion explicitly requires them. Reject substantive omissions, contradictions, and incorrect advice. Mere keyword mentions do not satisfy a criterion.
       -
         type: output-matches
         config: { pattern: '\S' }
@@ -79,6 +79,7 @@ stimuli:
     prompt: |
       Fix this Cosmos DB included index path for item names in an array:
       /items/*/name/?
+      Explain why the wildcard in the original path cannot be used there.
     rubric:
       - Use /items/[]/name/? and explain that * is a terminal wildcard, not an array traversal operator.
     graders: *rule-graders

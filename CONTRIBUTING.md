@@ -149,6 +149,9 @@ Ask explicitly for any scenario-specific caveats the rubric requires; a request
 for a brief recommendation should not secretly require an exhaustive checklist.
 Check SDK documentation/source before treating a version number or exact wording
 as the only correct answer.
+All correctness judges use the same semantic-equivalence instructions: actionable
+prose can satisfy guidance criteria unless code is explicitly required, but
+missing requirements and technically incorrect advice still fail.
 
 ### Running tests locally
 

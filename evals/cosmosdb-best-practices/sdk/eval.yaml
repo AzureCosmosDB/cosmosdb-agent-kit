@@ -36,7 +36,7 @@ stimuli:
         config:
           scoring: binary
           threshold: 1
-          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+          prompt: Evaluate every rubric criterion for technical correctness. Accept semantically equivalent explanations, including concise actionable prose; do not demand exact phrases or code unless the criterion explicitly requires them. Reject substantive omissions, contradictions, and incorrect advice. Mere keyword mentions do not satisfy a criterion.
       -
         type: output-matches
         config: { pattern: '\S' }
@@ -131,7 +131,7 @@ stimuli:
       the client still fails with "General OpenSslEngine problem". How do I get the Java SDK to
       connect to the emulator over HTTPS?
     rubric:
-      - Explain why the default SSLContext is insufficient; import the emulator certificate into the JVM truststore used by the SDK, use a SAN-matching endpoint, gatewayMode(), and endpointDiscoveryEnabled(false). Treat the JDK SSL provider as a fallback, not a substitute for trust, and do not weaken production TLS.
+      - Explain why the default SSLContext is insufficient; import the emulator certificate into the JVM truststore used by the SDK, use a SAN-matching endpoint, gatewayMode(), and endpointDiscoveryEnabled(false). Treat the JDK SSL provider as a fallback, not a substitute for trust. Reject advice to disable certificate or hostname verification in production; a separate production warning is not required when the proposed setup retains both checks.
     graders: *rule-graders
 
   # Prevent lost updates.

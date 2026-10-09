@@ -18,6 +18,27 @@ Each improvement entry should include:
 
 ## Improvements
 
+#### 2026-10-09: Vally follow-up - PR 277
+
+- **Run**: [37945587828](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/actions/runs/37945587828)
+- **Initial result**: 134/137 cases passed; three answer-grading failures, no executor errors.
+- **Rules changed**: `partition-high-cardinality.md` now distinguishes high cardinality from balanced storage/traffic; `throughput-right-size.md` now requires partition-level normalized-RU measurements and explains the metric's maximum aggregation.
+- **Index path**: The response corrected the path but the prompt did not request the wildcard explanation required by the rubric. The prompt now asks why the original wildcard is invalid.
+- **Partition routing**: The response addressed partition size and write concentration through conditional bucketing, but the judge rejected it for not explicitly discussing "skew and growth." Clarified equivalent risk explanations in the rubric and made large/busy customers explicit in the prompt.
+- **Background writes**: The response explicitly said failures must be logged, but the judge required implemented error-handling code for a guidance question. Clarified that actionable prose is sufficient and explicitly asked about failure visibility and durability.
+- **Judge consistency**: Added shared semantic-equivalence wording across all category specs and an offline consistency check. Incorrect advice, substantive omissions, activation failures, and execution errors still fail at the unchanged threshold of 1.
+- **Full-suite follow-up**: The original three cases passed five trials each. A full run exposed two guidance omissions (per-customer traffic risk and per-partition RU skew), now addressed in the existing rules, plus a false positive that required a production-TLS disclaimer even though certificate and hostname verification remained enabled. The TLS rubric still rejects advice to disable either check in production.
+- **Additional prompt alignment**: Full-suite checks exposed unrequested dashboard, cloud-validation, filter-selectivity, and target-verification requirements. The monitoring, emulator, query-order, and VS Code prompts now explicitly ask for those details; their correctness rubrics remain intact.
+
+**Validation**:
+- `npm run build` and `npm run validate`: passed for all 136 rules.
+- `npm run eval:lint`: all 14 specs passed.
+- `node --test --test-reporter=dot evals/cosmosdb-best-practices/graders.test.mjs`: 690 offline checks passed.
+- `npm run eval -- --tag rule=index-path-syntax,partition-query-patterns,pattern-background-task-writes --runs 5`: 15/15 live trials passed.
+- Live judge controls: the two valid recorded CI answers passed regrading; deliberately incorrect index-path, partition-routing, and background-durability answers failed correctness grading while passing the other three graders.
+- Final `npm run eval`: **137/137 passed in one run**, ID `9e8190f0-39dd-4a22-8ead-2fec0e7a5fcd`. No retries or threshold reductions were introduced.
+- The 13 legacy prompts and msbench files are unchanged.
+
 #### 2026-10-09: Vally rule evaluation - PR 277
 
 - **Scenario**: Per-rule Vally guidance evaluations, not a testing-v2 application iteration.

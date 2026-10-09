@@ -7,7 +7,18 @@ tags: partition, cardinality, scalability, design
 
 ## Choose High-Cardinality Partition Keys
 
-Select partition keys with many unique values to ensure even data distribution. Low-cardinality keys create hot partitions.
+Select partition keys with many unique values to enable distribution, but do not
+assume that high cardinality guarantees balanced storage or traffic. Evaluate
+both data growth and request volume per key against the application's access
+patterns. A customer-based key can fit order-history queries while still creating
+a hot partition for one unusually busy customer or an oversized partition for
+one customer's accumulated history.
+
+When recommending `customerId`, qualify it with both checks: per-customer stored
+size and per-customer read/write traffic. Consider a suitable hierarchical or
+bucketed key when either is concentrated, accounting for the effect on query
+routing. See [avoiding hot partitions](partition-avoid-hotspots.md) and
+[logical-partition storage limits](partition-20gb-limit.md).
 
 **Incorrect (low cardinality creates hotspots):**
 
@@ -44,7 +55,7 @@ public class Order
 {
     public string Id { get; set; }
     
-    // Millions of unique customers = even distribution
+    // Many customers enable distribution; check each customer's size and traffic
     public string CustomerId { get; set; }  // ✅ GOOD partition key
     
     public string Status { get; set; }  // Just a regular property now

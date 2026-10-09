@@ -36,7 +36,7 @@ stimuli:
         config:
           scoring: binary
           threshold: 1
-          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+          prompt: Evaluate every rubric criterion for technical correctness. Accept semantically equivalent explanations, including concise actionable prose; do not demand exact phrases or code unless the criterion explicitly requires them. Reject substantive omissions, contradictions, and incorrect advice. Mere keyword mentions do not satisfy a criterion.
       -
         type: output-matches
         config: { pattern: '\S' }
@@ -98,9 +98,10 @@ stimuli:
     tags: { category: partition, rule: partition-query-patterns }
     prompt: |
       Most Cosmos DB queries list one customer's orders, but we plan to partition by
-      random orderId. What should we reconsider? Answer briefly.
+      random orderId. What should we reconsider, including unusually large or busy
+      customers? Answer briefly.
     rubric:
-      - Consider customerId to align the dominant query with partition routing, while checking customer skew and growth instead of optimizing only for unique keys.
+      - Consider customerId for customer-scoped routing and account for partition size/growth and concentrated write traffic. Conditionally suggesting hierarchical or bucketed keys for those risks satisfies the caveat; exact wording such as "skew" is not required. Do not choose random orderId solely for uniqueness.
     graders: *rule-graders
 
   # Migrate partition keys.
