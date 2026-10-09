@@ -46,7 +46,8 @@ stimuli:
     tags: { category: global, rule: global-consistency }
     prompt: |
       Cosmos DB users must read their own writes, but do not need globally
-      synchronized reads. Which consistency level fits? Explain briefly.
+      synchronized reads. Which consistency level fits, and how is the guarantee
+      maintained when requests use different client instances?
     rubric:
       - Recommend session consistency, explain session-token scope for read-your-writes, and avoid requiring strong consistency for this workload.
     graders: *rule-graders
@@ -96,7 +97,8 @@ stimuli:
     tags: { category: global, rule: global-zone-redundancy }
     prompt: |
       How should I protect a Cosmos DB region against an availability-zone outage?
-      Give a brief configuration recommendation.
+      Give a brief configuration recommendation, its regional prerequisites,
+      and whether it also protects against a whole-region outage.
     rubric:
       - Enable zone redundancy in a supported region, explaining that it distributes replicas across zones rather than replacing regional disaster recovery.
     graders: *rule-graders

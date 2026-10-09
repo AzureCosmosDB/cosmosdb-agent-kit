@@ -42,6 +42,12 @@ const skill = { type: 'skill_activation', data: { name: 'cosmosdb-best-practices
 const completed = { type: 'turn_end', data: { turnId: 'offline-turn' } };
 const failure = { type: 'error', data: { message: 'Synthetic executor failure' } };
 
+test('the skill quick reference links every evaluated rule', async () => {
+    const index = await readFile(new URL('../../skills/cosmosdb-best-practices/SKILL.md', root), 'utf8');
+    const linked = [...index.matchAll(/\]\(rules\/([^)]+)\.md\)/g)].map((match) => match[1]);
+    assert.deepEqual(linked.sort(), rules);
+});
+
 test('exactly one evaluation covers every rule', () => {
     assert.deepEqual(stimuli.filter((stimulus) => stimulus.tags.rule)
         .map((stimulus) => stimulus.tags.rule).sort(), rules);

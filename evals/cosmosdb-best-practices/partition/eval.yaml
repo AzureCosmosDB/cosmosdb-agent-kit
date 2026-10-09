@@ -56,7 +56,8 @@ stimuli:
     tags: { category: partition, rule: partition-hierarchical }
     prompt: |
       Large Cosmos DB tenants exceed 20 GB. Queries usually target a tenant, then
-      a user, then a session. Suggest a hierarchical partition key.
+      a user, then a session. Suggest a hierarchical partition key and explain
+      query routing and any remaining per-key storage limit.
     rubric:
       - Order levels tenantId, userId, sessionId from broad to narrow; explain prefix-scoped queries and that the full key still has a logical-partition limit.
     graders: *rule-graders
@@ -87,7 +88,7 @@ stimuli:
     tags: { category: partition, rule: partition-key-length }
     prompt: |
       Can a 3,000-byte UTF-8 string be a Cosmos DB partition-key value?
-      Give the limit and a brief alternative.
+      Give the current and legacy key-size limits and a brief alternative.
     rubric:
       - Reject the value against the 2,048-byte large-key limit (101 bytes for legacy keys), and suggest a bounded identifier or hash with appropriate lookup handling.
     graders: *rule-graders
@@ -118,6 +119,7 @@ stimuli:
     prompt: |
       Cosmos DB queries always target one device and month; a device's lifetime data
       grows too large for one key. Suggest a synthetic partition key.
+      What changes if a report spans several months?
     rubric:
       - Persist a deterministic deviceId-plus-month key, derive the same value for writes and reads, and acknowledge fan-out for queries spanning months.
     graders: *rule-graders

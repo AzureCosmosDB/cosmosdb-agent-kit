@@ -9,6 +9,12 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## 2026-10-09 — Fix Vally evaluation failures ([#277](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/277))
+
+- Restore all rule links in the skill index and require reading relevant rule bodies before answering.
+- Correct spatial-index paths, Go partition-key metadata version guidance, and Patch increment behavior using official documentation/source.
+- Align evaluation prompts with their required caveats and accept propagated parsing errors and supported Go SDK versions without lowering the pass threshold.
+
 ## 2026-07-21 — Add Codex repo marketplace catalog
 
 - **New catalog:** `.agents/plugins/marketplace.json` — Codex-native repo marketplace listing the `azure-cosmosdb` plugin (`source.path: "./"`, `category: "Databases"`), so users can add it with `codex plugin marketplace add AzureCosmosDB/cosmosdb-agent-kit`. Codex also reads the legacy `.claude-plugin/marketplace.json`. The catalog carries no package `version` (schema-only) and is intentionally excluded from `npm run version`.

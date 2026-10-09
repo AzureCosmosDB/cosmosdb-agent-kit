@@ -101,7 +101,8 @@ stimuli:
     tags: { category: vector, rule: vector-repository-pattern }
     prompt: |
       Our API controllers directly build Cosmos DB vector queries and writes.
-      Suggest a small repository interface to isolate this data access.
+      Suggest a small repository interface for vector search and document
+      create/update, single-item retrieval, and deletion.
     rubric:
       - Encapsulate vector search, document insert/upsert, point get by id plus partition key, and delete in an injectable repository instead of duplicating SDK logic in controllers.
     graders: *rule-graders

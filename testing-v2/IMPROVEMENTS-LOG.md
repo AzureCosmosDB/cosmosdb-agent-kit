@@ -18,6 +18,31 @@ Each improvement entry should include:
 
 ## Improvements
 
+#### 2026-10-09: Vally rule evaluation - PR 277
+
+- **Scenario**: Per-rule Vally guidance evaluations, not a testing-v2 application iteration.
+- **Run**: [37940226150](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/actions/runs/37940226150)
+- **Initial result**: 120/137 cases passed; 17 answer-grading failures, no executor failures.
+- **Rules created**: None.
+
+**Issues and fixes**:
+1. **Skill discovery**: The quick reference omitted 19 rules, including TTL, Go metadata, and LangChain.js semantic caching. Added the missing links, explicit instructions to read relevant bodies, and an offline completeness check.
+2. **Incorrect guidance**: Updated `index-spatial.md` to the documented GeoJSON wildcard paths and `sdk-patch-counter-increment.md` to reflect creation of absent fields. Both errors appeared in recorded agent answers.
+3. **Overly strict version check**: Verified that azcosmos v1.2.0 already serializes `kind` in the official tagged source. Updated `sdk-go-partition-key-metadata.md` and its rubric instead of rejecting a valid fix.
+4. **Hidden requirements**: Clarified short prompts to ask for the routing, limits, recovery, costs, and API operations already required by their rubrics. Original migrated prompts remain unchanged.
+5. **Error-surfacing false positive**: Allow propagated JSON/type exceptions in the MCP content-format rubric; custom logging is not necessary to avoid silent failures.
+
+The strict scoring threshold, skill-activation checks, one-case-per-rule coverage,
+and msbench workflows/tasks remain unchanged. Validation results are recorded below.
+
+**Validation**:
+- `npm run build` and `npm run validate`: passed for all 136 rules.
+- `npm run eval:lint`: all 14 specs passed.
+- `node --test --test-reporter=dot evals/cosmosdb-best-practices/graders.test.mjs`: 689 offline checks passed.
+- Regrading the recorded Go metadata and MCP content-format answers with their corrected rubrics: both passed.
+- `npm run eval`: 135/137 passed, including all 17 original CI failures. The remaining keyword-matching and checkpoint-saver cases had unstated explanatory requirements; their prompts now request matching semantics and conversation identity explicitly.
+- `npm run eval -- --tag rule=fts-keyword-matching,sdk-langchain-cosmosdb-saver --runs 3`: all six trials passed after those final prompt corrections. The full suite was not rerun after these two prompt-only changes.
+
 #### 2026-04-30: Iteration 001 - E-Commerce Order API (Rust / Axum)
 
 - **Scenario**: ecommerce-order-api

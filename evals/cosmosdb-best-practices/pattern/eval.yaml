@@ -56,7 +56,8 @@ stimuli:
     tags: { category: pattern, rule: pattern-change-feed-materialized-views }
     prompt: |
       Cosmos DB orders are partitioned by customerId, but a busy dashboard filters
-      by status across all customers. Propose a change-feed read model briefly.
+      by status across all customers. Propose a change-feed read model briefly,
+      explaining delivery guarantees, replay handling, and freshness.
     rubric:
       - Maintain a separate query-optimized materialized-view container using an idempotent change-feed handler, acknowledging at-least-once delivery and eventual consistency.
     graders: *rule-graders
@@ -126,7 +127,8 @@ stimuli:
     tags: { category: pattern, rule: pattern-langgraph-fastapi-startup }
     prompt: |
       Importing our FastAPI module builds a LangGraph agent before Cosmos DB and
-      MCP are ready. Where should initialization move?
+      MCP are ready. Where should initialization move, how should transient
+      startup failures be retried, and what happens if dependencies never become ready?
     rubric:
       - Initialize asynchronously in FastAPI lifespan/startup with bounded retries and explicit failure/readiness handling, not at import time or per request.
     graders: *rule-graders

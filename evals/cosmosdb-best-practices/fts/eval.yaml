@@ -76,6 +76,7 @@ stimuli:
     prompt: |
       Cosmos DB full-text search is configured on /description. Replace
       CONTAINS(LOWER(c.description), 'bike') with a keyword-search predicate.
+      Explain how its matching semantics differ from substring search.
     rubric:
       - Use FullTextContains(c.description, 'bike') or an equivalent parameterized predicate and distinguish keyword matching from arbitrary substring matching.
     graders: *rule-graders

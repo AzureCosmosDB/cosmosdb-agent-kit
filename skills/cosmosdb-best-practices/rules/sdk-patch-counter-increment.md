@@ -70,7 +70,7 @@ return container.patchItem(videoId, new PartitionKey(videoId), ops, Video.class)
 - `move(from, to)` — rename a field
 
 **Key Points:**
-- `increment()` requires the field to already exist as a numeric type in the document; initialize it to `0` on document creation
+- `increment()` adds to an existing numeric field; if the field is absent, it creates the field with the increment value. An existing nonnumeric value is an error.
 - At most 10 patch operations per `patchItem` call
 - Patch is idempotent for `set`/`replace` but **not** for `increment` — a retried increment will double-count. Use conditional patch (`setFilterPredicate`) or accept the retry risk for high-volume counters
 - RU cost varies with item size, the update, and indexing policy. Patch is billed like other database operations, not as a fixed 1-RU write. It avoids a separate application read; measure the patch response with `CosmosItemResponse.getRequestCharge()` to evaluate actual costs.

@@ -144,6 +144,11 @@ nonempty output, and the LLM judge's binary correctness verdict. The overall
 threshold is 1, so activation alone cannot compensate for incorrect advice.
 Offline tests verify exact rule coverage and exercise both passing and failing
 grader outcomes with a fake judge; they do not establish live response quality.
+They also require every rule to be linked from the skill's quick reference.
+Ask explicitly for any scenario-specific caveats the rubric requires; a request
+for a brief recommendation should not secretly require an exhaustive checklist.
+Check SDK documentation/source before treating a version number or exact wording
+as the only correct answer.
 
 ### Running tests locally
 

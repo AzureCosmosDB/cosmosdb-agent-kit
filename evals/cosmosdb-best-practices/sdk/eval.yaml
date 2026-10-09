@@ -57,6 +57,7 @@ stimuli:
     prompt: |
       One physical partition in our preferred Cosmos DB region repeatedly times out.
       Which SDK resilience feature avoids repeatedly hitting that unhealthy route?
+      Explain failure detection, rerouting, and how the route returns to service.
     rubric:
       - Recommend the partition-level circuit breaker with alternate regions, describing failure tracking, rerouting, and later recovery probes.
     graders: *rule-graders
@@ -163,7 +164,7 @@ stimuli:
       that reads the same container later fails with KeyError: 'kind' when
       processing partition-key metadata. What is the root cause and how do I fix it?
     rubric:
-      - Identify missing partition-key kind metadata and recommend upgrading azcosmos to a current release (v1.3.0 or newer, including @latest). Explicit Kind is optional defensive advice, not required. Do not present Version 2 alone as the fix; including it alongside correct kind metadata is acceptable.
+      - Identify missing partition-key kind metadata and recommend an SDK release that serializes it (v1.2.0 or newer, including @latest). Explicit Kind is optional defensive advice, not required. Do not present Version 2 alone as the fix; including it alongside correct kind metadata is acceptable.
     graders: *rule-graders
 
   # Bound ingestion pressure.
@@ -221,7 +222,8 @@ stimuli:
     tags: { category: sdk, rule: sdk-langchain-cosmosdb-saver }
     prompt: |
       Our Python LangGraph conversation must survive restarts using Cosmos DB.
-      Which checkpointer and client type should we use?
+      Which checkpointer and client type should we use, and how should subsequent
+      graph invocations identify the same conversation?
     rubric:
       - Use CosmosDBSaver from langchain-azure-cosmosdb with an async Cosmos container, compile it as the checkpointer, and use a stable thread_id.
     graders: *rule-graders
@@ -291,7 +293,8 @@ stimuli:
     tags: { category: sdk, rule: sdk-langchain-js-semantic-cache }
     prompt: |
       Our LangChain.js app repeatedly pays for semantically equivalent LLM questions.
-      What Cosmos DB cache can help beyond exact string matching?
+      Which built-in Cosmos DB LangChain.js cache integration can help beyond
+      exact string matching, and how should matching be controlled?
     rubric:
       - Recommend AzureCosmosDBNoSQLSemanticCache using embeddings/vector similarity with an appropriate similarity threshold to reuse equivalent responses.
     graders: *rule-graders
@@ -323,7 +326,7 @@ stimuli:
       Our Cosmos DB-backed LangGraph app runs json.loads(message.content).
       After an MCP adapter upgrade, content is a list of text blocks. What should change?
     rubric:
-      - Handle both string content and lists of text blocks, extracting text before JSON parsing and reporting malformed or unexpected content explicitly.
+      - Handle both string content and lists of text blocks, extracting text before JSON parsing. Non-text blocks may be filtered out or handled separately. Malformed extracted JSON or unsupported top-level content must surface as an error; propagated parsing/type exceptions suffice without a custom logger or catch block. Do not silently replace parse failures with a success-shaped default.
     graders: *rule-graders
 
   # Limit specialist tools.
@@ -361,9 +364,10 @@ stimuli:
     tags: { category: sdk, rule: sdk-patch-counter-increment }
     prompt: |
       Show a Java Cosmos DB increment of /views without first reading and replacing
-      the item. The id and partition key are known.
+      the item. The id and partition key are known. Explain the write's RU cost
+      and what happens if /views is absent.
     rubric:
-      - Use patchItem with CosmosPatchOperations.increment("/views", 1), recognizing it as an atomic server-side increment that still consumes write RUs.
+      - Use patchItem with CosmosPatchOperations.increment("/views", 1), recognizing it as an atomic server-side increment that still consumes write RUs. If /views is absent, increment creates it with value 1; do not require a prior read or initialization write.
     graders: *rule-graders
 
   # Prefer nearby regions.
@@ -421,7 +425,8 @@ stimuli:
     tags: { category: sdk, rule: sdk-serialization-enums }
     prompt: |
       Our Cosmos DB order status is stored as 1, but queries filter for "Shipped".
-      How should serialization and stored data be aligned?
+      How should database serialization, API-model serialization, and existing
+      stored data be aligned?
     rubric:
       - Configure consistent string enum serialization in persistence and API models, and migrate or compatibly read existing numeric values rather than only changing query text.
     graders: *rule-graders
