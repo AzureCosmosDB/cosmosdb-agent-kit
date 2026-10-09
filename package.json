@@ -28,9 +28,16 @@
     "validate": "node scripts/validate.js",
     "validate:skill": "node scripts/validate.js",
     "validate:manifests": "node scripts/validate-manifests.js",
+    "eval": "cross-env VALLY_TELEMETRY_OPTOUT=1 node scripts/eval.mjs --output-dir results --workers 5 --max-retries 0 --require-pass",
+    "eval:lint": "cross-env VALLY_TELEMETRY_OPTOUT=1 vally lint --eval-spec evals",
+    "eval:test": "node --test evals/cosmosdb-best-practices/graders.test.mjs",
     "version": "node scripts/version.js"
   },
   "devDependencies": {
+    "@github/copilot": "1.0.92",
+    "@microsoft/vally": "0.18.0",
+    "@microsoft/vally-cli": "0.18.0",
+    "cross-env": "10.1.0",
     "glob": "^10.3.0",
     "gray-matter": "^4.0.3"
   }

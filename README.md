@@ -235,20 +235,6 @@ Works with Claude Code, Codex, Cursor, Gemini CLI, Grok Build, Kimi Code, GitHub
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
-## Evaluation (Local Only)
-
-This project includes a [Vally](https://github.com/microsoft/vally) eval framework for local skill testing. Evals are not enforced in CI today (the mock executor cannot validate response content), but you can run them locally to sanity-check your changes:
-
-```bash
-# Install Vally by following the instructions at https://github.com/microsoft/vally
-
-# Run evaluations
-vally run evals/cosmosdb-best-practices/eval.yaml -v
-
-# Check skill readiness
-vally check skills/cosmosdb-best-practices
-```
-
 **Looking for a way to help?** Check out our [good first issues](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) or browse the [Discussions](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/discussions) board to share ideas.
 
 ## Contributors
@@ -266,20 +252,30 @@ Contributions of any kind welcome! See the [contributing guide](CONTRIBUTING.md)
 
 ## Evaluation with Vally
 
-This project uses [Vally](https://github.com/microsoft/vally) to evaluate skill quality, testing that the agent produces correct Cosmos DB guidance across data modeling, partitioning, queries, SDK usage, and throughput scenarios.
+This project uses [Vally](https://github.com/microsoft/vally) to test
+`cosmosdb-best-practices`: one short test per rule, plus a non-activation test.
+Each test checks completion, skill activation, nonempty output, and answer
+correctness using an LLM judge.
 
 ```bash
-# Install Vally by following the instructions at https://github.com/microsoft/vally
+npm ci
+npm run build
+npm run eval:lint
+npm run eval:test
 
-# Run evaluations (mock executor, no API key needed)
-vally run evals/cosmosdb-best-practices/eval.yaml -v
+# Live evaluations (requires Copilot authentication and model access)
+npm run eval
 
-# Check skill readiness
-vally check skills/cosmosdb-best-practices
-
-# Run with a real model (requires Copilot auth)
-vally run evals/cosmosdb-best-practices/eval.yaml --executor copilot-sdk --model claude-sonnet-4.6
+# Run just one rule
+npm run eval -- --tag rule=query-point-reads
 ```
+
+The [Vally workflow](.github/workflows/evals.yml) validates relevant changes
+offline, runs live evaluations only for trusted same-repository events, and
+publishes Actions summaries and result artifacts. Fork PRs run offline checks
+only. The aggregate check reports failures; branch protection determines merge
+enforcement. See [Writing Tests](CONTRIBUTING.md#writing-tests) for authentication,
+grading, cost controls, and adding a rule test.
 
 ## Changelog
 

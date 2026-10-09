@@ -1,0 +1,114 @@
+name: cosmosdb-best-practices-throughput
+description: One focused guidance test per throughput rule.
+type: capability
+
+agent_environment:
+  skills:
+    - ../../../skills/cosmosdb-best-practices
+
+defaults:
+  executor: copilot-sdk
+  model: gpt-5.6-luna
+  judge_model: gpt-5.6-terra
+  runs: 1
+  timeout: 3m
+
+scoring:
+  threshold: 1
+
+stimuli:
+  # Scale variable workloads.
+  - name: throughput-autoscale
+    tags: { category: throughput, rule: throughput-autoscale, legacy: throughput-autoscale-006 }
+    prompt: |
+      My Cosmos DB container has 10,000 RU/s provisioned manually.
+      During the day we use about 2,000 RU/s but at night during batch
+      processing we spike to 9,000 RU/s. We're getting throttled during
+      spikes. What should we do?
+    rubric:
+      - Consider autoscale with a measured maximum for variable traffic, but diagnose per-partition normalized RU usage, hot keys, and short bursts despite aggregate usage below 10,000 RU/s; discuss retry/backoff or smoothing batch concurrency rather than promising autoscale eliminates throttling.
+    graders: &rule-graders
+      -
+        type: completed
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      -
+        type: prompt
+        config:
+          scoring: binary
+          threshold: 1
+          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+      -
+        type: output-matches
+        config: { pattern: '\S' }
+
+  # Bound burst expectations.
+  - name: throughput-burst
+    tags: { category: throughput, rule: throughput-burst }
+    prompt: |
+      Can unused Cosmos DB capacity cover a sustained ingestion load above our
+      provisioned throughput indefinitely? Explain burst capacity briefly.
+    rubric:
+      - Explain that accumulated unused capacity can help short bursts but is bounded and not guaranteed sustained capacity; size or rate-limit sustained ingestion appropriately.
+    graders: *rule-graders
+
+  # Isolate busy containers.
+  - name: throughput-container-vs-database
+    tags: { category: throughput, rule: throughput-container-vs-database }
+    prompt: |
+      A critical Cosmos DB orders container shares database RUs with noisy batch
+      containers. How can throughput allocation improve isolation?
+    rubric:
+      - Use dedicated container throughput for the critical workload and shared database throughput where pooling is acceptable, explaining cost versus isolation.
+    graders: *rule-graders
+
+  # Retire idle capacity.
+  - name: throughput-idle-container-review
+    tags: { category: throughput, rule: throughput-idle-container-review }
+    prompt: |
+      An unused Cosmos DB staging container still has dedicated manual RUs.
+      Will deleting its items stop that throughput bill? What should we review?
+    rubric:
+      - Explain that empty provisioned containers still bill; review retention/recovery needs and decommission the container or reduce throughput, not just delete data or enable TTL.
+    graders: *rule-graders
+
+  # Size from measurements.
+  - name: throughput-right-size
+    tags: { category: throughput, rule: throughput-right-size }
+    prompt: |
+      Before reducing Cosmos DB provisioned RUs, what workload measurements should
+      we check? Answer briefly.
+    rubric:
+      - Use peak and normalized RU consumption, per-partition skew, throttling, and latency requirements to right-size with headroom rather than relying only on averages.
+    graders: *rule-graders
+
+  # Choose sporadic capacity.
+  - name: throughput-serverless
+    tags: { category: throughput, rule: throughput-serverless }
+    prompt: |
+      A small single-region Cosmos DB development app sits idle most of the day.
+      Which capacity mode should we consider and why?
+    rubric:
+      - Consider serverless pay-per-request capacity for low sporadic use, checking its workload limits rather than paying an always-on provisioned RU floor.
+    graders: *rule-graders
+
+  # Migrate to serverless.
+  - name: throughput-serverless-migration
+    tags: { category: throughput, rule: throughput-serverless-migration }
+    prompt: |
+      Our low-traffic provisioned Cosmos DB account fits serverless limits.
+      Can we switch it in place? Outline the migration briefly.
+    rubric:
+      - Provision a new serverless account, copy/validate data and plan cutover; do not claim provisioned-to-serverless is an in-place toggle.
+    graders: *rule-graders
+
+  # Retain bounded history.
+  - name: throughput-ttl-stale-data
+    tags: { category: throughput, rule: throughput-ttl-stale-data }
+    prompt: |
+      One Cosmos DB telemetry partition is near 20 GB; only the latest 30 days are
+      needed online. How should we prevent storage-limit failures?
+    rubric:
+      - Apply appropriate TTL/retention and archive required cold data before the logical-key limit, considering re-keying if needed; physical splits alone cannot fix an oversized logical key.
+    graders: *rule-graders

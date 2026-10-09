@@ -1,0 +1,82 @@
+name: cosmosdb-best-practices-monitoring
+description: One focused guidance test per monitoring rule.
+type: capability
+
+agent_environment:
+  skills:
+    - ../../../skills/cosmosdb-best-practices
+
+defaults:
+  executor: copilot-sdk
+  model: gpt-5.6-luna
+  judge_model: gpt-5.6-terra
+  runs: 1
+  timeout: 3m
+
+scoring:
+  threshold: 1
+
+stimuli:
+  # Observe account health.
+  - name: monitoring-azure-monitor
+    tags: { category: monitoring, rule: monitoring-azure-monitor }
+    prompt: |
+      We have no centralized view of Cosmos DB availability, requests, or capacity.
+      Which Azure monitoring setup should we use? Answer briefly.
+    rubric:
+      - Use Azure Monitor Cosmos DB metrics with dashboards and alerts for availability, RU utilization, latency, or throttling.
+    graders: &rule-graders
+      -
+        type: completed
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      -
+        type: prompt
+        config:
+          scoring: binary
+          threshold: 1
+          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+      -
+        type: output-matches
+        config: { pattern: '\S' }
+
+  # Collect diagnostic logs.
+  - name: monitoring-diagnostic-logs
+    tags: { category: monitoring, rule: monitoring-diagnostic-logs }
+    prompt: |
+      Cosmos DB metrics show failures, but we need operation details to investigate.
+      How do we collect queryable diagnostic logs?
+    rubric:
+      - Configure diagnostic settings to send relevant Cosmos DB data-plane logs to Log Analytics or another diagnostic destination; metrics alone are insufficient.
+    graders: *rule-graders
+
+  # Track tail latency.
+  - name: monitoring-latency
+    tags: { category: monitoring, rule: monitoring-latency }
+    prompt: |
+      Average Cosmos DB latency looks fine, yet some users wait seconds.
+      Which latency metric should we add, and why?
+    rubric:
+      - Track high percentiles such as P99 to expose tail latency hidden by averages, including client-side latency where relevant.
+    graders: *rule-graders
+
+  # Measure request charges.
+  - name: monitoring-ru-consumption
+    tags: { category: monitoring, rule: monitoring-ru-consumption }
+    prompt: |
+      How can my .NET Cosmos DB app identify which operations consume the most RUs?
+      Give a brief instrumentation recommendation.
+    rubric:
+      - Record RequestCharge from item/query responses by operation or query, summing pages as needed rather than estimating cost from request counts alone.
+    graders: *rule-graders
+
+  # Alert on throttling.
+  - name: monitoring-throttling
+    tags: { category: monitoring, rule: monitoring-throttling }
+    prompt: |
+      Cosmos DB SDK retries hide repeated 429 responses from our API logs.
+      What should we monitor and alert on?
+    rubric:
+      - Monitor service-side 429 rates and normalized RU consumption, including partition hotspots, and alert on sustained throttling even when retries succeed.
+    graders: *rule-graders

@@ -1,0 +1,102 @@
+name: cosmosdb-best-practices-global
+description: One focused guidance test per global rule.
+type: capability
+
+agent_environment:
+  skills:
+    - ../../../skills/cosmosdb-best-practices
+
+defaults:
+  executor: copilot-sdk
+  model: gpt-5.6-luna
+  judge_model: gpt-5.6-terra
+  runs: 1
+  timeout: 3m
+
+scoring:
+  threshold: 1
+
+stimuli:
+  # Resolve concurrent writes.
+  - name: global-conflict-resolution
+    tags: { category: global, rule: global-conflict-resolution }
+    prompt: |
+      Two Cosmos DB write regions can update the same order concurrently.
+      How should I choose a conflict-resolution policy? Explain briefly.
+    rubric:
+      - Explain last-writer-wins versus custom conflict resolution and choose based on business semantics rather than assuming both updates will be preserved.
+    graders: &rule-graders
+      -
+        type: completed
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      -
+        type: prompt
+        config:
+          scoring: binary
+          threshold: 1
+          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+      -
+        type: output-matches
+        config: { pattern: '\S' }
+
+  # Choose session consistency.
+  - name: global-consistency
+    tags: { category: global, rule: global-consistency }
+    prompt: |
+      Cosmos DB users must read their own writes, but do not need globally
+      synchronized reads. Which consistency level fits? Explain briefly.
+    rubric:
+      - Recommend session consistency, explain session-token scope for read-your-writes, and avoid requiring strong consistency for this workload.
+    graders: *rule-graders
+
+  # Automate regional failover.
+  - name: global-failover
+    tags: { category: global, rule: global-failover }
+    prompt: |
+      Our single-write Cosmos DB account has two regions but needs manual intervention
+      during a write-region outage. What configuration should change?
+    rubric:
+      - Enable automatic failover and configure regional failover priorities; do not claim a lone single-region account can fail over to an unconfigured region.
+    graders: *rule-graders
+
+  # Enable active-active writes.
+  - name: global-multi-region
+    tags: { category: global, rule: global-multi-region }
+    prompt: |
+      Users in Europe and America need low-latency local writes and active-active
+      availability in Cosmos DB. What deployment approach fits? Answer briefly.
+    rubric:
+      - Recommend multi-region writes with nearby regions and client routing, acknowledging the need for conflict resolution.
+    graders: *rule-graders
+
+  # Avoid unnecessary multi-write.
+  - name: global-multi-region-write-antipattern
+    tags: { category: global, rule: global-multi-region-write-antipattern }
+    prompt: |
+      Our Cosmos DB staging account copied a multi-region-write production template,
+      but only one region ever writes. Should we keep that setting? Explain briefly.
+    rubric:
+      - Recommend disabling unnecessary multi-region writes after confirming no active-active need, reducing conflict complexity and potential replicated-write cost.
+    graders: *rule-graders
+
+  # Place nearby replicas.
+  - name: global-read-regions
+    tags: { category: global, rule: global-read-regions }
+    prompt: |
+      Our Cosmos DB account is in East US, but most readers are in Europe.
+      How can we reduce their read latency without moving all writes?
+    rubric:
+      - Add a European read region and configure clients to prefer it, while retaining the existing write region.
+    graders: *rule-graders
+
+  # Survive zone outages.
+  - name: global-zone-redundancy
+    tags: { category: global, rule: global-zone-redundancy }
+    prompt: |
+      How should I protect a Cosmos DB region against an availability-zone outage?
+      Give a brief configuration recommendation.
+    rubric:
+      - Enable zone redundancy in a supported region, explaining that it distributes replicas across zones rather than replacing regional disaster recovery.
+    graders: *rule-graders

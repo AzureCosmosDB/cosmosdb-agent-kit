@@ -1,0 +1,467 @@
+name: cosmosdb-best-practices-sdk
+description: One focused guidance test per sdk rule.
+type: capability
+
+agent_environment:
+  skills:
+    - ../../../skills/cosmosdb-best-practices
+
+defaults:
+  executor: copilot-sdk
+  model: gpt-5.6-luna
+  judge_model: gpt-5.6-terra
+  runs: 1
+  timeout: 3m
+
+scoring:
+  threshold: 1
+
+stimuli:
+  # Await SDK operations.
+  - name: sdk-async-api
+    tags: { category: sdk, rule: sdk-async-api }
+    prompt: |
+      My ASP.NET endpoint calls Cosmos DB ReadItemAsync(...).Result under load.
+      What should change and why?
+    rubric:
+      - Make the call path async and await ReadItemAsync instead of blocking on Result or Wait, avoiding thread starvation.
+    graders: &rule-graders
+      -
+        type: completed
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      -
+        type: prompt
+        config:
+          scoring: binary
+          threshold: 1
+          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+      -
+        type: output-matches
+        config: { pattern: '\S' }
+
+  # Hedge slow reads.
+  - name: sdk-availability-strategy
+    tags: { category: sdk, rule: sdk-availability-strategy }
+    prompt: |
+      Our multi-region Cosmos DB app has occasional slow reads in its preferred
+      region. How can threshold-based availability strategy help?
+    rubric:
+      - Explain hedged parallel reads to alternate regions after a latency threshold, trading extra requests/RUs for better tail latency.
+    graders: *rule-graders
+
+  # Route around unhealthy partitions.
+  - name: sdk-circuit-breaker
+    tags: { category: sdk, rule: sdk-circuit-breaker }
+    prompt: |
+      One physical partition in our preferred Cosmos DB region repeatedly times out.
+      Which SDK resilience feature avoids repeatedly hitting that unhealthy route?
+    rubric:
+      - Recommend the partition-level circuit breaker with alternate regions, describing failure tracking, rerouting, and later recovery probes.
+    graders: *rule-graders
+
+  # Create without overwriting.
+  - name: sdk-conditional-create-etag
+    tags: { category: sdk, rule: sdk-conditional-create-etag }
+    prompt: |
+      In Java Cosmos DB, concurrent requests create the same id in the same partition.
+      Show a create-only approach without a read-before-write race.
+    rubric:
+      - Use createItem rather than upsert, with fresh options and setIfNoneMatchETag("*") as the rule's defensive pattern, handling 409 as an existing item rather than overwriting it.
+    graders: *rule-graders
+
+  # Choose connection mode.
+  - name: sdk-connection-mode
+    tags: { category: sdk, rule: sdk-connection-mode }
+    prompt: |
+      Our production .NET Cosmos DB app allows the required outbound TCP ports.
+      Should we use Direct or Gateway mode for low latency?
+    rubric:
+      - Prefer Direct mode for this supported production workload, explaining the avoided gateway hop and Gateway's usefulness under network restrictions.
+    graders: *rule-graders
+
+  # Normalize empty tokens.
+  - name: sdk-continuation-token-null-guard
+    tags: { category: sdk, rule: sdk-continuation-token-null-guard }
+    prompt: |
+      Java Cosmos DB byPage(token, 20) fails with INVALID JSON when a first-page
+      request supplies token="". Show the small fix.
+    rubric:
+      - Convert the empty token to null before byPage while preserving nonempty continuation tokens.
+    graders: *rule-graders
+
+  # Surface exception diagnostics.
+  - name: sdk-diagnostics
+    tags: { category: sdk, rule: sdk-diagnostics }
+    prompt: |
+      Improve this .NET Cosmos DB error handler briefly:
+      catch (CosmosException ex) { logger.LogError(ex.Message); throw; }
+    rubric:
+      - Reference and log ex.Diagnostics inside the catch block, preserving the failure rather than silently returning a default.
+    graders: *rule-graders
+
+  # Use the GA package.
+  - name: sdk-dotnet-cosmos-package-id
+    tags: { category: sdk, rule: sdk-dotnet-cosmos-package-id }
+    prompt: |
+      My .NET app references NuGet Azure.Cosmos version 3.x and restore fails.
+      Which Cosmos DB package should I use?
+    rubric:
+      - Use Microsoft.Azure.Cosmos for the GA v3 SDK; explain that Azure.Cosmos was the abandoned v4 preview package.
+    graders: *rule-graders
+
+  # Resolve type collisions.
+  - name: sdk-dotnet-namespace-collision
+    tags: { category: sdk, rule: sdk-dotnet-namespace-collision }
+    prompt: |
+      My C# domain User conflicts with Microsoft.Azure.Cosmos.User (CS0104).
+      Show a small fix that preserves the domain type.
+    rubric:
+      - Alias or fully qualify the domain User (or the Cosmos namespace) so references resolve unambiguously.
+    graders: *rule-graders
+
+  # Trust emulator certificates.
+  - name: sdk-emulator-ssl
+    tags: { category: sdk, rule: sdk-emulator-ssl, legacy: sdk-emulator-ssl-java-linux }
+    prompt: |
+      I'm running the Azure Cosmos DB Linux (vNext) emulator in HTTPS mode and connecting
+      with the Java SDK (com.azure:azure-cosmos). I built a trust-all SSLContext in code, but
+      the client still fails with "General OpenSslEngine problem". How do I get the Java SDK to
+      connect to the emulator over HTTPS?
+    rubric:
+      - Explain why the default SSLContext is insufficient; import the emulator certificate into the JVM truststore used by the SDK, use a SAN-matching endpoint, gatewayMode(), and endpointDiscoveryEnabled(false). Treat the JDK SSL provider as a fallback, not a substitute for trust, and do not weaken production TLS.
+    graders: *rule-graders
+
+  # Prevent lost updates.
+  - name: sdk-etag-concurrency
+    tags: { category: sdk, rule: sdk-etag-concurrency }
+    prompt: |
+      Two workers read and replace the same Cosmos DB order, losing one update.
+      How should they detect conflicting writes?
+    rubric:
+      - Send the read _etag through IfMatchEtag/If-Match on replacement and handle 412 by rereading and reconciling or bounded retry.
+    graders: *rule-graders
+
+  # Exclude degraded regions.
+  - name: sdk-excluded-regions
+    tags: { category: sdk, rule: sdk-excluded-regions }
+    prompt: |
+      One Cosmos DB region is degraded. How can a supported SDK temporarily avoid
+      it for requests without deleting the region from the account?
+    rubric:
+      - Use the SDK's excluded-regions routing option while leaving a healthy alternative; distinguish temporary client/request routing from account topology changes.
+    graders: *rule-graders
+
+  # Fix Go metadata.
+  - name: sdk-go-partition-key-metadata
+    tags: { category: sdk, rule: sdk-go-partition-key-metadata, legacy: sdk-go-partition-key-metadata }
+    prompt: |
+      I'm writing a Go service that seeds an Azure Cosmos DB container using
+      github.com/Azure/azure-sdk-for-go/sdk/data/azcosmos v1.0.0. The container
+      is created and all Go reads/writes succeed. But a Python azure-cosmos client
+      that reads the same container later fails with KeyError: 'kind' when
+      processing partition-key metadata. What is the root cause and how do I fix it?
+    rubric:
+      - Identify missing partition-key kind metadata and recommend upgrading azcosmos to a current release (v1.3.0 or newer, including @latest). Explicit Kind is optional defensive advice, not required. Do not present Version 2 alone as the fix; including it alongside correct kind metadata is acceptable.
+    graders: *rule-graders
+
+  # Bound ingestion pressure.
+  - name: sdk-ingestion-rate-control
+    tags: { category: sdk, rule: sdk-ingestion-rate-control }
+    prompt: |
+      Unbounded parallel Cosmos DB bulk writes cause sustained 429s and slow online
+      requests. Suggest a brief application-side fix.
+    rubric:
+      - Bound write concurrency/rate, honor retry-after, and smooth ingestion with a queue or supported throughput control instead of endlessly increasing retries.
+    graders: *rule-graders
+
+  # Unwrap Java responses.
+  - name: sdk-java-content-response
+    tags: { category: sdk, rule: sdk-java-content-response }
+    prompt: |
+      In Java Cosmos DB, assigning container.readItem(id, pk, Order.class) to Order
+      fails to compile. Show the fix.
+    rubric:
+      - Treat the return as CosmosItemResponse<Order> and call getItem() to obtain the entity.
+    graders: *rule-graders
+
+  # Order Spring initialization.
+  - name: sdk-java-cosmos-config
+    tags: { category: sdk, rule: sdk-java-cosmos-config }
+    prompt: |
+      A Spring @Configuration calls its Cosmos DB @Bean methods from @PostConstruct
+      and gets a circular dependency. Suggest the proper initialization structure.
+    rubric:
+      - Use dependent @Bean methods with parameter injection for client, database, and container, ensuring the database exists before creating the container.
+    graders: *rule-graders
+
+  # Match Java versions.
+  - name: sdk-java-spring-boot-versions
+    tags: { category: sdk, rule: sdk-java-spring-boot-versions }
+    prompt: |
+      My Cosmos DB Spring Boot 3 application targets Java 11 and will not build.
+      What baseline should I change?
+    rubric:
+      - Use Java 17 or newer supported by the selected Spring Boot 3 release, aligning compiler/runtime settings rather than changing Cosmos DB configuration.
+    graders: *rule-graders
+
+  # Initialize async checkpointers.
+  - name: sdk-langchain-async-checkpointer
+    tags: { category: sdk, rule: sdk-langchain-async-checkpointer }
+    prompt: |
+      Our CosmosDBSaver setup creates an async Cosmos client at Python module scope
+      and gets event-loop errors. Where should setup and graph compilation happen?
+    rubric:
+      - Create the async credential/client/container in an active async startup context, then construct CosmosDBSaver and compile the graph with it; manage cleanup in that lifecycle.
+    graders: *rule-graders
+
+  # Persist graph checkpoints.
+  - name: sdk-langchain-cosmosdb-saver
+    tags: { category: sdk, rule: sdk-langchain-cosmosdb-saver }
+    prompt: |
+      Our Python LangGraph conversation must survive restarts using Cosmos DB.
+      Which checkpointer and client type should we use?
+    rubric:
+      - Use CosmosDBSaver from langchain-azure-cosmosdb with an async Cosmos container, compile it as the checkpointer, and use a stable thread_id.
+    graders: *rule-graders
+
+  # Persist JS conversations.
+  - name: sdk-langchain-js-chat-history
+    tags: { category: sdk, rule: sdk-langchain-js-chat-history }
+    prompt: |
+      LangChain.js chat history disappears on restart. How can Cosmos DB persist
+      messages while keeping different sessions isolated?
+    rubric:
+      - Use AzureCosmosDBNoSQLChatMessageHistory with a distinct sessionId per conversation and suitable session partitioning, rather than one shared in-memory history.
+    graders: *rule-graders
+
+  # Use deployment names.
+  - name: sdk-langchain-js-embedding-model
+    tags: { category: sdk, rule: sdk-langchain-js-embedding-model }
+    prompt: |
+      My LangChain.js Cosmos DB vector store uses AzureOpenAIEmbeddings.
+      The deployment is "catalog-embed", model text-embedding-3-small. Which name goes in azureOpenAIApiDeploymentName?
+    rubric:
+      - Set azureOpenAIApiDeploymentName to catalog-embed, the Azure deployment name, not the underlying model name.
+    graders: *rule-graders
+
+  # Bind vector filters.
+  - name: sdk-langchain-js-filter-injection
+    tags: { category: sdk, rule: sdk-langchain-js-filter-injection }
+    prompt: |
+      Show a safe user-supplied tenantId filter for LangChain.js
+      AzureCosmosDBNoSQLVectorStore using its default metadata field.
+    rubric:
+      - Pass filterClause as a SqlQuerySpec with WHERE c.metadata.tenantId = @tenantId and a parameters array; do not concatenate input or invent filterParams.
+    graders: *rule-graders
+
+  # Prepare hybrid search.
+  - name: sdk-langchain-js-fulltext-prerequisites
+    tags: { category: sdk, rule: sdk-langchain-js-fulltext-prerequisites }
+    prompt: |
+      LangChain.js Cosmos DB vector search works, but Hybrid fails after changing
+      searchType alone. Which three full-text prerequisites should I check?
+    rubric:
+      - Check the account full-text capability, container fullTextPolicy, and indexingPolicy.fullTextIndexes on the searched text paths.
+    graders: *rule-graders
+
+  # Authenticate JS without keys.
+  - name: sdk-langchain-js-managed-identity
+    tags: { category: sdk, rule: sdk-langchain-js-managed-identity }
+    prompt: |
+      Our Azure-hosted LangChain.js Cosmos DB app uses a master-key connection string.
+      Suggest a keyless production configuration.
+    rubric:
+      - Use endpoint plus DefaultAzureCredential from @azure/identity with managed identity and appropriate Cosmos DB data-plane RBAC.
+    graders: *rule-graders
+
+  # Select hybrid retrieval.
+  - name: sdk-langchain-js-search-types
+    tags: { category: sdk, rule: sdk-langchain-js-search-types }
+    prompt: |
+      In LangChain.js AzureCosmosDBNoSQLVectorStore, we need both semantic similarity
+      and keyword relevance. Which search type fits, and what must be configured?
+    rubric:
+      - Choose Hybrid (or HybridScoreThreshold if a cutoff is needed), combining vector and full-text ranking with the required full-text configuration.
+    graders: *rule-graders
+
+  # Cache paraphrased requests.
+  - name: sdk-langchain-js-semantic-cache
+    tags: { category: sdk, rule: sdk-langchain-js-semantic-cache }
+    prompt: |
+      Our LangChain.js app repeatedly pays for semantically equivalent LLM questions.
+      What Cosmos DB cache can help beyond exact string matching?
+    rubric:
+      - Recommend AzureCosmosDBNoSQLSemanticCache using embeddings/vector similarity with an appropriate similarity threshold to reuse equivalent responses.
+    graders: *rule-graders
+
+  # Initialize JS vector stores.
+  - name: sdk-langchain-js-vectorstore-init
+    tags: { category: sdk, rule: sdk-langchain-js-vectorstore-init }
+    prompt: |
+      Briefly show AzureCosmosDBNoSQLVectorStore initialization with embeddings and
+      managed identity. Should it create the database using data-plane RBAC?
+    rubric:
+      - Pass the embeddings instance and endpoint/credential/databaseName/containerName configuration; pre-provision the database and suitably configured container for RBAC use.
+    graders: *rule-graders
+
+  # Reuse legacy MCP sessions.
+  - name: sdk-langchain-mcp-persistent-session
+    tags: { category: sdk, rule: sdk-langchain-mcp-persistent-session }
+    prompt: |
+      Our Cosmos DB-backed LangGraph app pins langchain-mcp-adapters 0.1.x and creates
+      MultiServerMCPClient per request. How should we manage its lifetime?
+    rubric:
+      - Reuse a lifespan-managed persistent client/session with cleanup for 0.1.x, and avoid presenting that legacy context-manager API as valid for 0.2.x.
+    graders: *rule-graders
+
+  # Parse MCP content blocks.
+  - name: sdk-langchain-mcp-tool-content-format
+    tags: { category: sdk, rule: sdk-langchain-mcp-tool-content-format }
+    prompt: |
+      Our Cosmos DB-backed LangGraph app runs json.loads(message.content).
+      After an MCP adapter upgrade, content is a list of text blocks. What should change?
+    rubric:
+      - Handle both string content and lists of text blocks, extracting text before JSON parsing and reporting malformed or unexpected content explicitly.
+    graders: *rule-graders
+
+  # Limit specialist tools.
+  - name: sdk-langgraph-mcp-tool-filtering
+    tags: { category: sdk, rule: sdk-langgraph-mcp-tool-filtering }
+    prompt: |
+      Our Cosmos DB-backed LangGraph app gives every specialist all MCP tools.
+      Tool names have sales_ and support_ prefixes. How should assignment change?
+    rubric:
+      - Filter tools by the intended domain name prefix or an explicit allowlist before constructing each agent, rather than relying only on prompting.
+    graders: *rule-graders
+
+  # Isolate local configuration.
+  - name: sdk-local-dev-config
+    tags: { category: sdk, rule: sdk-local-dev-config }
+    prompt: |
+      My Cosmos DB app unexpectedly reaches a cloud account although local settings
+      point to the emulator. What should I inspect before running it again?
+    rubric:
+      - Check environment-variable/configuration precedence for cloud endpoint overrides, isolate emulator settings, and verify the effective target without logging secrets.
+    graders: *rule-graders
+
+  # Add serializer dependency.
+  - name: sdk-newtonsoft-dependency
+    tags: { category: sdk, rule: sdk-newtonsoft-dependency }
+    prompt: |
+      A new .NET project uses Microsoft.Azure.Cosmos 3.43.0 with its default serializer.
+      Which explicit JSON package reference should its project file include?
+    rubric:
+      - Add an explicit Newtonsoft.Json PackageReference at version 13.0.3 or newer instead of assuming a transitive dependency supplies it.
+    graders: *rule-graders
+
+  # Increment counters atomically.
+  - name: sdk-patch-counter-increment
+    tags: { category: sdk, rule: sdk-patch-counter-increment }
+    prompt: |
+      Show a Java Cosmos DB increment of /views without first reading and replacing
+      the item. The id and partition key are known.
+    rubric:
+      - Use patchItem with CosmosPatchOperations.increment("/views", 1), recognizing it as an atomic server-side increment that still consumes write RUs.
+    graders: *rule-graders
+
+  # Prefer nearby regions.
+  - name: sdk-preferred-regions
+    tags: { category: sdk, rule: sdk-preferred-regions }
+    prompt: |
+      A .NET Cosmos DB app runs in West Europe with North Europe as fallback.
+      How should the client express that preference?
+    rubric:
+      - Configure ApplicationPreferredRegions in the order West Europe, North Europe, using regions present on the account for routing/fallback.
+    graders: *rule-graders
+
+  # Install async transport.
+  - name: sdk-python-async-deps
+    tags: { category: sdk, rule: sdk-python-async-deps }
+    prompt: |
+      My Python app installed azure-cosmos but azure.cosmos.aio fails because aiohttp
+      is missing. What dependency change should I make?
+    rubric:
+      - Declare and install aiohttp explicitly alongside azure-cosmos for the async transport, not replace the async client with blocking calls.
+    graders: *rule-graders
+
+  # Use Python client kwargs.
+  - name: sdk-python-client-kwargs
+    tags: { category: sdk, rule: sdk-python-client-kwargs }
+    prompt: |
+      In azure-cosmos Python v4, should I build ConnectionPolicy to configure
+      preferred regions and connection timeout? Show the supported style briefly.
+    rubric:
+      - Pass flat preferred_locations and connection_timeout keyword arguments directly to CosmosClient instead of constructing legacy ConnectionPolicy/retry_options objects.
+    graders: *rule-graders
+
+  # Isolate request options.
+  - name: sdk-request-options-per-call
+    tags: { category: sdk, rule: sdk-request-options-per-call }
+    prompt: |
+      Java Cosmos DB createItem Monos for different partition keys share one
+      CosmosItemRequestOptions and subscribe later. What should change?
+    rubric:
+      - Allocate fresh options per deferred/concurrent operation because shared mutable options can be overwritten before subscription; do not claim sequential awaited reuse has the same race.
+    graders: *rule-graders
+
+  # Respect retry delays.
+  - name: sdk-retry-429
+    tags: { category: sdk, rule: sdk-retry-429 }
+    prompt: |
+      A Cosmos DB operation returns 429 with x-ms-retry-after-ms.
+      Should our app immediately retry in an unlimited loop?
+    rubric:
+      - Respect server retry-after using bounded SDK retry behavior, surface exhausted retries, and investigate sustained capacity/hotspot issues rather than busy-looping.
+    graders: *rule-graders
+
+  # Align enum serialization.
+  - name: sdk-serialization-enums
+    tags: { category: sdk, rule: sdk-serialization-enums }
+    prompt: |
+      Our Cosmos DB order status is stored as 1, but queries filter for "Shipped".
+      How should serialization and stored data be aligned?
+    rubric:
+      - Configure consistent string enum serialization in persistence and API models, and migrate or compatibly read existing numeric values rather than only changing query text.
+    graders: *rule-graders
+
+  # Reuse SDK clients.
+  - name: sdk-singleton-client
+    tags: { category: sdk, rule: sdk-singleton-client, legacy: sdk-singleton-client-002 }
+    prompt: |
+      Review this C# code for Cosmos DB best practices:
+
+      public class OrderService
+      {
+          public async Task<Order> GetOrder(string id)
+          {
+              var client = new CosmosClient(connectionString);
+              var container = client.GetContainer("mydb", "orders");
+              var response = await container.ReadItemAsync<Order>(id, new PartitionKey(id));
+              return response.Resource;
+          }
+      }
+    rubric:
+      - Reuse a long-lived singleton CosmosClient per account, typically through dependency injection, to reuse connections and avoid repeated initialization.
+    graders: *rule-graders
+
+  # Map Spring entities.
+  - name: sdk-spring-data-annotations
+    tags: { category: sdk, rule: sdk-spring-data-annotations }
+    prompt: |
+      A Spring Data Cosmos entity still uses JPA @Entity and @Table.
+      Which Cosmos mapping annotations should identify its container, id, and partition key?
+    rubric:
+      - Use Cosmos @Container, Spring Data @Id on a String id, and @PartitionKey on the chosen field; do not rely on JPA annotations for Cosmos mapping.
+    graders: *rule-graders
+
+  # Handle repository iterables.
+  - name: sdk-spring-data-repository
+    tags: { category: sdk, rule: sdk-spring-data-repository }
+    prompt: |
+      Casting CosmosRepository.findAll() directly to List<Order> throws at runtime.
+      What is the safe way to obtain a list?
+    rubric:
+      - Treat findAll() as Iterable<Order> and explicitly collect or iterate it into a list, rather than casting or assuming JpaRepository return types.
+    graders: *rule-graders

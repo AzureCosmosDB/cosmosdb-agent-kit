@@ -1,0 +1,123 @@
+name: cosmosdb-best-practices-partition
+description: One focused guidance test per partition rule.
+type: capability
+
+agent_environment:
+  skills:
+    - ../../../skills/cosmosdb-best-practices
+
+defaults:
+  executor: copilot-sdk
+  model: gpt-5.6-luna
+  judge_model: gpt-5.6-terra
+  runs: 1
+  timeout: 3m
+
+scoring:
+  threshold: 1
+
+stimuli:
+  # Bound logical partitions.
+  - name: partition-20gb-limit
+    tags: { category: partition, rule: partition-20gb-limit }
+    prompt: |
+      A Cosmos DB container partitioned only by tenantId will store 30 GB for one
+      tenant. Will automatic physical splits solve this? Explain briefly.
+    rubric:
+      - Explain the 20 GB logical-partition limit; physical splits do not split one logical key, so use a suitable hierarchical or bucketed key.
+    graders: &rule-graders
+      -
+        type: completed
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      -
+        type: prompt
+        config:
+          scoring: binary
+          threshold: 1
+          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+      -
+        type: output-matches
+        config: { pattern: '\S' }
+
+  # Spread write traffic.
+  - name: partition-avoid-hotspots
+    tags: { category: partition, rule: partition-avoid-hotspots }
+    prompt: |
+      Our Cosmos DB telemetry key is today's date, so all new events share one key.
+      We see 429s despite spare account capacity. Suggest a brief fix.
+    rubric:
+      - Identify the hot logical key and distribute concurrent writes with a high-cardinality device or sharded key rather than only increasing total RUs.
+    graders: *rule-graders
+
+  # Order hierarchical keys.
+  - name: partition-hierarchical
+    tags: { category: partition, rule: partition-hierarchical }
+    prompt: |
+      Large Cosmos DB tenants exceed 20 GB. Queries usually target a tenant, then
+      a user, then a session. Suggest a hierarchical partition key.
+    rubric:
+      - Order levels tenantId, userId, sessionId from broad to narrow; explain prefix-scoped queries and that the full key still has a logical-partition limit.
+    graders: *rule-graders
+
+  # Choose diverse keys.
+  - name: partition-high-cardinality
+    tags: { category: partition, rule: partition-high-cardinality, legacy: basic-usage-001 }
+    prompt: |
+      I'm designing a Cosmos DB container for an e-commerce app that stores orders.
+      Each order has an orderId, customerId, orderDate, and items array.
+      What should I use as the partition key?
+    rubric:
+      - Discuss access patterns, high cardinality, and even distribution; explain when customerId fits and check per-customer size and traffic skew rather than unconditionally choosing a key.
+    graders: *rule-graders
+
+  # Keep keys immutable.
+  - name: partition-immutable-key
+    tags: { category: partition, rule: partition-immutable-key }
+    prompt: |
+      Should I partition Cosmos DB orders by their mutable shipping status?
+      Explain what happens when that value changes.
+    rubric:
+      - Prefer a stable key; a partition-key value cannot be updated in place, so moving an item requires create/delete operations with consistency and failure handling.
+    graders: *rule-graders
+
+  # Bound key bytes.
+  - name: partition-key-length
+    tags: { category: partition, rule: partition-key-length }
+    prompt: |
+      Can a 3,000-byte UTF-8 string be a Cosmos DB partition-key value?
+      Give the limit and a brief alternative.
+    rubric:
+      - Reject the value against the 2,048-byte large-key limit (101 bytes for legacy keys), and suggest a bounded identifier or hash with appropriate lookup handling.
+    graders: *rule-graders
+
+  # Align keys with reads.
+  - name: partition-query-patterns
+    tags: { category: partition, rule: partition-query-patterns }
+    prompt: |
+      Most Cosmos DB queries list one customer's orders, but we plan to partition by
+      random orderId. What should we reconsider? Answer briefly.
+    rubric:
+      - Consider customerId to align the dominant query with partition routing, while checking customer skew and growth instead of optimizing only for unique keys.
+    graders: *rule-graders
+
+  # Migrate partition keys.
+  - name: partition-rekey-migration
+    tags: { category: partition, rule: partition-rekey-migration }
+    prompt: |
+      Our live Cosmos DB container uses /id, but all frequent queries use /tenantId.
+      It meets the portal Change partition key feature limits. How should we re-key?
+    rubric:
+      - Use the built-in Change partition key/container-copy workflow into a new container, validate data and plan cutover; do not claim the existing partition-key path is edited in place.
+    graders: *rule-graders
+
+  # Combine key fields.
+  - name: partition-synthetic-keys
+    tags: { category: partition, rule: partition-synthetic-keys }
+    prompt: |
+      Cosmos DB queries always target one device and month; a device's lifetime data
+      grows too large for one key. Suggest a synthetic partition key.
+    rubric:
+      - Persist a deterministic deviceId-plus-month key, derive the same value for writes and reads, and acknowledge fan-out for queries spanning months.
+    graders: *rule-graders

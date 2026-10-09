@@ -25,7 +25,8 @@ When performing a code review, apply these checks for the cosmosdb-agent-kit rep
 - `AGENTS.md` is generated on demand (`npm run build`) and is not committed; do not require it in rule PRs
 
 **Eval tasks** (`evals/**/*.yaml`):
-- Required fields: `id`, `name`, `description`, `tags`, `inputs.prompt`, `expected.outcomes`
+- Vally specs require `name` and non-empty `stimuli`; each stimulus needs a unique `name`, `tags`, `prompt` (or `turns`), and meaningful `graders`
+- Skill evaluations must check activation (or non-activation) and response correctness, not only completion
 
 **Test scenarios** (`testing-v2/scenarios/`):
 - `api-contract.yaml`: camelCase fields, `health:` section required

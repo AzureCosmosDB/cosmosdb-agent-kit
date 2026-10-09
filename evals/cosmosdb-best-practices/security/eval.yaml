@@ -1,0 +1,94 @@
+name: cosmosdb-best-practices-security
+description: One focused guidance test per security rule.
+type: capability
+
+agent_environment:
+  skills:
+    - ../../../skills/cosmosdb-best-practices
+
+defaults:
+  executor: copilot-sdk
+  model: gpt-5.6-luna
+  judge_model: gpt-5.6-terra
+  runs: 1
+  timeout: 3m
+
+scoring:
+  threshold: 1
+
+stimuli:
+  # Enable point-in-time restore.
+  - name: security-continuous-backup
+    tags: { category: security, rule: security-continuous-backup }
+    prompt: |
+      We need to recover Cosmos DB data after an accidental deletion at a known time.
+      Which backup mode should we configure in advance?
+    rubric:
+      - Enable continuous backup with a suitable supported retention tier for point-in-time restore, rather than assuming periodic backups provide arbitrary restore timestamps.
+    graders: &rule-graders
+      -
+        type: completed
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      -
+        type: prompt
+        config:
+          scoring: binary
+          threshold: 1
+          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+      -
+        type: output-matches
+        config: { pattern: '\S' }
+
+  # Disable shared keys.
+  - name: security-disable-local-auth
+    tags: { category: security, rule: security-disable-local-auth }
+    prompt: |
+      All our Cosmos DB clients now use Entra ID. How can the account reject any
+      remaining shared-key authentication?
+    rubric:
+      - Set disableLocalAuth to true after verifying dependent clients have migrated, enforcing identity-based access rather than merely rotating keys.
+    graders: *rule-graders
+
+  # Use managed identity.
+  - name: security-managed-identity
+    tags: { category: security, rule: security-managed-identity }
+    prompt: |
+      How should an Azure-hosted app authenticate to Cosmos DB without storing keys,
+      while still supporting developer sign-in locally?
+    rubric:
+      - Use DefaultAzureCredential with managed identity in Azure and developer credentials locally, assigning the necessary Cosmos DB data-plane role.
+    graders: *rule-graders
+
+  # Restrict network access.
+  - name: security-network-restrict
+    tags: { category: security, rule: security-network-restrict }
+    prompt: |
+      Our production Cosmos DB endpoint permits every public IP.
+      Suggest a brief network-access hardening plan.
+    rubric:
+      - Restrict access to approved networks/IPs and prefer private endpoints with public access disabled where suitable, while preserving required app connectivity.
+    graders: *rule-graders
+
+  # Resolve private endpoints.
+  - name: security-private-endpoint-dns
+    tags: { category: security, rule: security-private-endpoint-dns, legacy: security-private-endpoint-dns }
+    prompt: |
+      I enabled a private endpoint on my Cosmos DB for NoSQL account and disabled
+      public network access. From a VM inside the same VNet, my app still fails
+      with connection timeouts, and nslookup on myaccount.documents.azure.com
+      returns a public IP (104.x.x.x) instead of a private one. What did I miss?
+    rubric:
+      - Configure privatelink.documents.azure.com, its VNet link, and the endpoint DNS zone group/private records; verify private resolution while keeping the normal account hostname, not hardcoding a private IP or re-enabling public access.
+    graders: *rule-graders
+
+  # Scope data permissions.
+  - name: security-rbac-least-privilege
+    tags: { category: security, rule: security-rbac-least-privilege }
+    prompt: |
+      A service only reads one Cosmos DB container. Should it receive account-wide
+      Contributor? Suggest a least-privilege alternative.
+    rubric:
+      - Assign a Cosmos DB data-plane read-only role scoped to that container and distinguish data access from Azure control-plane Contributor permissions.
+    graders: *rule-graders

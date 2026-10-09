@@ -1,0 +1,91 @@
+name: cosmosdb-best-practices-fts
+description: One focused guidance test per fts rule.
+type: capability
+
+agent_environment:
+  skills:
+    - ../../../skills/cosmosdb-best-practices
+
+defaults:
+  executor: copilot-sdk
+  model: gpt-5.6-luna
+  judge_model: gpt-5.6-terra
+  runs: 1
+  timeout: 3m
+
+scoring:
+  threshold: 1
+
+stimuli:
+  # Index searchable text.
+  - name: fts-add-index
+    tags: { category: fts, rule: fts-add-index }
+    prompt: |
+      Cosmos DB full-text search is enabled and /description has a fullTextPolicy.
+      Is the default range index enough for efficient text search? Explain briefly.
+    rubric:
+      - Add /description to indexingPolicy.fullTextIndexes; a range index does not replace the full-text index.
+    graders: &rule-graders
+      -
+        type: completed
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      -
+        type: prompt
+        config:
+          scoring: binary
+          threshold: 1
+          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+      -
+        type: output-matches
+        config: { pattern: '\S' }
+
+  # Set text language.
+  - name: fts-define-policy
+    tags: { category: fts, rule: fts-define-policy }
+    prompt: |
+      Show a minimal Cosmos DB fullTextPolicy for English text at /description.
+    rubric:
+      - Define fullTextPaths with path /description and language en-US, using the correct language-code casing.
+    graders: *rule-graders
+
+  # Enable text search.
+  - name: fts-enable-capability
+    tags: { category: fts, rule: fts-enable-capability }
+    prompt: |
+      My new Cosmos DB account rejects FullTextContains despite a container text policy
+      and index. Which account prerequisite should I check? Answer briefly.
+    rubric:
+      - Check and enable the account-level full-text search capability before using full-text SQL functions.
+    graders: *rule-graders
+
+  # Scope text queries.
+  - name: fts-hybrid-queries
+    tags: { category: fts, rule: fts-hybrid-queries }
+    prompt: |
+      Write a Cosmos DB query for tenant t1 products under 100 whose description
+      contains "bike". Full-text search is configured; /tenantId is the partition key.
+    rubric:
+      - Combine FullTextContains on description with tenantId equality and a price range in WHERE; do not claim textual predicate order controls performance.
+    graders: *rule-graders
+
+  # Match text keywords.
+  - name: fts-keyword-matching
+    tags: { category: fts, rule: fts-keyword-matching }
+    prompt: |
+      Cosmos DB full-text search is configured on /description. Replace
+      CONTAINS(LOWER(c.description), 'bike') with a keyword-search predicate.
+    rubric:
+      - Use FullTextContains(c.description, 'bike') or an equivalent parameterized predicate and distinguish keyword matching from arbitrary substring matching.
+    graders: *rule-graders
+
+  # Rank text results.
+  - name: fts-relevance-ranking
+    tags: { category: fts, rule: fts-relevance-ranking }
+    prompt: |
+      Write a Cosmos DB query for descriptions matching "bike", ranked by text
+      relevance. Full-text search is already configured.
+    rubric:
+      - Use FullTextContains on description in WHERE and ORDER BY RANK FullTextScore on that same path and term.
+    graders: *rule-graders

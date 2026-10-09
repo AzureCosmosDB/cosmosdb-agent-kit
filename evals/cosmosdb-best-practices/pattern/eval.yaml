@@ -1,0 +1,172 @@
+name: cosmosdb-best-practices-pattern
+description: One focused guidance test per pattern rule.
+type: capability
+
+agent_environment:
+  skills:
+    - ../../../skills/cosmosdb-best-practices
+
+defaults:
+  executor: copilot-sdk
+  model: gpt-5.6-luna
+  judge_model: gpt-5.6-terra
+  runs: 1
+  timeout: 3m
+
+scoring:
+  threshold: 1
+
+stimuli:
+  # Ground with point reads.
+  - name: pattern-ai-grounding-access
+    tags: { category: pattern, rule: pattern-ai-grounding-access }
+    prompt: |
+      An LLM tool already has a Cosmos DB order's id and tenantId partition key.
+      Should its grounding step run SQL or vector search to fetch that exact order?
+    rubric:
+      - Use a point read with both id and tenantId for exact grounding; semantic search is unnecessary once the identity is known.
+    graders: &rule-graders
+      -
+        type: completed
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      -
+        type: prompt
+        config:
+          scoring: binary
+          threshold: 1
+          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+      -
+        type: output-matches
+        config: { pattern: '\S' }
+
+  # Defer noncritical writes.
+  - name: pattern-background-task-writes
+    tags: { category: pattern, rule: pattern-background-task-writes }
+    prompt: |
+      A FastAPI chat endpoint waits for optional Cosmos DB debug-log writes before
+      returning an agent answer. How can we reduce that response latency?
+    rubric:
+      - Use BackgroundTasks for these noncritical writes with visible error handling; do not describe in-process background tasks as durable delivery for critical state.
+    graders: *rule-graders
+
+  # Materialize alternate views.
+  - name: pattern-change-feed-materialized-views
+    tags: { category: pattern, rule: pattern-change-feed-materialized-views }
+    prompt: |
+      Cosmos DB orders are partitioned by customerId, but a busy dashboard filters
+      by status across all customers. Propose a change-feed read model briefly.
+    rubric:
+      - Maintain a separate query-optimized materialized-view container using an idempotent change-feed handler, acknowledging at-least-once delivery and eventual consistency.
+    graders: *rule-graders
+
+  # Avoid rank scans.
+  - name: pattern-efficient-ranking
+    tags: { category: pattern, rule: pattern-efficient-ranking }
+    prompt: |
+      To find one player's rank, our Cosmos DB service loads every leaderboard entry
+      and sorts in memory. What is a better approach?
+    rubric:
+      - Use a scoped count of higher scores or a maintained/cached rank with defined tie handling, rather than transferring the whole partition; do not promise constant RU for arbitrary counts.
+    graders: *rule-graders
+
+  # Attribute agent replies.
+  - name: pattern-langgraph-agent-name-attribution
+    tags: { category: pattern, rule: pattern-langgraph-agent-name-attribution }
+    prompt: |
+      Our Cosmos DB-backed LangGraph API cannot tell which specialist produced an
+      AIMessage. How should each agent node make attribution explicit?
+    rubric:
+      - Set the responding AIMessage name to the specialist's name before returning it, so the API can persist or display explicit attribution.
+    graders: *rule-graders
+
+  # Persist agent routing.
+  - name: pattern-langgraph-agent-routing-cosmosdb
+    tags: { category: pattern, rule: pattern-langgraph-agent-routing-cosmosdb }
+    prompt: |
+      Our LangGraph coordinator reclassifies every chat turn and keeps switching
+      specialists. We store sessions in Cosmos DB. Suggest a deterministic fix.
+    rubric:
+      - Persist the active agent in the session, read it by id and partition key on later turns, and update it on explicit handoff rather than reclassifying every turn.
+    graders: *rule-graders
+
+  # Unblock async routing.
+  - name: pattern-langgraph-async-cosmos-routing
+    tags: { category: pattern, rule: pattern-langgraph-async-cosmos-routing }
+    prompt: |
+      A LangGraph async routing function calls the synchronous Cosmos DB read_item.
+      Keeping that sync client, how do I avoid blocking the event loop or hanging?
+    rubric:
+      - Offload read_item with asyncio.to_thread and bound the await with a timeout, handling failures explicitly.
+    graders: *rule-graders
+
+  # Unblock async writes.
+  - name: pattern-langgraph-async-cosmos-writes
+    tags: { category: pattern, rule: pattern-langgraph-async-cosmos-writes }
+    prompt: |
+      An async LangGraph node saves activeAgent using synchronous Cosmos DB
+      upsert_item. Keeping that client, show the nonblocking call pattern.
+    rubric:
+      - Await asyncio.to_thread around the synchronous upsert_item call instead of calling it directly in the coroutine or dropping the write unawaited.
+    graders: *rule-graders
+
+  # Separate display history.
+  - name: pattern-langgraph-chat-history-separate
+    tags: { category: pattern, rule: pattern-langgraph-chat-history-separate }
+    prompt: |
+      Should our chat UI read raw LangGraph checkpoint blobs from Cosmos DB to show
+      messages? Suggest a brief storage design.
+    rubric:
+      - Store displayable chat history separately from checkpoints with sender, text, timestamp, and agent attribution; retain checkpoints for graph resumption.
+    graders: *rule-graders
+
+  # Initialize at startup.
+  - name: pattern-langgraph-fastapi-startup
+    tags: { category: pattern, rule: pattern-langgraph-fastapi-startup }
+    prompt: |
+      Importing our FastAPI module builds a LangGraph agent before Cosmos DB and
+      MCP are ready. Where should initialization move?
+    rubric:
+      - Initialize asynchronously in FastAPI lifespan/startup with bounded retries and explicit failure/readiness handling, not at import time or per request.
+    graders: *rule-graders
+
+  # Pause for confirmation.
+  - name: pattern-langgraph-interrupt-human
+    tags: { category: pattern, rule: pattern-langgraph-interrupt-human }
+    prompt: |
+      A Cosmos DB-checkpointed LangGraph agent must ask for confirmation before
+      deleting records. How should it pause safely?
+    rubric:
+      - Call interrupt before the destructive operation and use a persistent checkpointer; explain that resumption restarts the node, so preceding side effects must be safe to replay.
+    graders: *rule-graders
+
+  # Route specialist agents.
+  - name: pattern-langgraph-multi-agent
+    tags: { category: pattern, rule: pattern-langgraph-multi-agent }
+    prompt: |
+      Design a small LangGraph routing approach for sales and support agents with
+      Cosmos DB checkpoints. Avoid asking an LLM to route every internal step.
+    rubric:
+      - Use StateGraph agent nodes and conditional routing from tool results or persisted state, with explicit handoff/state updates and persistent checkpointing.
+    graders: *rule-graders
+
+  # Resume saved state.
+  - name: pattern-langgraph-resume-checkpoint
+    tags: { category: pattern, rule: pattern-langgraph-resume-checkpoint }
+    prompt: |
+      A LangGraph graph paused at interrupt() and saved to Cosmos DB.
+      How do I resume with the user's approval without rebuilding its state?
+    rubric:
+      - Invoke the graph with Command(resume=...) and the same thread_id, letting the checkpointer restore state instead of injecting raw checkpoint metadata.
+    graders: *rule-graders
+
+  # Hydrate before rendering.
+  - name: pattern-service-layer-relationships
+    tags: { category: pattern, rule: pattern-service-layer-relationships }
+    prompt: |
+      Cosmos DB orders persist customerId, but our template reads order.customer.name.
+      The repository returns customer=null. Where should hydration happen?
+    rubric:
+      - Resolve customer references in a service layer before returning to the controller/template, keeping the persisted ID and transient hydrated object separate.
+    graders: *rule-graders
