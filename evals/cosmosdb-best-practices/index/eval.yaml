@@ -1,0 +1,104 @@
+name: cosmosdb-best-practices-index
+description: One focused guidance test per index rule.
+type: capability
+
+agent_environment:
+  skills:
+    - ../../../skills/cosmosdb-best-practices
+
+defaults:
+  executor: copilot-sdk
+  model: gpt-5.6-luna
+  judge_model: gpt-5.6-terra
+  runs: 1
+  timeout: 3m
+
+scoring:
+  threshold: 1
+
+stimuli:
+  # Add composite indexes.
+  - name: index-composite
+    tags: { category: index, rule: index-composite, legacy: indexing-composite-005 }
+    prompt: |
+      My Cosmos DB query is slow:
+      SELECT * FROM c WHERE c.status = 'active' ORDER BY c.createdAt DESC, c.priority ASC
+
+      I have the default indexing policy. What should I change?
+    rubric:
+      - Add a composite index compatible with createdAt descending then priority ascending; any status optimization must preserve a valid index for the query. Update the existing container policy, not merely create-if-not-exists.
+    graders: &rule-graders
+      -
+        type: completed
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      -
+        type: prompt
+        config:
+          scoring: binary
+          threshold: 1
+          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+      -
+        type: output-matches
+        config: { pattern: '\S' }
+
+  # Match sort directions.
+  - name: index-composite-direction
+    tags: { category: index, rule: index-composite-direction }
+    prompt: |
+      A Cosmos DB composite index is (/score DESC, /createdAt ASC).
+      Does it support ORDER BY c.score DESC, c.createdAt DESC? Explain briefly.
+    rubric:
+      - Reject the partial direction reversal; a matching index must preserve path order and either all declared directions or all reversed directions.
+    graders: *rule-graders
+
+  # Exclude unused payloads.
+  - name: index-exclude-unused
+    tags: { category: index, rule: index-exclude-unused }
+    prompt: |
+      Cosmos DB items contain a large rawPayload object that is never filtered or
+      sorted. How can I reduce indexing work on writes?
+    rubric:
+      - Exclude /rawPayload/* from regular indexing while retaining indexes for queried fields.
+    graders: *rule-graders
+
+  # Keep indexes current.
+  - name: index-lazy-consistent
+    tags: { category: index, rule: index-lazy-consistent }
+    prompt: |
+      For a new Cosmos DB container whose queries must see indexed updates promptly,
+      should I choose consistent, lazy, or no indexing? Explain briefly.
+    rubric:
+      - Choose consistent indexing; None disables indexing and lazy is a legacy mode unsuitable for this requirement.
+    graders: *rule-graders
+
+  # Fix array paths.
+  - name: index-path-syntax
+    tags: { category: index, rule: index-path-syntax }
+    prompt: |
+      Fix this Cosmos DB included index path for item names in an array:
+      /items/*/name/?
+    rubric:
+      - Use /items/[]/name/? and explain that * is a terminal wildcard, not an array traversal operator.
+    graders: *rule-graders
+
+  # Prefer range indexes.
+  - name: index-range-vs-hash
+    tags: { category: index, rule: index-range-vs-hash }
+    prompt: |
+      Should a new Cosmos DB container use a hash index for equality filters and
+      a separate range index for sorting the same field? Explain briefly.
+    rubric:
+      - Recommend range indexing for equality, range, and ORDER BY; do not recommend deprecated hash indexes for new containers.
+    graders: *rule-graders
+
+  # Index geospatial data.
+  - name: index-spatial
+    tags: { category: index, rule: index-spatial }
+    prompt: |
+      Our Cosmos DB stores GeoJSON points at /location and queries ST_DISTANCE.
+      What index should we add? Show the minimal policy fragment.
+    rubric:
+      - Add a spatialIndexes entry with path /location/* and type Point, rather than relying only on range indexes.
+    graders: *rule-graders

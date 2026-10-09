@@ -1,0 +1,154 @@
+name: cosmosdb-best-practices-model
+description: One focused guidance test per model rule.
+type: capability
+
+agent_environment:
+  skills:
+    - ../../../skills/cosmosdb-best-practices
+
+defaults:
+  executor: copilot-sdk
+  model: gpt-5.6-luna
+  judge_model: gpt-5.6-terra
+  runs: 1
+  timeout: 3m
+
+scoring:
+  threshold: 1
+
+stimuli:
+  # Limit item size.
+  - name: model-avoid-2mb-limit
+    tags: { category: model, rule: model-avoid-2mb-limit }
+    prompt: |
+      A Cosmos DB item embeds a 3 MB attachment. Is that safe, and how should I
+      store it instead? Answer briefly.
+    rubric:
+      - Identify the 2 MB item limit and move the attachment to external blob storage with a reference, or otherwise split the data into smaller items.
+    graders: &rule-graders
+      -
+        type: completed
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      -
+        type: prompt
+        config:
+          scoring: binary
+          threshold: 1
+          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+      -
+        type: output-matches
+        config: { pattern: '\S' }
+
+  # Denormalize frequent reads.
+  - name: model-denormalize-reads
+    tags: { category: model, rule: model-denormalize-reads }
+    prompt: |
+      Each Cosmos DB order-list request separately fetches every customer's display
+      name. Reads dominate and names rarely change. Suggest a brief modeling fix.
+    rubric:
+      - Duplicate the needed display name in order/read-model documents to avoid repeated lookups, with an explicit strategy for propagating or tolerating name changes.
+    graders: *rule-graders
+
+  # Embed bounded children.
+  - name: model-embed-related
+    tags: { category: model, rule: model-embed-related, legacy: model-embed-vs-reference-004 }
+    prompt: |
+      I have a Cosmos DB container for blog posts. Each post can have up to 20 comments.
+      Comments are always displayed with the post. Should I embed comments inside the
+      post document or store them in a separate container?
+    rubric:
+      - Recommend embedding the bounded, co-read comments while noting item size and future growth limits.
+    graders: *rule-graders
+
+  # Use safe IDs.
+  - name: model-id-constraints
+    tags: { category: model, rule: model-id-constraints }
+    prompt: |
+      I plan to use "tenant/order#42" as a Cosmos DB item id across SDKs.
+      Is it safe? Suggest a brief alternative.
+    rubric:
+      - Avoid slash and hash characters; propose a safe string id such as tenant_order_42 and respect the 1,023-byte length limit.
+    graders: *rule-graders
+
+  # Persist required fields.
+  - name: model-json-serialization
+    tags: { category: model, rule: model-json-serialization }
+    prompt: |
+      My Java Cosmos DB entity marks its persisted customerId field @JsonIgnore.
+      Reads lose that value. What should I change?
+    rubric:
+      - Remove @JsonIgnore from the persisted field and ensure Jackson serializes/deserializes customerId; reserve ignored fields for transient values.
+    graders: *rule-graders
+
+  # Bound document nesting.
+  - name: model-nesting-depth
+    tags: { category: model, rule: model-nesting-depth }
+    prompt: |
+      A generated Cosmos DB JSON document nests objects 150 levels deep.
+      Is that supported? Suggest a brief modeling fix.
+    rubric:
+      - Identify the 128-level nesting limit and recommend flattening or splitting recursive data into referenced documents.
+    graders: *rule-graders
+
+  # Preserve numeric precision.
+  - name: model-numeric-precision
+    tags: { category: model, rule: model-numeric-precision }
+    prompt: |
+      Can I safely store external identifier 9007199254740993 as a Cosmos DB JSON
+      number and round-trip it through JavaScript? Explain briefly.
+    rubric:
+      - Explain IEEE 754 safe-integer precision loss beyond 2^53 - 1 and store this identifier as a string.
+    graders: *rule-graders
+
+  # Reference unbounded children.
+  - name: model-reference-large
+    tags: { category: model, rule: model-reference-large }
+    prompt: |
+      A Cosmos DB customer embeds every historical order in one growing array.
+      Orders change independently. Should that design stay? Explain briefly.
+    rubric:
+      - Store orders as separate documents linked by customerId rather than allowing an unbounded embedded array to approach the item-size limit.
+    graders: *rule-graders
+
+  # Persist relationship IDs.
+  - name: model-relationship-references
+    tags: { category: model, rule: model-relationship-references }
+    prompt: |
+      A Java Cosmos DB order needs a customer object for rendering, but should not
+      persist a duplicate customer graph. How should the fields be modeled?
+    rubric:
+      - Persist customerId, keep the hydrated customer object transient or @JsonIgnore, and populate it through a service rather than expecting cross-document JOINs.
+    graders: *rule-graders
+
+  # Version stored schemas.
+  - name: model-schema-versioning
+    tags: { category: model, rule: model-schema-versioning }
+    prompt: |
+      Our Cosmos DB app will read old and new event formats during a rollout.
+      What small field and reader strategy should we add?
+    rubric:
+      - Write a consistent schemaVersion field on every persisted document type and use it for backward-compatible reads or explicit migrations.
+    graders: *rule-graders
+
+  # Expire temporary items.
+  - name: model-ttl-expiration
+    tags: { category: model, rule: model-ttl-expiration, legacy: model-ttl-expiration }
+    prompt: |
+      I store short-lived session tokens and temporary cache entries in Cosmos DB.
+      Should I run a nightly job to delete expired records, or is there a built-in
+      way to expire them automatically?
+    rubric:
+      - Recommend built-in TTL enabled at container level with optional per-item ttl overrides; expiration uses _ts, so updates reset the countdown, and physical deletion need not be immediate.
+    graders: *rule-graders
+
+  # Distinguish entity types.
+  - name: model-type-discriminator
+    tags: { category: model, rule: model-type-discriminator }
+    prompt: |
+      Cosmos DB orders and customers share a container and tenant partition.
+      How can queries and deserialization tell the document types apart?
+    rubric:
+      - Persist a type discriminator such as type with distinct values and use it to filter and deserialize the appropriate entity type.
+    graders: *rule-graders

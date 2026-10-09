@@ -97,40 +97,108 @@ npm run build
 npm run validate
 ```
 
-## Writing Tests (Optional)
+## Writing Tests
 
-The repo includes a [Vally](https://github.com/microsoft/vally) eval framework under `evals/`. Eval tasks are not currently enforced in CI (the mock executor cannot validate response content), but you're encouraged to add them alongside new rules for future use.
+[Vally](https://github.com/microsoft/vally) tests live skill activation and answer
+correctness. Each rule has exactly one stimulus in its category's
+[`eval.yaml`](evals/cosmosdb-best-practices/); the root spec checks that PostgreSQL
+does not activate the skill. Category files keep the suite readable and stay
+within Vally's YAML alias limits.
 
-### Adding a task for a new rule
+The npm commands discover specs explicitly under `evals/`; the live runner
+([`scripts/eval.mjs`](scripts/eval.mjs)) passes each file to Vally. No root Vally
+configuration or legacy task/fixture files are needed.
 
-Create a YAML file in `evals/cosmosdb-best-practices/tasks/`:
+### Adding a test for a rule
+
+Add a stimulus to `evals/cosmosdb-best-practices/<prefix>/eval.yaml`. Match its
+`name` and `tags.rule` to the rule filename without `.md`, and reuse that file's
+`rule-graders` anchor:
 
 ```yaml
-id: your-rule-name
-name: "Short descriptive name"
-description: |
-  What this test validates — should map to a specific rule or behavior.
-inputs:
-  prompt: "A realistic user prompt that should trigger your rule's guidance"
-expected:
-  outcomes:
-    - type: task_completed
+  # Project needed fields.
+  - name: query-use-projections
+    tags: { category: query, rule: query-use-projections }
+    prompt: |
+      A Cosmos DB list page needs only id and name but SELECT * returns large
+      attachments too. Show the better query.
+    rubric:
+      - Select c.id and c.name only, reducing payload/client work without returning unused attachments.
+    graders: *rule-graders
 ```
+
+Keep the comment to a few words (at most six) and new prompts short (at most 65
+words). Use specific rubric criteria that distinguish correct guidance from the
+anti-pattern. Test the rule's current body, not just its filename or index
+summary. Do not supply the expected answer in the prompt.
+
+The 13 original Vally scenarios are migrated into these category specs with
+their original prompts (apart from whitespace wrapping). Their `tags.legacy`
+values preserve the old task IDs; stimulus names match the corresponding rules.
+The original vector-index decision matrix is the one longer prompt retained to
+preserve its small-dataset fallback and recall-tuning coverage (up to 180 words).
+The obsolete task files and mock configuration are removed, not the scenarios.
+
+All four checks must pass: execution completed, correct skill activation,
+nonempty output, and the LLM judge's binary correctness verdict. The overall
+threshold is 1, so activation alone cannot compensate for incorrect advice.
+Offline tests verify exact rule coverage and exercise both passing and failing
+grader outcomes with a fake judge; they do not establish live response quality.
+They also require every rule to be linked from the skill's quick reference.
+Ask explicitly for any scenario-specific caveats the rubric requires; a request
+for a brief recommendation should not secretly require an exhaustive checklist.
+Check SDK documentation/source before treating a version number or exact wording
+as the only correct answer.
 
 ### Running tests locally
 
+Use Node.js 22.22.2 or newer supported by the pinned dependencies.
+
 ```bash
-# Install Vally by following the instructions at https://github.com/microsoft/vally
+npm ci
+npm run build
+npm run eval:lint
+npm run eval:test
 
-# Run all eval tasks (mock executor — no API key needed)
-vally run evals/cosmosdb-best-practices/eval.yaml -v
+# Live evaluations require Copilot model access.
+npm run eval
 
-# Run a single task by name
-vally run evals/cosmosdb-best-practices/eval.yaml --task "Your Task Name"
+# Limit live execution to one rule or category.
+npm run eval -- --tag rule=query-point-reads
+npm run eval -- --tag category=query
 
-# Check skill readiness
-vally check skills/cosmosdb-best-practices
+# Run a migrated scenario by its original task ID.
+npm run eval -- --tag legacy=indexing-composite-005
+
+# Check non-activation.
+npm run eval -- --tag category=activation
 ```
+
+For live runs, authenticate the Copilot CLI or set `COPILOT_GITHUB_TOKEN` and
+`GITHUB_TOKEN` to a Copilot-enabled token in your shell. Never commit tokens.
+The pinned defaults use `gpt-5.6-luna` for execution and `gpt-5.6-terra` for
+judging; override them with `--model` and `--judge-model` if needed.
+Runs use five workers, one trial per stimulus, no executor retries, and a
+three-minute per-trial timeout. LLM grading adds time and model usage.
+Reports and trajectories are written under the ignored `results/` directory.
+
+### CI behavior
+
+The [Vally workflow](.github/workflows/evals.yml) runs on manual dispatch,
+relevant main-branch pushes, and every pull request. Unrelated PRs receive a
+successful skip check. Relevant PRs run build, spec lint, and offline grader
+tests; fork PRs never receive organization-billed model access.
+
+Same-repository PRs, main-branch pushes, and manual runs also execute live tests
+using `github.token` with `contents: read` and `copilot-requests: write`. This
+requires organization/repository Copilot access to the configured models.
+The live runner has no PR-comment write permission.
+
+Markdown reports appear in the Actions summary, and reports/trajectories are
+uploaded as artifacts for 14 days, including after failures. The aggregate
+`Vally evaluation gate` fails on offline errors or failed live evaluations;
+whether it blocks merging depends on branch protection settings. No PR comment
+is posted.
 
 ## Rule File Format
 
@@ -169,7 +237,7 @@ Show code or configuration examples when applicable.
 3. **Do not commit `AGENTS.md`** — it is generated on demand (release CI and benchmarking)
 4. **Write clear commit messages** describing the change
 5. **Link related issues** in the PR description
-6. **(Optional)** Add an eval task in `evals/` for your rule
+6. **Add or update the matching evaluation** in `evals/` for your rule
 
 ## PR Merge Requirements
 

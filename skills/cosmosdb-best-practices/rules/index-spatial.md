@@ -9,6 +9,10 @@ tags: index, spatial, geospatial, location
 
 Create spatial indexes for properties that store geographic data when you need to perform proximity or geometry queries.
 
+For a GeoJSON property named `location`, use a spatial path of `/location/*`,
+as in the documented geospatial indexing policy. Keep spatial paths distinct
+from scalar range-index paths such as `/price/?`.
+
 **Incorrect (geo queries without spatial index):**
 
 ```csharp
@@ -41,7 +45,7 @@ var indexingPolicy = new IndexingPolicy
     {
         new SpatialPath
         {
-            Path = "/location/?",
+            Path = "/location/*",
             SpatialTypes =
             {
                 SpatialType.Point
@@ -58,13 +62,13 @@ var indexingPolicyMulti = new IndexingPolicy
         // Store locations as points
         new SpatialPath
         {
-            Path = "/location/?",
+            Path = "/location/*",
             SpatialTypes = { SpatialType.Point }
         },
         // Delivery zones as polygons
         new SpatialPath
         {
-            Path = "/deliveryArea/?",
+            Path = "/deliveryArea/*",
             SpatialTypes = { SpatialType.Polygon }
         }
     }
@@ -77,11 +81,11 @@ var indexingPolicyMulti = new IndexingPolicy
     "indexingMode": "consistent",
     "spatialIndexes": [
         {
-            "path": "/location/?",
+            "path": "/location/*",
             "types": ["Point"]
         },
         {
-            "path": "/boundaries/?",
+            "path": "/boundaries/*",
             "types": ["Polygon"]
         }
     ]
@@ -129,3 +133,5 @@ Supported spatial functions:
 - `ST_ISVALIDDETAILED` - Validation with details
 
 Reference: [Geospatial queries](https://learn.microsoft.com/azure/cosmos-db/nosql/query/geospatial)
+
+Reference: [Create a geospatial indexing policy](https://learn.microsoft.com/azure/cosmos-db/how-to-geospatial-index-query#create-container-and-indexing-policy)

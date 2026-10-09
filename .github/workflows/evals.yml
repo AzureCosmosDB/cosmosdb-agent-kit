@@ -1,0 +1,164 @@
+name: Vally Evaluations
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'skills/**'
+      - 'evals/**'
+      - 'scripts/compile.js'
+      - 'scripts/eval.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/evals.yml'
+  # Always report the aggregate check; skip expensive work for unrelated PRs.
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vally-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect evaluation changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@v4
+        if: github.event_name == 'pull_request'
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Check evaluation inputs
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git diff --no-renames --name-only -z HEAD^1 HEAD -- > "$RUNNER_TEMP/vally-changed-files"
+          relevant=false
+          while IFS= read -r -d '' path; do
+            case "$path" in
+              skills/*|evals/*|scripts/compile.js|scripts/eval.mjs|package.json|package-lock.json|.github/workflows/evals.yml)
+                relevant=true
+                break
+                ;;
+            esac
+          done < "$RUNNER_TEMP/vally-changed-files"
+          echo "relevant=$relevant" >> "$GITHUB_OUTPUT"
+
+  validate:
+    name: Validate specs and graders offline
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.2'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run eval:lint
+      - run: npm run eval:test
+
+  eval:
+    name: Run live evaluations
+    needs: [changes, validate]
+    # Forks receive offline validation only, never organization-billed model access.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      copilot-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.2'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Run Vally
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: npm run eval
+      - name: Publish Markdown reports
+        if: always()
+        shell: bash
+        run: |
+          if [ -d results ]; then
+            while IFS= read -r -d '' report; do
+              cat "$report" >> "$GITHUB_STEP_SUMMARY"
+              printf '\n' >> "$GITHUB_STEP_SUMMARY"
+            done < <(find results -name eval-results.md -type f -print0)
+          fi
+      - name: Upload reports and trajectories
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vally-results-${{ github.run_attempt }}
+          path: results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  gate:
+    name: Vally evaluation gate
+    needs: [changes, validate, eval]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Report evaluation outcome
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          RELEVANT: ${{ needs.changes.outputs.relevant }}
+          VALIDATION_RESULT: ${{ needs.validate.result }}
+          EVAL_RESULT: ${{ needs.eval.result }}
+          IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+        shell: bash
+        run: |
+          fail() {
+            echo "::error::$1"
+            printf '%s\n' "$1" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
+          [ "$CHANGES_RESULT" = success ] || fail "Change detection failed ($CHANGES_RESULT)."
+          case "$RELEVANT" in
+            false)
+              echo "No evaluation inputs changed; offline and live evaluations skipped." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+              ;;
+            true) ;;
+            *) fail "Change detection returned an invalid decision." ;;
+          esac
+          [ "$VALIDATION_RESULT" = success ] || fail "Offline validation failed ($VALIDATION_RESULT)."
+          if [ "$IS_FORK" = true ]; then
+            [ "$EVAL_RESULT" = skipped ] || fail "Live evaluations must be skipped for forks."
+            echo "Offline checks passed; live evaluations skipped for a fork PR." >> "$GITHUB_STEP_SUMMARY"
+          else
+            [ "$EVAL_RESULT" = success ] || fail "Live evaluations did not succeed ($EVAL_RESULT). See reports and artifacts."
+            echo "Offline checks and live evaluations passed." >> "$GITHUB_STEP_SUMMARY"
+          fi

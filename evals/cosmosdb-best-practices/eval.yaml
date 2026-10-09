@@ -1,26 +1,40 @@
-name: cosmosdb-best-practices-eval
-description: |
-  Evaluation suite for the cosmosdb-best-practices skill.
-  Tests that the skill provides accurate, actionable Cosmos DB guidance
-  across data modeling, partitioning, queries, SDK usage, and throughput.
-skill: cosmosdb-best-practices
-version: "1.0"
-config:
-  trials_per_task: 1
-  timeout_seconds: 300
-  parallel: false
-  executor: mock
-  model: claude-sonnet-4.6
-metrics:
-  - name: task_completion
-    weight: 1.0
-    threshold: 0.0
-    description: Did the skill complete the assigned task without errors?
-graders:
-  - type: behavior
-    name: response_constraints
-    config:
-      max_tool_calls: 10
-      max_duration_ms: 60000
-tasks:
-  - "tasks/*.yaml"
+name: cosmosdb-best-practices-activation
+description: Reject activation for unrelated databases.
+type: capability
+
+agent_environment:
+  skills:
+    - ../../skills/cosmosdb-best-practices
+
+defaults:
+  executor: copilot-sdk
+  model: gpt-5.6-luna
+  judge_model: gpt-5.6-terra
+  runs: 1
+  timeout: 3m
+
+scoring:
+  threshold: 1
+
+stimuli:
+  # Ignore unrelated databases.
+  - name: should-not-trigger
+    tags: { category: activation, legacy: should-not-trigger-001 }
+    prompt: How do I create an index in PostgreSQL for a users table?
+    rubric:
+      - Give valid PostgreSQL CREATE INDEX guidance without substituting Cosmos DB indexing policies.
+    graders:
+      -
+        type: completed
+      - type: skill-invocation
+        config:
+          disallowed: [cosmosdb-best-practices]
+      -
+        type: prompt
+        config:
+          scoring: binary
+          threshold: 1
+          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+      -
+        type: output-matches
+        config: { pattern: '\S' }

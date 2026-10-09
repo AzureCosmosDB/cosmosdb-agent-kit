@@ -1,0 +1,155 @@
+name: cosmosdb-best-practices-query
+description: One focused guidance test per query rule.
+type: capability
+
+agent_environment:
+  skills:
+    - ../../../skills/cosmosdb-best-practices
+
+defaults:
+  executor: copilot-sdk
+  model: gpt-5.6-luna
+  judge_model: gpt-5.6-terra
+  runs: 1
+  timeout: 3m
+
+scoring:
+  threshold: 1
+
+stimuli:
+  # Aggregate one dataset.
+  - name: query-aggregate-single-pass
+    tags: { category: query, rule: query-aggregate-single-pass }
+    prompt: |
+      Write one Cosmos DB query for min, max, and average temperature for device d1
+      between @start and @end. The partition key is /deviceId.
+    rubric:
+      - Compute MIN, MAX, and AVG together from the same deviceId-filtered and time-bounded dataset, not from separate queries or the first result page.
+    graders: &rule-graders
+      -
+        type: completed
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      -
+        type: prompt
+        config:
+          scoring: binary
+          threshold: 1
+          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+      -
+        type: output-matches
+        config: { pattern: '\S' }
+
+  # Scope tenant queries.
+  - name: query-avoid-cross-partition
+    tags: { category: query, rule: query-avoid-cross-partition, legacy: edge-case-001 }
+    prompt: |
+      Review this Cosmos DB query for performance:
+      SELECT * FROM c WHERE c.status = 'active' ORDER BY c.createdAt DESC.
+      The container is partitioned by /tenantId.
+    rubric:
+      - Explain cross-partition fan-out from the missing partition-key filter; recommend tenantId equality or partition-scoped options when semantics permit, without excluding required tenants.
+    graders: *rule-graders
+
+  # Avoid function scans.
+  - name: query-avoid-scans
+    tags: { category: query, rule: query-avoid-scans }
+    prompt: |
+      A frequent Cosmos DB lookup uses WHERE LOWER(c.email) = @email and is expensive.
+      Suggest an index-friendly design.
+    rubric:
+      - Persist and index a normalized email field and compare it directly to a normalized parameter rather than transforming every stored value at query time.
+    graders: *rule-graders
+
+  # Deduplicate in queries.
+  - name: query-distinct-keyword
+    tags: { category: query, rule: query-distinct-keyword }
+    prompt: |
+      We fetch all Cosmos DB product categories and deduplicate them in JavaScript.
+      Show a query that returns only unique category values.
+    rubric:
+      - Use SELECT DISTINCT VALUE c.category FROM c or an equivalent DISTINCT projection instead of client-side deduplication.
+    graders: *rule-graders
+
+  # Select latest explicitly.
+  - name: query-latest-by-timestamp
+    tags: { category: query, rule: query-latest-by-timestamp }
+    prompt: |
+      Write a Cosmos DB query for the latest reading of device d1 using recordedAt.
+      Do not rely on insertion order.
+    rubric:
+      - Filter deviceId and use TOP 1 with ORDER BY c.recordedAt DESC; explain or embody explicit timestamp ordering.
+    graders: *rule-graders
+
+  # Isolate analytical scans.
+  - name: query-olap-detection
+    tags: { category: query, rule: query-olap-detection }
+    prompt: |
+      Our dashboard repeatedly groups millions of Cosmos DB orders across every
+      partition, starving checkout of RUs. Suggest a brief architecture fix.
+    rubric:
+      - Move unbounded reporting to an analytical store or maintained reporting/materialized-view pipeline instead of repeatedly scanning the transactional container.
+    graders: *rule-graders
+
+  # Avoid predicate-order myths.
+  - name: query-order-filters
+    tags: { category: query, rule: query-order-filters }
+    prompt: |
+      Will swapping two indexed AND predicates in a Cosmos DB WHERE clause reliably
+      lower RU cost? Explain briefly.
+    rubric:
+      - Explain that the query engine chooses predicate evaluation order; tune indexing, selectivity, and partition scope using query metrics rather than textual order.
+    graders: *rule-graders
+
+  # Page with tokens.
+  - name: query-pagination
+    tags: { category: query, rule: query-pagination }
+    prompt: |
+      Cosmos DB feed pages use OFFSET 100000 LIMIT 20 and get slower as users scroll.
+      What pagination approach should replace this?
+    rubric:
+      - Use continuation tokens for sequential pages and explain that deep OFFSET repeatedly scans/discards skipped results.
+    graders: *rule-graders
+
+  # Bind query values.
+  - name: query-parameterize
+    tags: { category: query, rule: query-parameterize }
+    prompt: |
+      Show a safe .NET Cosmos DB query for an email supplied by the user.
+      The current code concatenates email into the SQL string.
+    rubric:
+      - Use QueryDefinition with an @email placeholder and WithParameter to bind the value, not string concatenation or manual escaping.
+    graders: *rule-graders
+
+  # Prefer exact point reads.
+  - name: query-point-reads
+    tags: { category: query, rule: query-point-reads, legacy: query-optimization-003 }
+    prompt: |
+      I'm using this query to fetch a single document:
+      SELECT * FROM c WHERE c.id = @id AND c.tenantId = @tenantId
+
+      The container is partitioned by /tenantId. Is there a better approach?
+    rubric:
+      - Recommend a point-read SDK API with both id and partition key to bypass query overhead, without claiming a fixed RU cost for every item size and consistency.
+    graders: *rule-graders
+
+  # Parameterize result limits.
+  - name: query-top-literal
+    tags: { category: query, rule: query-top-literal }
+    prompt: |
+      Is SELECT TOP @limit * FROM c valid Cosmos DB SQL?
+      Explain how to supply a user-selected limit safely.
+    rubric:
+      - Confirm parameterized TOP is supported, bind an integer value, and validate application bounds; do not claim TOP requires a literal.
+    graders: *rule-graders
+
+  # Project needed fields.
+  - name: query-use-projections
+    tags: { category: query, rule: query-use-projections }
+    prompt: |
+      A Cosmos DB list page needs only id and name but SELECT * returns large
+      attachments too. Show the better query.
+    rubric:
+      - Select c.id and c.name only, reducing payload/client work without returning unused attachments.
+    graders: *rule-graders

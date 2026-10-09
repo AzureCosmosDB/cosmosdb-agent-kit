@@ -1,0 +1,108 @@
+name: cosmosdb-best-practices-vector
+description: One focused guidance test per vector rule.
+type: capability
+
+agent_environment:
+  skills:
+    - ../../../skills/cosmosdb-best-practices
+
+defaults:
+  executor: copilot-sdk
+  model: gpt-5.6-luna
+  judge_model: gpt-5.6-terra
+  runs: 1
+  timeout: 3m
+
+scoring:
+  threshold: 1
+
+stimuli:
+  # Query nearest vectors.
+  - name: vector-distance-query
+    tags: { category: vector, rule: vector-distance-query }
+    prompt: |
+      Show a Cosmos DB query returning the five nearest items to @embedding using
+      c.embedding. The vector policy and index are already configured.
+    rubric:
+      - Use TOP 5 and ORDER BY VectorDistance(c.embedding, @embedding) in ascending distance order, not descending similarity assumptions.
+    graders: &rule-graders
+      -
+        type: completed
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      -
+        type: prompt
+        config:
+          scoring: binary
+          threshold: 1
+          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+      -
+        type: output-matches
+        config: { pattern: '\S' }
+
+  # Declare vector shape.
+  - name: vector-embedding-policy
+    tags: { category: vector, rule: vector-embedding-policy }
+    prompt: |
+      Show the Cosmos DB vectorEmbeddingPolicy for /embedding containing 1536
+      float32 values with cosine distance. When must it be configured?
+    rubric:
+      - Define vectorEmbeddings with path /embedding, dataType float32, dimensions 1536, and distanceFunction cosine at container creation.
+    graders: *rule-graders
+
+  # Enable account vectors.
+  - name: vector-enable-feature
+    tags: { category: vector, rule: vector-enable-feature }
+    prompt: |
+      Before creating our first vector-enabled Cosmos DB NoSQL container, what
+      account feature should we enable?
+    rubric:
+      - Enable Vector Search for NoSQL API / EnableNoSQLVectorSearch and wait for activation before creating the vector-configured container.
+    graders: *rule-graders
+
+  # Choose scoped vector indexes.
+  - name: vector-index-type
+    tags: { category: vector, rule: vector-index-type, legacy: vector-index-type-013 }
+    prompt: |
+      Choose an Azure Cosmos DB for NoSQL vector index for each workload and
+      explain the decision criteria:
+
+      1. A compliance search uses 384-dimensional embeddings, must return the
+         exact top results, and searches about 8,000 vectors after its tenant filter.
+      2. A product container holds 1.2 million 1,536-dimensional vectors, but its
+         partition key and category filter leave about 35,000 candidates per query.
+         A small loss from vector compression is acceptable.
+      3. A catalog search uses 1,536-dimensional vectors and important queries span
+         roughly 4 million candidates. Low latency and RU usage matter more than
+         exact, deterministic top-K results.
+
+      Development starts with only 600 indexed vectors before production ingestion.
+      Also explain how to configure the embedding path in the regular indexing
+      policy and how to improve recall for workload 3 if its first results are low.
+    rubric:
+      - Choose flat, quantizedFlat, and diskANN respectively based on recall, dimensions, and query-scoped candidates rather than only total container size.
+      - Explain the 1,000-vector indexing threshold for quantizedFlat/diskANN and full-scan fallback for the 600-vector development dataset, not a threshold for flat.
+      - Exclude the embedding array from regular indexing while retaining its vector policy/index; increase searchListSizeMultiplier to trade latency/RUs for diskANN recall.
+    graders: *rule-graders
+
+  # Normalize mock vectors.
+  - name: vector-normalize-embeddings
+    tags: { category: vector, rule: vector-normalize-embeddings }
+    prompt: |
+      For a deterministic Cosmos DB vector-search fixture, L2-normalize [3, 4].
+      How should a normalization helper handle [0, 0]?
+    rubric:
+      - Produce [0.6, 0.8] by dividing by the L2 norm, and explicitly reject or handle a zero vector without dividing by zero.
+    graders: *rule-graders
+
+  # Encapsulate vector access.
+  - name: vector-repository-pattern
+    tags: { category: vector, rule: vector-repository-pattern }
+    prompt: |
+      Our API controllers directly build Cosmos DB vector queries and writes.
+      Suggest a small repository interface for vector search and document
+      create/update, single-item retrieval, and deletion.
+    rubric:
+      - Encapsulate vector search, document insert/upsert, point get by id plus partition key, and delete in an injectable repository instead of duplicating SDK logic in controllers.
+    graders: *rule-graders

@@ -1,0 +1,52 @@
+name: cosmosdb-best-practices-tooling
+description: One focused guidance test per tooling rule.
+type: capability
+
+agent_environment:
+  skills:
+    - ../../../skills/cosmosdb-best-practices
+
+defaults:
+  executor: copilot-sdk
+  model: gpt-5.6-luna
+  judge_model: gpt-5.6-terra
+  runs: 1
+  timeout: 3m
+
+scoring:
+  threshold: 1
+
+stimuli:
+  # Develop against emulators.
+  - name: tooling-emulator-setup
+    tags: { category: tooling, rule: tooling-emulator-setup }
+    prompt: |
+      I want repeatable local Cosmos DB NoSQL development without touching cloud
+      data or paying for an account. What should I set up?
+    rubric:
+      - Recommend the Cosmos DB Emulator with local endpoint/configuration and appropriate platform support, noting that emulator coverage does not replace cloud validation.
+    graders: &rule-graders
+      -
+        type: completed
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      -
+        type: prompt
+        config:
+          scoring: binary
+          threshold: 1
+          prompt: Evaluate every rubric criterion against the answer. Mere keyword mentions do not satisfy a criterion.
+      -
+        type: output-matches
+        config: { pattern: '\S' }
+
+  # Inspect from VS Code.
+  - name: tooling-vscode-extension
+    tags: { category: tooling, rule: tooling-vscode-extension }
+    prompt: |
+      I only need to browse Cosmos DB containers and run a few inspection queries
+      from VS Code. Do I need a throwaway SDK script?
+    rubric:
+      - Recommend the Azure Cosmos DB VS Code extension for browsing/querying and verifying the selected local or cloud target instead of unnecessary disposable code.
+    graders: *rule-graders
