@@ -1,0 +1,25 @@
+id: sdk-throughput-create-api
+name: SDK Best Practice - .NET ThroughputProperties factory-method parameter names
+description: |
+  Test that the skill knows ThroughputProperties.CreateAutoscaleThroughput's
+  parameter is named autoscaleMaxThroughput, not maxThroughput, and that
+  CreateManualThroughput's parameter is named throughput. Using the wrong
+  named argument fails to compile with CS1739.
+tags:
+  - sdk
+  - dotnet
+  - throughput
+  - api-surface
+  - build-error
+inputs:
+  prompt: |
+    I'm creating a Cosmos DB database in .NET with autoscale throughput and my
+    code doesn't compile:
+
+    ThroughputProperties.CreateAutoscaleThroughput(maxThroughput: 10000)
+
+    The error is CS1739: The best overload for 'CreateAutoscaleThroughput' does
+    not have a parameter named 'maxThroughput'. What's the correct parameter name?
+expected:
+  outcomes:
+    - type: task_completed
