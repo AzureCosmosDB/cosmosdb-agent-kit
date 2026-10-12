@@ -25,7 +25,6 @@ const rules = (await readdir(new URL('../../skills/cosmosdb-best-practices/rules
 const stimuli = specs.flatMap(({ spec }) => spec.stimuli);
 // Reasons and CI evidence are documented in CONTRIBUTING.md's evaluation exclusions.
 const excludedRules = new Set([
-    'model-id-constraints',
     'model-relationship-references',
     'pattern-langgraph-multi-agent',
 ]);

@@ -62,6 +62,17 @@ stimuli:
       - Recommend embedding the bounded, co-read comments while noting item size and future growth limits.
     graders: *rule-graders
 
+  # Use safe IDs.
+  - name: model-id-constraints
+    tags: { category: model, rule: model-id-constraints }
+    prompt: |
+      I plan to use "tenant/order#42" as a Cosmos DB item ID across SDKs.
+      Explain any character restrictions and the maximum ID length, including
+      its unit, then suggest a safe alternative. Answer briefly.
+    rubric:
+      - Avoid slash and hash characters; propose a safe string id such as tenant_order_42 and respect the 1,023-byte length limit.
+    graders: *rule-graders
+
   # Persist required fields.
   - name: model-json-serialization
     tags: { category: model, rule: model-json-serialization }

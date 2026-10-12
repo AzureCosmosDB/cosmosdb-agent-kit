@@ -120,11 +120,7 @@ and its rerun:
 - `pattern-langgraph-multi-agent`: the generated graph had broken routing state and missing handoffs.
 
 Those two cases had correctness failures in generated answers, not confirmed false
-positives from the judge. A third case, `model-id-constraints`, was removed after
-[CI run 38223348711](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/actions/runs/38223348711):
-the judge accepted the character-safety advice and safe alternative but rejected
-the omission of the 1,023-byte limit. The rubric required that limit, while the
-brief prompt did not explicitly request length guidance.
+positives from the judge.
 
 The underlying skill rules remain available, but no live evaluation
 covers them. The explicit `excludedRules` set in
@@ -132,6 +128,12 @@ covers them. The explicit `excludedRules` set in
 coverage gaps; all other rules still require exactly one evaluation. Remove an
 exclusion when restoring its case. Remaining cases retain strict grading and may
 still fail because live model output is nondeterministic.
+
+The `model-id-constraints` case was restored after
+[CI run 38223348711](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/actions/runs/38223348711)
+exposed a prompt/rubric mismatch. Its prompt now explicitly requests character
+restrictions and maximum ID length with its unit, without supplying the expected
+limit. Its rubric and correctness threshold are unchanged.
 
 ### Adding a test for a rule
 

@@ -9,11 +9,11 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
-## 2026-10-12 - Remove three live evaluation cases
+## 2026-10-12 - Refine live evaluation coverage
 
 - Remove `model-relationship-references` and `pattern-langgraph-multi-agent` evaluations after generated-code failures across CI reruns, preserving the underlying skill rules.
-- Remove `model-id-constraints` after a subsequent run rejected otherwise correct character-safety advice for omitting a length limit not explicitly requested by the prompt.
-- Document the three coverage exclusions and enforce exact coverage for all remaining rules without relaxing correctness grading.
+- Restore `model-id-constraints` with a prompt explicitly requesting character restrictions and maximum ID length with its unit, addressing the prompt/rubric mismatch without revealing the expected limit or changing grading.
+- Document the two remaining coverage exclusions and enforce exact coverage for all other rules without relaxing correctness grading.
 
 ## 2026-10-09 — Fix Vally evaluation failures ([#277](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/277))
 
