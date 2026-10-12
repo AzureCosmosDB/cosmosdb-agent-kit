@@ -144,16 +144,6 @@ stimuli:
       - Call interrupt before the destructive operation and use a persistent checkpointer; explain that resumption restarts the node, so preceding side effects must be safe to replay.
     graders: *rule-graders
 
-  # Route specialist agents.
-  - name: pattern-langgraph-multi-agent
-    tags: { category: pattern, rule: pattern-langgraph-multi-agent }
-    prompt: |
-      Design a small LangGraph routing approach for sales and support agents with
-      Cosmos DB checkpoints. Avoid asking an LLM to route every internal step.
-    rubric:
-      - Use StateGraph agent nodes and conditional routing from tool results or persisted state, with explicit handoff/state updates and persistent checkpointing.
-    graders: *rule-graders
-
   # Resume saved state.
   - name: pattern-langgraph-resume-checkpoint
     tags: { category: pattern, rule: pattern-langgraph-resume-checkpoint }

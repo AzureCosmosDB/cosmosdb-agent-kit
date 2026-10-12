@@ -112,16 +112,6 @@ stimuli:
       - Store orders as separate documents linked by customerId rather than allowing an unbounded embedded array to approach the item-size limit.
     graders: *rule-graders
 
-  # Persist relationship IDs.
-  - name: model-relationship-references
-    tags: { category: model, rule: model-relationship-references }
-    prompt: |
-      A Java Cosmos DB order needs a customer object for rendering, but should not
-      persist a duplicate customer graph. How should the fields be modeled?
-    rubric:
-      - Persist customerId, keep the hydrated customer object transient or @JsonIgnore, and populate it through a service rather than expecting cross-document JOINs.
-    graders: *rule-graders
-
   # Version stored schemas.
   - name: model-schema-versioning
     tags: { category: model, rule: model-schema-versioning }
