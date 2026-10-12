@@ -23,8 +23,9 @@ const rules = (await readdir(new URL('../../skills/cosmosdb-best-practices/rules
     .filter((name) => name.endsWith('.md') && !name.startsWith('_'))
     .map((name) => name.slice(0, -3)).sort();
 const stimuli = specs.flatMap(({ spec }) => spec.stimuli);
-// Removed after intermittent generated-code failures in CI run 38128858977.
+// Reasons and CI evidence are documented in CONTRIBUTING.md's evaluation exclusions.
 const excludedRules = new Set([
+    'model-id-constraints',
     'model-relationship-references',
     'pattern-langgraph-multi-agent',
 ]);

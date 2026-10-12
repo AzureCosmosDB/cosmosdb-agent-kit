@@ -119,8 +119,14 @@ and its rerun:
 - `model-relationship-references`: the generated Java model declared `customerId` twice.
 - `pattern-langgraph-multi-agent`: the generated graph had broken routing state and missing handoffs.
 
-These were correctness failures in generated answers, not confirmed false positives
-from the judge. The underlying skill rules remain available, but no live evaluation
+Those two cases had correctness failures in generated answers, not confirmed false
+positives from the judge. A third case, `model-id-constraints`, was removed after
+[CI run 38223348711](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/actions/runs/38223348711):
+the judge accepted the character-safety advice and safe alternative but rejected
+the omission of the 1,023-byte limit. The rubric required that limit, while the
+brief prompt did not explicitly request length guidance.
+
+The underlying skill rules remain available, but no live evaluation
 covers them. The explicit `excludedRules` set in
 [`graders.test.mjs`](evals/cosmosdb-best-practices/graders.test.mjs) permits only these
 coverage gaps; all other rules still require exactly one evaluation. Remove an
