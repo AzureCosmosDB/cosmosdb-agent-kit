@@ -13,7 +13,10 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 - Remove `model-relationship-references` and `pattern-langgraph-multi-agent` evaluations after generated-code failures across CI reruns, preserving the underlying skill rules.
 - Restore `model-id-constraints` with a prompt explicitly requesting character restrictions and maximum ID length with its unit, addressing the prompt/rubric mismatch without revealing the expected limit or changing grading.
-- Document the two remaining coverage exclusions and enforce exact coverage for all other rules without relaxing correctness grading.
+- Correct the LangChain.js managed-identity example to use `credentials` (plural) and ground its rubric in the published API, which accepts top-level `endpoint` and `credentials`.
+- Explicitly request platform support and deployment limitations in the emulator setup prompt.
+- Replace the generic MCP content-parsing live activation case with deterministic Python tests of the rule's example, run in offline CI.
+- Document the three live coverage exclusions (including MCP's deterministic replacement) and enforce exact coverage for all other rules without relaxing correctness grading.
 
 ## 2026-10-09 — Fix Vally evaluation failures ([#277](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/277))
 

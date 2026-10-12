@@ -76,6 +76,10 @@ jobs:
       - run: npm run build
       - run: npm run eval:lint
       - run: npm run eval:test
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -B -m unittest discover -s evals/cosmosdb-best-practices -p "test_*.py" -v
 
   eval:
     name: Run live evaluations

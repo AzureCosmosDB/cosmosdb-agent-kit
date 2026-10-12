@@ -122,8 +122,19 @@ and its rerun:
 Those two cases had correctness failures in generated answers, not confirmed false
 positives from the judge.
 
-The underlying skill rules remain available, but no live evaluation
-covers them. The explicit `excludedRules` set in
+The `sdk-langchain-mcp-tool-content-format` case is also excluded from live
+evaluation. In [CI run 38231001186](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/actions/runs/38231001186),
+its answer was correct but did not activate the Cosmos DB skill. Generic MCP
+content parsing does not inherently require Cosmos DB guidance. Instead,
+[`test_mcp_tool_content_format.py`](evals/cosmosdb-best-practices/test_mcp_tool_content_format.py)
+executes the rule's documented Python parsing function against deterministic
+string/block inputs and malformed or unsupported content. It also reproduces the
+old example's failure on content blocks. These tests use only Python's standard
+library and a message-shaped stand-in; they do not test LangChain imports,
+adapter integration, skill activation, or live agent response quality.
+
+The underlying skill rules remain available, but no live evaluation covers these
+three rules. The explicit `excludedRules` set in
 [`graders.test.mjs`](evals/cosmosdb-best-practices/graders.test.mjs) permits only these
 coverage gaps; all other rules still require exactly one evaluation. Remove an
 exclusion when restoring its case. Remaining cases retain strict grading and may
@@ -181,13 +192,15 @@ missing requirements and technically incorrect advice still fail.
 
 ### Running tests locally
 
-Use Node.js 22.22.2 or newer supported by the pinned dependencies.
+Use Node.js 22.22.2 or newer supported by the pinned dependencies, plus Python
+3.11 or newer for the deterministic MCP example tests (no pip dependencies).
 
 ```bash
 npm ci
 npm run build
 npm run eval:lint
 npm run eval:test
+python -B -m unittest discover -s evals/cosmosdb-best-practices -p "test_*.py" -v
 
 # Live evaluations require Copilot model access.
 npm run eval
@@ -215,8 +228,9 @@ Reports and trajectories are written under the ignored `results/` directory.
 
 The [Vally workflow](.github/workflows/evals.yml) runs on manual dispatch,
 relevant main-branch pushes, and every pull request. Unrelated PRs receive a
-successful skip check. Relevant PRs run build, spec lint, and offline grader
-tests; fork PRs never receive organization-billed model access.
+successful skip check. Relevant PRs run build, spec lint, offline grader tests,
+and deterministic Python example tests; fork PRs never receive
+organization-billed model access.
 
 Same-repository PRs, main-branch pushes, and manual runs also execute live tests
 using `github.token` with `contents: read` and `copilot-requests: write`. This

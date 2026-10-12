@@ -253,16 +253,20 @@ Contributions of any kind welcome! See the [contributing guide](CONTRIBUTING.md)
 ## Evaluation with Vally
 
 This project uses [Vally](https://github.com/microsoft/vally) to test
-`cosmosdb-best-practices`: one short test per rule, except for the two
+`cosmosdb-best-practices`: one short test per rule, except for the three
 [documented exclusions](CONTRIBUTING.md#evaluation-exclusions), plus a non-activation test.
 Each test checks completion, skill activation, nonempty output, and answer
 correctness using an LLM judge.
+
+The excluded MCP content-parsing case is covered by deterministic Python example
+tests instead. Running those tests requires Python 3.11 or newer.
 
 ```bash
 npm ci
 npm run build
 npm run eval:lint
 npm run eval:test
+python -B -m unittest discover -s evals/cosmosdb-best-practices -p "test_*.py" -v
 
 # Live evaluations (requires Copilot authentication and model access)
 npm run eval

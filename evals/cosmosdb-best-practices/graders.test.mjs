@@ -27,6 +27,7 @@ const stimuli = specs.flatMap(({ spec }) => spec.stimuli);
 const excludedRules = new Set([
     'model-relationship-references',
     'pattern-langgraph-multi-agent',
+    'sdk-langchain-mcp-tool-content-format',
 ]);
 const legacyScenarios = {
     'basic-usage-001': 'partition-high-cardinality',

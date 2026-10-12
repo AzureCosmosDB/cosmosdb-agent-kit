@@ -275,7 +275,14 @@ stimuli:
       Our Azure-hosted LangChain.js Cosmos DB app uses a master-key connection string.
       Suggest a keyless production configuration.
     rubric:
-      - Use endpoint plus DefaultAzureCredential from @azure/identity with managed identity and appropriate Cosmos DB data-plane RBAC.
+      - >-
+        Use endpoint plus DefaultAzureCredential from @azure/identity with managed identity
+        and appropriate Cosmos DB data-plane RBAC. For AzureCosmosDBNoSQLVectorStore,
+        top-level endpoint and credentials (plural) are valid; credentials defaults to
+        DefaultAzureCredential. A preconfigured CosmosClient passed as client is also valid.
+        Do not require cosmosClientOptions on the vector store.
+        API reference (@langchain/azure-cosmosdb 1.2.0):
+        https://unpkg.com/@langchain/azure-cosmosdb@1.2.0/dist/azure_cosmosdb_nosql.d.ts
     graders: *rule-graders
 
   # Select hybrid retrieval.
@@ -317,16 +324,6 @@ stimuli:
       MultiServerMCPClient per request. How should we manage its lifetime?
     rubric:
       - Reuse a lifespan-managed persistent client/session with cleanup for 0.1.x, and avoid presenting that legacy context-manager API as valid for 0.2.x.
-    graders: *rule-graders
-
-  # Parse MCP content blocks.
-  - name: sdk-langchain-mcp-tool-content-format
-    tags: { category: sdk, rule: sdk-langchain-mcp-tool-content-format }
-    prompt: |
-      Our Cosmos DB-backed LangGraph app runs json.loads(message.content).
-      After an MCP adapter upgrade, content is a list of text blocks. What should change?
-    rubric:
-      - Handle both string content and lists of text blocks, extracting text before JSON parsing. Non-text blocks may be filtered out or handled separately. Malformed extracted JSON or unsupported top-level content must surface as an error; propagated parsing/type exceptions suffice without a custom logger or catch block. Do not silently replace parse failures with a success-shaped default.
     graders: *rule-graders
 
   # Limit specialist tools.

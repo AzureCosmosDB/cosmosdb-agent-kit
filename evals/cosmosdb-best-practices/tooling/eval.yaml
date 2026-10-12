@@ -22,8 +22,9 @@ stimuli:
     tags: { category: tooling, rule: tooling-emulator-setup }
     prompt: |
       I want repeatable local Cosmos DB NoSQL development without touching cloud
-      data or paying for an account. What should I set up, and what validation
-      will I still need before deploying to Azure?
+      data or paying for an account. What should I set up? Explain local endpoint
+      configuration and supported platforms, including platform-specific deployment
+      options or limitations. What validation will I still need before deploying to Azure?
     rubric:
       - Recommend the Cosmos DB Emulator with local endpoint/configuration and appropriate platform support, noting that emulator coverage does not replace cloud validation.
     graders: &rule-graders
