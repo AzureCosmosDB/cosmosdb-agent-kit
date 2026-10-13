@@ -117,8 +117,10 @@ stimuli:
   - name: model-schema-versioning
     tags: { category: model, rule: model-schema-versioning }
     prompt: |
-      Our Cosmos DB app will read old and new event formats during a rollout.
-      What small field and reader strategy should we add?
+      Our Cosmos DB app persists events, metadata, and read-model documents whose
+      formats evolve during rollouts. What small field and reader strategy should
+      we add to handle old and new formats? Explain how consistently to apply
+      that field across all persisted document types. Answer briefly.
     rubric:
       - Write a consistent schemaVersion field on every persisted document type and use it for backward-compatible reads or explicit migrations.
     graders: *rule-graders

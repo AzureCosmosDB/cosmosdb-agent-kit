@@ -88,7 +88,9 @@ stimuli:
     tags: { category: partition, rule: partition-key-length }
     prompt: |
       Can a 3,000-byte UTF-8 string be a Cosmos DB partition-key value?
-      Give the current and legacy key-size limits and a brief alternative.
+      Give the current and legacy key-size limits and suggest an alternative.
+      Explain how writes and subsequent reads would use the alternative key,
+      including how to retain or verify the original value if needed. Answer briefly.
     rubric:
       - Reject the value against the 2,048-byte large-key limit (101 bytes for legacy keys), and suggest a bounded identifier or hash with appropriate lookup handling.
     graders: *rule-graders

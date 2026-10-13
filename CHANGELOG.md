@@ -9,6 +9,12 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## 2026-10-13 - Align evaluation prompts with rubric scope
+
+- Explicitly ask the schema-versioning case about consistent version fields across all persisted document types, not only events.
+- Ask the partition-key-length case how writes and reads use the alternative key, including original-value handling where needed.
+- Retain both cases without changing their rubrics or pass thresholds.
+
 ## 2026-10-12 - Refine live evaluation coverage
 
 - Remove `model-relationship-references` and `pattern-langgraph-multi-agent` evaluations after generated-code failures across CI reruns, preserving the underlying skill rules.
