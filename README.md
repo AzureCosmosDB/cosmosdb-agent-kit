@@ -278,8 +278,8 @@ npm run eval -- --tag rule=query-point-reads
 
 The [Vally workflow](.github/workflows/evals.yml) validates relevant changes
 offline, runs live evaluations only for trusted same-repository events, and
-publishes Actions summaries and result artifacts. Fork PRs run offline checks
-only. The aggregate check reports failures; branch protection determines merge
+publishes Actions summaries and result artifacts. Fork and Dependabot PRs run
+offline checks only. The aggregate check reports failures; branch protection determines merge
 enforcement. See [Writing Tests](CONTRIBUTING.md#writing-tests) for authentication,
 grading, cost controls, and adding a rule test.
 

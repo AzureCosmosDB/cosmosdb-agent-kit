@@ -248,10 +248,11 @@ Reports and trajectories are written under the ignored `results/` directory, in
 The [Vally workflow](.github/workflows/evals.yml) runs on manual dispatch,
 relevant main-branch pushes, and every pull request. Unrelated PRs receive a
 successful skip check. Relevant PRs run build, spec lint, offline grader tests,
-and deterministic Python example tests; fork PRs never receive
+and deterministic Python example tests; fork and Dependabot PRs never receive
 organization-billed model access.
 
-Same-repository PRs, main-branch pushes, and manual runs also execute live tests
+Same-repository PRs (except those authored or triggered by Dependabot),
+main-branch pushes, and manual runs also execute live tests
 using `github.token` with `contents: read` and `copilot-requests: write`. This
 requires organization/repository Copilot access to the configured models.
 The live runner has no PR-comment write permission.

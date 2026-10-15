@@ -84,10 +84,12 @@ jobs:
   eval:
     name: Run live evaluations
     needs: [changes, validate]
-    # Forks receive offline validation only, never organization-billed model access.
+    # Fork and Dependabot PRs receive offline validation only.
     if: >-
       github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       github.actor != 'dependabot[bot]' &&
+       github.event.pull_request.user.login != 'dependabot[bot]')
     runs-on: ubuntu-latest
     timeout-minutes: 180
     permissions:
@@ -141,7 +143,11 @@ jobs:
           RELEVANT: ${{ needs.changes.outputs.relevant }}
           VALIDATION_RESULT: ${{ needs.validate.result }}
           EVAL_RESULT: ${{ needs.eval.result }}
-          IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          OFFLINE_ONLY: >-
+            ${{ github.event_name == 'pull_request' &&
+                (github.event.pull_request.head.repo.full_name != github.repository ||
+                 github.actor == 'dependabot[bot]' ||
+                 github.event.pull_request.user.login == 'dependabot[bot]') }}
         shell: bash
         run: |
           fail() {
@@ -159,9 +165,9 @@ jobs:
             *) fail "Change detection returned an invalid decision." ;;
           esac
           [ "$VALIDATION_RESULT" = success ] || fail "Offline validation failed ($VALIDATION_RESULT)."
-          if [ "$IS_FORK" = true ]; then
-            [ "$EVAL_RESULT" = skipped ] || fail "Live evaluations must be skipped for forks."
-            echo "Offline checks passed; live evaluations skipped for a fork PR." >> "$GITHUB_STEP_SUMMARY"
+          if [ "$OFFLINE_ONLY" = true ]; then
+            [ "$EVAL_RESULT" = skipped ] || fail "Live evaluations must be skipped for fork or Dependabot PRs."
+            echo "Offline checks passed; live evaluations skipped for a fork or Dependabot PR." >> "$GITHUB_STEP_SUMMARY"
           else
             [ "$EVAL_RESULT" = success ] || fail "Live evaluations did not succeed ($EVAL_RESULT). See reports and artifacts."
             echo "Offline checks and live evaluations passed." >> "$GITHUB_STEP_SUMMARY"
