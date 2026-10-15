@@ -9,6 +9,12 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## 2026-10-15 - Focus live evaluations on rule recommendations
+
+- Scope the spatial-index case to index category and geometry type, and the LangChain.js managed-identity case to keyless authentication and data-plane RBAC.
+- Request concise prose instead of API snippets; retain skill-activation checks and strict correctness grading without modifying rule files.
+- Add offline checks that preserve these cases' intended scope.
+
 ## 2026-10-15 - Keep Vally evaluation changes separate from rule corrections
 
 - Restore the eight rule files changed in #277 to their base versions and remove the associated release-version bump.

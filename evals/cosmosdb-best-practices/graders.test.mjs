@@ -92,6 +92,22 @@ test('Java create-only evaluation relies on createItem, not If-None-Match', () =
 
 });
 
+test('spatial and managed-identity cases test recommendations without API snippets', () => {
+    const spatial = stimuli.find((entry) => entry.name === 'index-spatial');
+    assert.match(spatial.prompt, /without policy JSON or path syntax/);
+    assert.match(spatial.rubric.join('\n'), /spatial index/);
+    assert.match(spatial.rubric.join('\n'), /Point/);
+    assert.doesNotMatch(spatial.rubric.join('\n'), /\/location\/[?*]/);
+
+    const identity = stimuli.find((entry) => entry.name === 'sdk-langchain-js-managed-identity');
+    assert.match(identity.prompt, /no code or constructor options/);
+    const rubric = identity.rubric.join('\n');
+    assert.match(rubric, /DefaultAzureCredential/);
+    assert.match(rubric, /managed identity/);
+    assert.match(rubric, /data-plane RBAC/);
+    assert.doesNotMatch(rubric, /Use endpoint plus|cosmosClientOptions|AzureCosmosDBNoSQLVectorStore|credentials \(plural\)/);
+});
+
 test('cases stay short, commented, and meaningfully graded', () => {
     for (const { spec, source } of specs) {
         assert.equal(spec.scoring.threshold, 1);

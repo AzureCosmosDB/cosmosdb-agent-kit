@@ -273,16 +273,15 @@ stimuli:
     tags: { category: sdk, rule: sdk-langchain-js-managed-identity }
     prompt: |
       Our Azure-hosted LangChain.js Cosmos DB app uses a master-key connection string.
-      Suggest a keyless production configuration.
+      Which authentication approach should replace it, and what Cosmos DB permissions
+      should the app identity receive? Answer briefly in prose; no code or constructor options.
     rubric:
       - >-
-        Use endpoint plus DefaultAzureCredential from @azure/identity with managed identity
-        and appropriate Cosmos DB data-plane RBAC. For AzureCosmosDBNoSQLVectorStore,
-        top-level endpoint and credentials (plural) are valid; credentials defaults to
-        DefaultAzureCredential. A preconfigured CosmosClient passed as client is also valid.
-        Do not require cosmosClientOptions on the vector store.
-        API reference (@langchain/azure-cosmosdb 1.2.0):
-        https://unpkg.com/@langchain/azure-cosmosdb@1.2.0/dist/azure_cosmosdb_nosql.d.ts
+        Recommend Microsoft Entra ID authentication using the app's managed identity
+        through DefaultAzureCredential (the Azure Identity default credential chain),
+        with appropriate scoped Cosmos DB data-plane RBAC, such as Built-in Data Contributor
+        for read/write access. Replace the master-key connection string rather than merely
+        moving it into a secret store. No constructor options or code are required.
     graders: *rule-graders
 
   # Select hybrid retrieval.

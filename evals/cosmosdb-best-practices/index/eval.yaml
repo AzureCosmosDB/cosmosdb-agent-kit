@@ -99,7 +99,8 @@ stimuli:
     tags: { category: index, rule: index-spatial }
     prompt: |
       Our Cosmos DB stores GeoJSON points at /location and queries ST_DISTANCE.
-      What index should we add? Show the minimal policy fragment.
+      Is the default range index sufficient? Explain which index category and
+      geometry type we need. Answer briefly in prose, without policy JSON or path syntax.
     rubric:
-      - Add a spatialIndexes entry with path /location/* and type Point, rather than relying only on range indexes.
+      - Recommend a spatial index for the location property's Point geometry to support efficient ST_DISTANCE queries; a range index alone is not sufficient. No policy fragment or exact path syntax is required.
     graders: *rule-graders
