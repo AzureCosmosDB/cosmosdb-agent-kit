@@ -256,7 +256,8 @@ This project uses [Vally](https://github.com/microsoft/vally) to test
 `cosmosdb-best-practices`: one short test per rule, except for the three
 [documented exclusions](CONTRIBUTING.md#evaluation-exclusions), plus a non-activation test.
 Each test checks completion, skill activation, nonempty output, and answer
-correctness using an LLM judge.
+correctness using an LLM judge. A failed test is retried once with unchanged
+grading and reported as flaky if the retry passes.
 
 The excluded MCP content-parsing case is covered by deterministic Python example
 tests instead. Running those tests requires Python 3.11 or newer.

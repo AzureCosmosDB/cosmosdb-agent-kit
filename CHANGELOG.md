@@ -9,6 +9,12 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## 2026-10-15 - Retry flaky live evaluations once
+
+- Retry each failed live evaluation stimulus once with unchanged grading (threshold 1); a stimulus must pass its retry, and recovered cases are reported as flaky in the console and Actions summary.
+- Restore Vally's executor retries (two) for timeouts and rate limits.
+- Generalize the `partition-high-cardinality` guidance: validate per-key storage and peak traffic for any candidate key instead of a `customerId`-specific instruction.
+
 ## 2026-10-13 - Align evaluation prompts with rubric scope
 
 - Explicitly ask the schema-versioning case about consistent version fields across all persisted document types, not only events.

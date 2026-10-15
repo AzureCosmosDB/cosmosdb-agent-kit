@@ -8,7 +8,7 @@ on:
       - 'skills/**'
       - 'evals/**'
       - 'scripts/compile.js'
-      - 'scripts/eval.mjs'
+      - 'scripts/eval*.mjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/evals.yml'
@@ -50,7 +50,7 @@ jobs:
           relevant=false
           while IFS= read -r -d '' path; do
             case "$path" in
-              skills/*|evals/*|scripts/compile.js|scripts/eval.mjs|package.json|package-lock.json|.github/workflows/evals.yml)
+              skills/*|evals/*|scripts/compile.js|scripts/eval*.mjs|package.json|package-lock.json|.github/workflows/evals.yml)
                 relevant=true
                 break
                 ;;

@@ -8,16 +8,15 @@ tags: partition, cardinality, scalability, design
 ## Choose High-Cardinality Partition Keys
 
 Select partition keys with many unique values to enable distribution, but do not
-assume that high cardinality guarantees balanced storage or traffic. Evaluate
-both data growth and request volume per key against the application's access
-patterns. A customer-based key can fit order-history queries while still creating
-a hot partition for one unusually busy customer or an oversized partition for
-one customer's accumulated history.
+assume that high cardinality guarantees balanced storage or traffic. A key that
+matches the dominant access pattern can still concentrate load when a few values
+are far larger or busier than the rest (for example, one very active customer,
+tenant, or device).
 
-When recommending `customerId`, qualify it with both checks: per-customer stored
-size and per-customer read/write traffic. Consider a suitable hierarchical or
-bucketed key when either is concentrated, accounting for the effect on query
-routing. See [avoiding hot partitions](partition-avoid-hotspots.md) and
+Whatever key you recommend, validate it with two checks: projected stored size
+per key value and peak read/write rate per key value. If either is concentrated,
+consider a hierarchical or synthetic (bucketed) key, accounting for how it changes
+query routing. See [avoiding hot partitions](partition-avoid-hotspots.md) and
 [logical-partition storage limits](partition-20gb-limit.md).
 
 **Incorrect (low cardinality creates hotspots):**

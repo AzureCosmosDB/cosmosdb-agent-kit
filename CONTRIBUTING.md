@@ -220,9 +220,21 @@ For live runs, authenticate the Copilot CLI or set `COPILOT_GITHUB_TOKEN` and
 `GITHUB_TOKEN` to a Copilot-enabled token in your shell. Never commit tokens.
 The pinned defaults use `gpt-5.6-luna` for execution and `gpt-5.6-terra` for
 judging; override them with `--model` and `--judge-model` if needed.
-Runs use five workers, one trial per stimulus, no executor retries, and a
-three-minute per-trial timeout. LLM grading adds time and model usage.
-Reports and trajectories are written under the ignored `results/` directory.
+Runs use five workers, one trial per stimulus, up to two executor retries for
+timeouts and rate limits, and a three-minute per-trial timeout. LLM grading adds
+time and model usage.
+
+Live model output is nondeterministic, so [`scripts/eval.mjs`](scripts/eval.mjs)
+retries each failed stimulus once (only the failed ones, selected by their
+`rule` tag; untagged cases rerun their spec). Grading is unchanged: the retry
+must pass on its own with the same threshold of 1, and a stimulus that fails
+twice fails the run. Retried stimuli are listed in a retry summary (console and
+Actions summary) as flaky; investigate repeat offenders rather than relying on
+the retry. Raising `runs` does not reduce flakiness here: Vally averages trial
+scores, so with a threshold of 1 every trial must pass.
+
+Reports and trajectories are written under the ignored `results/` directory, in
+`results/attempt-1/` and, when needed, `results/retry/`.
 
 ### CI behavior
 
