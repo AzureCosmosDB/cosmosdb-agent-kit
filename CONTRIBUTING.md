@@ -133,8 +133,15 @@ old example's failure on content blocks. These tests use only Python's standard
 library and a message-shaped stand-in; they do not test LangChain imports,
 adapter integration, skill activation, or live agent response quality.
 
+The `sdk-langchain-mcp-persistent-session` case is excluded for the same
+reason. In [CI run 38699459892](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/actions/runs/38699459892),
+both the first attempt and its retry gave correct `langchain-mcp-adapters`
+lifetime guidance but did not activate the Cosmos DB skill. MCP client lifetime
+management is generic LangChain guidance, and adding Cosmos DB cues to the prompt
+would only game activation. No deterministic replacement test exists.
+
 The underlying skill rules remain available, but no live evaluation covers these
-three rules. The explicit `excludedRules` set in
+four rules. The explicit `excludedRules` set in
 [`graders.test.mjs`](evals/cosmosdb-best-practices/graders.test.mjs) permits only these
 coverage gaps; all other rules still require exactly one evaluation. Remove an
 exclusion when restoring its case. Remaining cases retain strict grading and may

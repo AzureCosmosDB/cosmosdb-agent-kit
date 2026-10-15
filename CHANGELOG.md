@@ -14,6 +14,7 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 - Retry each failed live evaluation stimulus once with unchanged grading (threshold 1); a stimulus must pass its retry, and recovered cases are reported as flaky in the console and Actions summary.
 - Restore Vally's executor retries (two) for timeouts and rate limits.
 - Generalize the `partition-high-cardinality` guidance: validate per-key storage and peak traffic for any candidate key instead of a `customerId`-specific instruction.
+- Exclude the `sdk-langchain-mcp-persistent-session` live case after its first attempt and retry both gave correct answers without activating the skill (CI run 38699459892); the rule is unchanged.
 
 ## 2026-10-13 - Align evaluation prompts with rubric scope
 

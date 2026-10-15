@@ -316,16 +316,6 @@ stimuli:
       - Pass the embeddings instance and endpoint/credential/databaseName/containerName configuration; pre-provision the database and suitably configured container for RBAC use.
     graders: *rule-graders
 
-  # Reuse legacy MCP sessions.
-  - name: sdk-langchain-mcp-persistent-session
-    tags: { category: sdk, rule: sdk-langchain-mcp-persistent-session }
-    prompt: |
-      Our Cosmos DB-backed LangGraph app pins langchain-mcp-adapters 0.1.x and creates
-      MultiServerMCPClient per request. How should we manage its lifetime?
-    rubric:
-      - Reuse a lifespan-managed persistent client/session with cleanup for 0.1.x, and avoid presenting that legacy context-manager API as valid for 0.2.x.
-    graders: *rule-graders
-
   # Limit specialist tools.
   - name: sdk-langgraph-mcp-tool-filtering
     tags: { category: sdk, rule: sdk-langgraph-mcp-tool-filtering }

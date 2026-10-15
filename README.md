@@ -253,7 +253,7 @@ Contributions of any kind welcome! See the [contributing guide](CONTRIBUTING.md)
 ## Evaluation with Vally
 
 This project uses [Vally](https://github.com/microsoft/vally) to test
-`cosmosdb-best-practices`: one short test per rule, except for the three
+`cosmosdb-best-practices`: one short test per rule, except for the four
 [documented exclusions](CONTRIBUTING.md#evaluation-exclusions), plus a non-activation test.
 Each test checks completion, skill activation, nonempty output, and answer
 correctness using an LLM judge. A failed test is retried once with unchanged

@@ -23,12 +23,13 @@ Each improvement entry should include:
 - **Scenario**: Review of the Vally test suite, not a testing-v2 application iteration.
 - **Issue**: The live gate ran each stimulus once with no retries and required every case to pass, so one nondeterministic model answer among ~135 could block a merge. Separately, `partition-high-cardinality.md` contained a `customerId`-specific instruction that mirrored its evaluation rubric rather than generic guidance.
 - **Improvement**: `scripts/eval.mjs` now retries each failed stimulus once (rule-tagged cases by `--tag rule=...`, untagged cases by spec). The threshold of 1 and the judge are unchanged; a stimulus passes only if its retry passes, and recovered cases are reported as flaky. Executor retries for timeouts/rate limits are restored to two. Raising `runs` was rejected because Vally averages trial scores, so with a threshold of 1 more runs make the gate stricter. The partition rule now states the per-key size and traffic checks for any candidate key.
-- **Files Modified**: `scripts/eval.mjs`, `scripts/eval-retry.mjs`, `scripts/eval-retry.test.mjs`, `package.json`, `.github/workflows/evals.yml`, `skills/cosmosdb-best-practices/rules/partition-high-cardinality.md`, `CONTRIBUTING.md`, `README.md`.
+- **Files Modified**: `scripts/eval.mjs`, `scripts/eval-retry.mjs`, `scripts/eval-retry.test.mjs`, `package.json`, `.github/workflows/evals.yml`, `skills/cosmosdb-best-practices/rules/partition-high-cardinality.md`, `evals/cosmosdb-best-practices/sdk/eval.yaml`, `evals/cosmosdb-best-practices/graders.test.mjs`, `CONTRIBUTING.md`, `README.md`.
 
 **Validation**:
 - `npm run eval:test`: grader checks plus five retry-helper unit tests passed.
 - Replayed a recorded run containing one failed trial (`sdk-go-partition-key-metadata`, score 0.75): the helper selected only that stimulus for retry.
 - End-to-end with the `mock` executor and live judge on two rules: both failed, were retried once with only those rules, failed again, and the runner exited 1 with the retry summary.
+- First CI run with the retry ([38699459892](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/actions/runs/38699459892)): 134/135 passed; `sdk-langchain-mcp-persistent-session` failed the first attempt and its retry with correct answers but no skill activation. Following the MCP content-format precedent, it is now a documented live-evaluation exclusion.
 
 #### 2026-10-09: Vally follow-up - PR 277
 
