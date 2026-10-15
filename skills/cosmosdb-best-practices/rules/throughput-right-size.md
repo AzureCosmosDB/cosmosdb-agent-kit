@@ -9,17 +9,6 @@ tags: throughput, provisioning, capacity-planning, cost
 
 Provision throughput based on actual workload needs. Over-provisioning wastes money; under-provisioning causes throttling.
 
-Before reducing RU/s, inspect peak normalized RU consumption **split by physical
-partition key range**, together with 429 rates and application tail latency.
-Container-wide averages can hide skew: one range can be saturated while others
-are idle. Investigate hot logical keys before treating the issue as a uniform
-capacity shortage, and retain headroom for representative peak demand.
-
-The overall normalized RU metric is the maximum utilization across partition
-key ranges, not an average. Splitting it by range distinguishes a hot partition
-from balanced pressure across the container.
-See [monitoring normalized RU consumption](https://learn.microsoft.com/azure/cosmos-db/monitor-normalized-request-units).
-
 **Incorrect (arbitrary throughput):**
 
 ```csharp

@@ -24,7 +24,8 @@ Fully awaited sequential `createItem(...).block()` calls do not exhibit this ret
 import reactor.core.publisher.Mono;
 
 // ❌ Anti-pattern: both deferred requests capture the same mutable options
-CosmosItemRequestOptions options = new CosmosItemRequestOptions();
+CosmosItemRequestOptions options = new CosmosItemRequestOptions()
+    .setIfNoneMatchETag("*");
 
 // The first invocation sets the key to email but does not subscribe yet
 Mono<?> credentialsRequest =
@@ -45,8 +46,10 @@ userRequest.block();
 import reactor.core.publisher.Mono;
 
 // ✅ Each createItem gets its own fresh options instance
-CosmosItemRequestOptions credsOptions = new CosmosItemRequestOptions();
-CosmosItemRequestOptions userOptions = new CosmosItemRequestOptions();
+CosmosItemRequestOptions credsOptions = new CosmosItemRequestOptions()
+    .setIfNoneMatchETag("*");
+CosmosItemRequestOptions userOptions = new CosmosItemRequestOptions()
+    .setIfNoneMatchETag("*");
 
 Mono<?> credentialsRequest =
     credentialsContainer.createItem(credentials, new PartitionKey(email), credsOptions);
@@ -61,11 +64,11 @@ userRequest.block();
 // ✅ Or construct inline to make sharing structurally impossible
 credentialsContainer.createItem(
     credentials, new PartitionKey(email),
-    new CosmosItemRequestOptions()).block();
+    new CosmosItemRequestOptions().setIfNoneMatchETag("*")).block();
 
 usersContainer.createItem(
     userProfile, new PartitionKey(userId),
-    new CosmosItemRequestOptions()).block();
+    new CosmosItemRequestOptions().setIfNoneMatchETag("*")).block();
 ```
 
 **Key Points:**

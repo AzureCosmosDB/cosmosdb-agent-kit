@@ -44,17 +44,11 @@ const embeddings = new AzureOpenAIEmbeddings({
 const credential = new DefaultAzureCredential();
 const store = new AzureCosmosDBNoSQLVectorStore(embeddings, {
   endpoint: process.env.COSMOS_ENDPOINT, // e.g., "https://myaccount.documents.azure.com:443/"
-  credentials: credential,
+  credential,
   databaseName: "mydb",
   containerName: "vectors",
 });
 ```
-
-The vector store accepts top-level `endpoint` and `credentials` (plural). Do not
-use `credential` or `cosmosClientOptions` as vector-store options. Alternatively,
-pass a preconfigured Cosmos SDK client through `client`; that client's
-`CosmosClientOptions` uses `aadCredentials`. If `credentials` is omitted, the
-vector store defaults to `DefaultAzureCredential`.
 
 **Required RBAC setup:** Assign the `Cosmos DB Built-in Data Contributor` role to your app's managed identity:
 
@@ -70,5 +64,3 @@ az cosmosdb sql role assignment create \
 **Note:** When using RBAC, the database and container must be pre-created (via Bicep, Terraform, or CLI) — the SDK cannot create resources with data-plane-only permissions.
 
 Reference: [Azure Cosmos DB RBAC with Azure Identity](https://learn.microsoft.com/azure/cosmos-db/nosql/security/how-to-grant-data-plane-role-based-access)
-
-API reference: [LangChain AzureCosmosDBNoSQLConfig types (1.2.0)](https://unpkg.com/@langchain/azure-cosmosdb@1.2.0/dist/azure_cosmosdb_nosql.d.ts)

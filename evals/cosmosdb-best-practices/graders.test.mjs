@@ -83,28 +83,13 @@ test('all judges accept equivalent explanations without excusing incorrect advic
     assert.match(prompt, /Reject substantive omissions, contradictions, and incorrect advice/);
 });
 
-test('Java create-only guidance relies on createItem, not If-None-Match', async () => {
+test('Java create-only evaluation relies on createItem, not If-None-Match', () => {
     const stimulus = stimuli.find((entry) => entry.name === 'sdk-conditional-create-etag');
     const rubric = stimulus.rubric.join('\n');
     assert.match(rubric, /createItem/);
     assert.match(rubric, /409/);
     assert.doesNotMatch(rubric, /IfNoneMatch|If-None-Match/i);
 
-    for (const rule of ['sdk-conditional-create-etag', 'sdk-request-options-per-call']) {
-        const source = await readFile(
-            new URL(`../../skills/cosmosdb-best-practices/rules/${rule}.md`, root), 'utf8');
-        const examples = [...source.matchAll(/```java\r?\n([\s\S]*?)```/g)];
-        assert.ok(examples.length > 0, rule);
-        for (const [, example] of examples) {
-            assert.doesNotMatch(example, /\.setIfNoneMatchETag\s*\(/, rule);
-        }
-    }
-
-    const index = await readFile(new URL('../../skills/cosmosdb-best-practices/SKILL.md', root), 'utf8');
-    const entry = index.split(/\r?\n/).find((line) => line.includes('(rules/sdk-conditional-create-etag.md)'));
-    assert.match(entry, /createItem/);
-    assert.match(entry, /409/);
-    assert.doesNotMatch(entry, /IfNoneMatch|If-None-Match/i);
 });
 
 test('cases stay short, commented, and meaningfully graded', () => {

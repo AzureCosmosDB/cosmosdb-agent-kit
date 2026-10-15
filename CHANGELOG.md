@@ -9,17 +9,15 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
-## v1.3.1 - 2026-10-15 - Correct Java create-only guidance
+## 2026-10-15 - Keep Vally evaluation changes separate from rule corrections
 
-- Correct the Java create-only rule, skill index, request-options examples, and evaluation rubric: `createItem` itself atomically rejects an existing `(partitionKey, id)` with 409; `setIfNoneMatchETag("*")` is ignored for writes.
-- Add an offline regression check against reintroducing the ineffective option in the rubric, index, or Java create examples.
-- Bump package and skill manifests together to version the published guidance corrections in #277.
+- Restore the eight rule files changed in #277 to their base versions and remove the associated release-version bump.
+- Retain technically correct evaluation rubrics; scope the Java create-only regression check to the evaluation rather than requiring changes to the published rules.
 
 ## 2026-10-15 - Retry flaky live evaluations once
 
 - Retry each failed live evaluation stimulus once with unchanged grading (threshold 1); a stimulus must pass its retry, and recovered cases are reported as flaky in the console and Actions summary.
 - Restore Vally's executor retries (two) for timeouts and rate limits.
-- Generalize the `partition-high-cardinality` guidance: validate per-key storage and peak traffic for any candidate key instead of a `customerId`-specific instruction.
 - Exclude the `sdk-langchain-mcp-persistent-session` live case after its first attempt and retry both gave correct answers without activating the skill (CI run 38699459892); the rule is unchanged.
 
 ## 2026-10-13 - Align evaluation prompts with rubric scope
@@ -32,7 +30,7 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 - Remove `model-relationship-references` and `pattern-langgraph-multi-agent` evaluations after generated-code failures across CI reruns, preserving the underlying skill rules.
 - Restore `model-id-constraints` with a prompt explicitly requesting character restrictions and maximum ID length with its unit, addressing the prompt/rubric mismatch without revealing the expected limit or changing grading.
-- Correct the LangChain.js managed-identity example to use `credentials` (plural) and ground its rubric in the published API, which accepts top-level `endpoint` and `credentials`.
+- Ground the LangChain.js managed-identity rubric in the published API, which accepts top-level `endpoint` and `credentials`.
 - Explicitly request platform support and deployment limitations in the emulator setup prompt.
 - Replace the generic MCP content-parsing live activation case with deterministic Python tests of the rule's example, run in offline CI.
 - Document the three live coverage exclusions (including MCP's deterministic replacement) and enforce exact coverage for all other rules without relaxing correctness grading.
@@ -40,10 +38,9 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 ## 2026-10-09 — Fix Vally evaluation failures ([#277](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/277))
 
 - Restore all rule links in the skill index and require reading relevant rule bodies before answering.
-- Correct spatial-index paths, Go partition-key metadata version guidance, and Patch increment behavior using official documentation/source.
 - Align evaluation prompts with their required caveats and accept propagated parsing errors and supported Go SDK versions without lowering the pass threshold.
 - Follow-up CI fixes make index-path explanations explicit and accept equivalent partition-risk and background-error guidance; all judges retain strict correctness checks without requiring unrequested code or exact phrases.
-- Clarify that high-cardinality keys do not guarantee balanced traffic, require partition-level RU measurements before downsizing, and distinguish unsafe TLS advice from an omitted boilerplate warning.
+- Distinguish unsafe TLS advice from an omitted boilerplate warning in evaluation grading.
 
 ## 2026-07-21 — Add Codex repo marketplace catalog
 
