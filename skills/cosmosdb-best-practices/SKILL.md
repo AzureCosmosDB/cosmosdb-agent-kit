@@ -119,7 +119,7 @@ Reference these guidelines when:
 - [sdk-diagnostics](rules/sdk-diagnostics.md) - Log diagnostics for troubleshooting
 - [sdk-serialization-enums](rules/sdk-serialization-enums.md) - Serialize enums as strings not integers
 - [sdk-emulator-ssl](rules/sdk-emulator-ssl.md) - Configure SSL and connection mode for Cosmos DB Emulator
-- [sdk-ifnonematch-create](rules/sdk-conditional-create-etag.md) - Use `setIfNoneMatchETag("*")` on `createItem` to reject duplicates atomically (409 on conflict)
+- [sdk-conditional-create-etag](rules/sdk-conditional-create-etag.md) - Use `createItem`, not upsert, to reject existing items atomically (409 on conflict)
 - [sdk-no-shared-request-options](rules/sdk-request-options-per-call.md) - Use separate `CosmosItemRequestOptions` instances for deferred or concurrent `createItem` operations to avoid shared-state partition-key overrides
 - [sdk-patch-incr](rules/sdk-patch-counter-increment.md) - Use `CosmosPatchOperations.increment()` for atomic counter increments — no read RU, no ETag conflict cycle
 - [sdk-bypage-empty-token](rules/sdk-continuation-token-null-guard.md) - Guard against empty-string continuation tokens before calling `byPage()` — pass `null` for first page, never `""`

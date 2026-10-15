@@ -69,7 +69,7 @@ stimuli:
       In Java Cosmos DB, concurrent requests create the same id in the same partition.
       Show a create-only approach without a read-before-write race.
     rubric:
-      - Use createItem rather than upsert, with fresh options and setIfNoneMatchETag("*") as the rule's defensive pattern, handling 409 as an existing item rather than overwriting it.
+      - Use createItem rather than upsert for atomic create-only writes with the same id and partition key, without a preliminary read, handling 409 as an existing item rather than overwriting it.
     graders: *rule-graders
 
   # Choose connection mode.

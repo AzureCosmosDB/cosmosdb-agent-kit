@@ -9,6 +9,12 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## v1.3.1 - 2026-10-15 - Correct Java create-only guidance
+
+- Correct the Java create-only rule, skill index, request-options examples, and evaluation rubric: `createItem` itself atomically rejects an existing `(partitionKey, id)` with 409; `setIfNoneMatchETag("*")` is ignored for writes.
+- Add an offline regression check against reintroducing the ineffective option in the rubric, index, or Java create examples.
+- Bump package and skill manifests together to version the published guidance corrections in #277.
+
 ## 2026-10-15 - Retry flaky live evaluations once
 
 - Retry each failed live evaluation stimulus once with unchanged grading (threshold 1); a stimulus must pass its retry, and recovered cases are reported as flaky in the console and Actions summary.

@@ -1,21 +1,21 @@
 ---
-title: Use IfNoneMatchETag("*") for conditional creates to prevent duplicates
+title: Use createItem for atomic create-only writes
 impact: HIGH
 impactDescription: prevents duplicate documents on concurrent or retried creates without a prior read
 tags:
   - sdk
-  - etag
+  - create
   - concurrency
   - java
   - upsert
   - uniqueness
 ---
 
-## Use IfNoneMatchETag("*") for Conditional Creates to Prevent Duplicates
+## Use createItem for Atomic Create-Only Writes
 
 **Impact: HIGH (prevents duplicate documents on concurrent or retried creates without a prior read)**
 
-When creating a document that must be unique (e.g., user credentials keyed by email), pass `IfNoneMatchETag("*")` on the `createItem` options. Cosmos DB rejects the write with HTTP 409 Conflict if a document with the same `id` in the same partition already exists, making duplicate detection atomic and free of an extra read.
+When creating a document that must not overwrite an existing item, use `createItem`, not `upsertItem`. A normal create atomically fails with HTTP 409 Conflict if the same `id` already exists in the same logical partition; no prior read or ETag option is needed. Concurrent or retried requests must use the same deterministic `id` and partition key for the same logical item.
 
 **Incorrect (upsert silently overwrites existing records):**
 
@@ -25,12 +25,10 @@ When creating a document that must be unique (e.g., user credentials keyed by em
 container.upsertItem(credentialsDto, new PartitionKey(email), null).block();
 ```
 
-**Correct (conditional create — 409 on duplicate):**
+**Correct (create-only write — 409 on duplicate):**
 
 ```java
-// ✅ createItem with IfNoneMatchETag("*") rejects if the document already exists
-CosmosItemRequestOptions options = new CosmosItemRequestOptions()
-    .setIfNoneMatchETag("*");  // Reject if any document exists with this id+PK
+CosmosItemRequestOptions options = new CosmosItemRequestOptions();
 
 try {
     credentialsContainer
@@ -49,19 +47,19 @@ try {
 // ✅ Reactive chain
 credentialsContainer
     .createItem(credentialsDto, new PartitionKey(email),
-        new CosmosItemRequestOptions().setIfNoneMatchETag("*"))
+        new CosmosItemRequestOptions())
     .onErrorMap(CosmosException.class, ex ->
         ex.getStatusCode() == 409
             ? new AlreadyExistsException("Email already in use")
             : ex);
 ```
 
-**Why `"*"` (wildcard):** In HTTP `If-None-Match: *` semantics, `"*"` means "match any existing document". Combined with `createItem` (not `upsertItem`), the server rejects the write if _any_ document with the same `id` and partition key already exists — regardless of its ETag value.
+**No `If-None-Match` needed:** The Java SDK documents `setIfNoneMatchETag` for conditional reads and ignores it for write requests, including creates. It does not add create-only protection; that protection comes from `createItem` itself. For read-modify-write concurrency on existing items, use `If-Match` as described in [sdk-etag-concurrency](sdk-etag-concurrency.md).
 
 **Key Points:**
-- Use `createItem` + `setIfNoneMatchETag("*")`, never `upsertItem`, when uniqueness is a domain invariant
+- Use `createItem`, not `upsertItem`, when an existing item must not be overwritten
 - The 409 check is done atomically server-side — no extra read RU consumed
-- Gated on the document's `id` field + partition key (not arbitrary field values)
-- Particularly critical for email-keyed credential stores and idempotent API endpoints
+- Uniqueness is scoped to the document's `id` + partition key, not arbitrary field values; a new random `id` on every retry defeats this protection
+- Handle 409 as an existing item and propagate other failures; fresh request options keep deferred or concurrent calls independent
 
-Reference: [Optimistic concurrency in Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/nosql/database-transactions-optimistic-concurrency)
+References: [Create a Document (409 Conflict)](https://learn.microsoft.com/rest/api/cosmos-db/create-a-document#status-codes), [CosmosItemRequestOptions.setIfNoneMatchETag](https://learn.microsoft.com/java/api/com.azure.cosmos.models.cosmositemrequestoptions?view=azure-java-stable#com-azure-cosmos-models-cosmositemrequestoptions-setifnonematchetag(java-lang-string))
