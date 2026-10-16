@@ -62,8 +62,11 @@ export function planRetry(failures) {
     return invocations;
 }
 
-/** A failed stimulus is recovered only if the retry ran it and every retry trial passed. */
-export function verifyRetry(failures, retryRecords) {
+/** Recovery requires a successful, completed retry in which every trial of the stimulus passed. */
+export function verifyRetry(failures, retryRuns) {
+    const retryRecords = retryRuns
+        .filter(({ status, records }) => status === 0 && records.at(-1)?.type === 'run-summary')
+        .flatMap(({ records }) => records);
     const retried = new Map(summarizeStimuli(retryRecords).map((entry) => [entry.key, entry]));
     const recovered = [];
     const stillFailing = [];

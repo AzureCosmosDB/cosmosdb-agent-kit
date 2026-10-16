@@ -235,7 +235,9 @@ Live model output is nondeterministic, so [`scripts/eval.mjs`](scripts/eval.mjs)
 retries each failed stimulus once (only the failed ones, selected by their
 `rule` tag; untagged cases rerun their spec). Grading is unchanged: the retry
 must pass on its own with the same threshold of 1, and a stimulus that fails
-twice fails the run. Retried stimuli are listed in a retry summary (console and
+twice fails the run. Only retry invocations that exit successfully and write a
+final run summary can recover failures; passing records from failed or
+incomplete retries do not count. Retried stimuli are listed in a retry summary (console and
 Actions summary) as flaky; investigate repeat offenders rather than relying on
 the retry. Raising `runs` does not reduce flakiness here: Vally averages trial
 scores, so with a threshold of 1 every trial must pass.

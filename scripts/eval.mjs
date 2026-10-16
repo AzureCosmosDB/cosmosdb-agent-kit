@@ -81,9 +81,9 @@ if (!hasSummary || failures.length === 0) {
 // Retry each failed stimulus once. Grading stays strict: a stimulus passes only
 // if its retry passes, so consistent failures still fail the run.
 console.log(`\nRetrying ${failures.length} failed stimulus/stimuli once: ${failures.map((f) => f.stimulus).join(', ')}\n`);
-const retryRecords = planRetry(failures)
-    .flatMap(({ specs, tags }) => runVally(specs, tags, resolve(outputDir, 'retry')).records);
-const { recovered, stillFailing } = verifyRetry(failures, retryRecords);
+const retryRuns = planRetry(failures)
+    .map(({ specs, tags }) => runVally(specs, tags, resolve(outputDir, 'retry')));
+const { recovered, stillFailing } = verifyRetry(failures, retryRuns);
 
 report([
     '## Vally retry summary',
