@@ -8,6 +8,10 @@ description: |
   disable and verified cleanup. Commands use only PerPartitionAutomaticFailover.
   Keep the user's SDK/workload unchanged and distinguish simulated approval
   from authorization to execute live operations in this offline exercise.
+  Include the RU/cost warning before baseline, honor approved budget and
+  measurement/stop thresholds without silently changing capacity, and keep
+  fault cleanup mandatory after workload budget exhaustion. Disclose possible
+  overshoot and separate workload cost from PPAF feature pricing.
 tags: [global, ppaf, sdk]
 inputs:
   prompt: |
@@ -18,6 +22,11 @@ inputs:
     a known inactive/no-pending baseline, working authoritative operation and
     fault observation, and an independent recovery operator. Production
     disruption and matching disable recovery are explicitly approved.
+    The customer has also acknowledged RU consumption, production contention,
+    possible autoscale charges, and monitoring overshoot, and approved a
+    measured RU budget, rate/duration limits, and a consumption observer with
+    stop thresholds for every workload phase. Include what happens if the
+    workload reaches its RU stop threshold while the service fault is active.
     Show the staged commands and checks, retaining symbolic plan values instead
     of inventing an account or workload. Do not execute or create a runner.
 expected:

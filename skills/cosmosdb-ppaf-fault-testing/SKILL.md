@@ -27,6 +27,24 @@ enable/observation/cleanup deadlines, success thresholds, abort criteria, and
 named recovery operator. Do not select resources, invent a workload, or treat
 this documentation request as authorization to execute.
 
+Include this customer-facing warning in every test plan **before the baseline
+workload stage**, even when cost approval is already recorded:
+
+> This test's reads, writes, queries, and approved data cleanup consume Cosmos DB
+> RUs, can compete with production traffic and cause throttling, and may increase
+> charges depending on your throughput configuration. We will enforce the
+> approved workload stop thresholds; monitoring delays and in-flight requests
+> can still cause overshoot, and fault cleanup remains mandatory.
+
+Explain that fixed provisioned capacity
+is not billed per request, but autoscale activity or separately approved
+capacity changes can raise charges; PPAF feature pricing is separate. Obtain
+approval for rate/duration limits, an RU budget, its measured observation source
+and stop threshold, and the cost/capacity impact. Use measured request charges
+for estimates, not a fixed RU-per-operation or retry assumption. Explain that
+monitoring delays and in-flight requests can overshoot the threshold; do not
+promise a hard spending cap or change throughput without separate approval.
+
 Verify account eligibility and PPAF enablement separately from fault injection.
 Direct the human to the portal **Settings > Features > Per-partition automatic
 failover** when eligible; do not automate the portal, provision resources, change
@@ -70,6 +88,9 @@ even if the command later throws or times out.
 Execute only the approved commands from the runbook. Keep control-state
 observation and workload evidence independent of the script's fixed sleeps.
 Do not let a blocking script prevent deadline or abort handling.
+Monitor workload RU consumption across baseline, fault, and recovery. Stop the
+workload at its approved budget or contention threshold, but still perform
+fault cleanup. Record consumption, observation gaps, and any budget overshoot.
 
 On success, error, cancellation, workload failure, or timeout, use the
 preapproved matching disable recovery and verify terminal completion plus the

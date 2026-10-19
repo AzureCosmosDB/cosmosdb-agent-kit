@@ -13,6 +13,7 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 - **New procedural skill:** `cosmosdb-ppaf-fault-testing` provides a canonical human runbook and agent workflow for scoped, approved cross-SDK service-fault tests using pinned upstream PowerShell commands, with account-level ownership, bounded recovery, and independent failover evidence.
 - **Discovery and evaluation:** Added root/site links, contributor guidance for procedural skills, and ten offline scenarios with manual behavioral rubrics. No runner, vendored script, or live Azure test is included.
+- **RU awareness:** Warn before baseline traffic that test operations consume RUs and can contend with production capacity or increase charges. Require an approved measured budget and stop thresholds without treating workload exhaustion as permission to skip fault cleanup.
 
 ## 2026-07-21 — Add Codex repo marketplace catalog
 

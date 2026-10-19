@@ -10,6 +10,19 @@ provisioning resources, or bundling the upstream script. The companion
 guide, enabling the account feature, or approving a workload does not authorize
 fault injection. Obtain explicit approval for the complete test and recovery.**
 
+> **RU and cost warning:** The test workload's reads, writes, queries, and any
+> approved data cleanup consume Azure Cosmos DB Request Units (RUs). They use
+> throughput that may also serve production traffic, so the drill can cause
+> contention or throttling (429s). Additional requests during retries can add
+> consumption; do not assume each retry has a fixed RU charge. With fixed
+> provisioned throughput, using existing capacity does not itself add a
+> per-request bill, but autoscale activity or separately approved capacity
+> increases can raise charges. PPAF feature pricing is separate. Approve a
+> workload rate, duration, RU budget, and cost acknowledgment before starting
+> **even the baseline workload**; monitor measured consumption and stop the
+> workload at its agreed limit while still completing fault cleanup.
+> See [Request Units and billing](https://learn.microsoft.com/azure/cosmos-db/request-units).
+
 ## Contents
 
 - [Mechanism and prerequisites](#mechanism-and-prerequisites)
@@ -75,6 +88,7 @@ location. Fill every field; no auto-selected defaults:
 | Target | Exact tenant ID, subscription ID, resource group, account, database, container, and target region as configured on the account |
 | Configuration | Account topology, consistency, feature eligibility/enabled state, SDK name/version or experimental commit |
 | Workload | User-approved existing command, host, duration, concurrency/rate, partition coverage, and diagnostic sources |
+| RU and cost budget | Approved workload RU budget and rate/duration limits, measured request-charge or service-metric source, monitoring interval and stop threshold, plus acknowledgment of production capacity contention and possible additional charges |
 | Mutations | Permitted reads/writes/deletes, deterministic test IDs or namespace, data ownership, and any separately approved data cleanup |
 | Timing | UTC start/end, enable deadline, active observation deadline, cleanup deadline, polling interval, and bounded retry budget |
 | Criteria | Numerical availability/error, retry and latency thresholds; required regional-write/failover evidence; explicit abort conditions |
@@ -86,6 +100,13 @@ An example request is: "Prepare a PPAF test plan for my existing account and
 workload; do not execute yet." That authorizes planning only. Changed targets,
 workload mutations, deadlines, or broader recovery actions require renewed
 approval. Test data deletion is not implicitly authorized by fault cleanup.
+Estimate consumption from representative measured request charges and the
+approved operation mix, rate, and duration, including baseline, fault, recovery,
+and any approved data cleanup. Do not invent a universal RU cost or promise an
+exact monetary estimate without the account's throughput/pricing configuration.
+Treat a monitored budget as a stop threshold, not a guaranteed hard billing cap:
+in-flight requests and metric delays can cause overshoot. Do not increase
+throughput or autoscale limits without separate approval.
 
 ## Pinned script and CLI context
 
@@ -218,6 +239,11 @@ latency, errors/retries, and contacted regions. Verify that the workload targets
 the approved container and can demonstrate affected-partition coverage. Do not
 increase its load or mutate additional data to force an observable failure
 without renewed approval.
+The RU/cost warning and budget approval must precede this baseline. Confirm the
+approved consumption observer is working, track RU usage throughout all workload
+phases, and abort the workload at the agreed budget/rate/duration or contention
+threshold. Budget exhaustion does not cancel the obligation to disable and
+verify removal of an attempted service fault.
 
 ## Enable, observe, and disable
 
@@ -313,6 +339,7 @@ disable attempt, terminal operations, and confirmed inactive recovery. Correlate
 | Service fault/operation observations | Actual active/inactive state and completed transitions, independent of script exit |
 | Successful workload writes and failures | Availability under the approved rate, not just successful reads or retries |
 | SDK retries, status/substatus, request latency | Recovery behavior and cost to the caller; distinguish attempts from completed operations |
+| Measured request charges or service RU metrics | Workload consumption against the approved budget; disclose missing samples, attribution limits, and any overshoot rather than claiming an exact total |
 | Contacted regions plus service write metrics | Evidence of writes in a secondary region, not merely a configured preferred region |
 | Partition coverage and recovery samples | Workload exercised affected partitions and returned to the expected post-fault behavior |
 
