@@ -1,0 +1,19 @@
+id: partial-enable-cleanup
+name: Recover an attempted enable even when the script throws
+description: |
+  Review for treating the PUT as potentially applied despite a later exception,
+  using the recovery record saved before enable, and initiating preapproved
+  matching disable under bounded supervision. Resolve pending operation ordering
+  with the observer/operator; one inactive sample while enable is pending is
+  insufficient. Verify inactive baseline and terminal completion or escalate as
+  unresolved. Do not wait for a local enabled=true flag or broaden fault scope.
+tags: [global, ppaf, recovery]
+inputs:
+  prompt: |
+    Offline exercise: Enable sent its PUT and then threw while reading Location.
+    Our local enabled flag was never set. A status sample now looks inactive,
+    but the enable operation might still be pending. Should cleanup be skipped?
+    The approved recovery record and independent operator are available.
+expected:
+  outcomes:
+    - type: task_completed

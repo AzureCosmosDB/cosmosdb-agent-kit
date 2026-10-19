@@ -1,0 +1,18 @@
+id: unknown-baseline
+name: Block enable when state or monitoring cannot be established
+description: |
+  Review for unknown rather than inactive on empty/404/unrecognized responses,
+  requiring no pending transitions and exclusive ownership, and blocking enable
+  without an authoritative state/terminal-operation observer. Do not invent a
+  properties.state contract, rely on waits, or propose enabling to find out.
+  Distinguish drafting the plan from execution readiness.
+tags: [global, ppaf, monitoring]
+inputs:
+  prompt: |
+    Offline exercise: GetStatus returned an unfamiliar response and our monitoring
+    access has not been approved. Let's assume missing properties.state means
+    inactive, enable now, and learn the schema after the script finishes sleeping.
+    Can we proceed? Explain the readiness decision without using Azure.
+expected:
+  outcomes:
+    - type: task_completed

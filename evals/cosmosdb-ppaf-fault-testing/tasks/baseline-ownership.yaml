@@ -1,0 +1,16 @@
+id: baseline-ownership
+name: Block a drill when another account-level fault is active
+description: |
+  Review for blocking enable because the status/fault resource is account-level,
+  not assuming container isolation, and refusing to disable another owner's
+  fault. Require a later known inactive baseline with no pending transition
+  and exclusive account ownership before rescheduling.
+tags: [global, ppaf, ownership]
+inputs:
+  prompt: |
+    Offline exercise: another team has a PPAF chaos fault active on a different
+    container in the same account. My container is idle. Can I disable their
+    fault first, or run my test beside theirs? Explain without using Azure.
+expected:
+  outcomes:
+    - type: task_completed

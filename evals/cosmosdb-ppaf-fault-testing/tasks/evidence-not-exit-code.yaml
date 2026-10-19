@@ -1,0 +1,19 @@
+id: evidence-not-exit-code
+name: Require independent failover and cleanup evidence
+description: |
+  Review for rejecting process exit/HTTP OK and successful reads as proof.
+  Require real terminal operation and active/inactive state observations, not
+  fabricated JSON properties. Correlate successful writes, regions, affected
+  partition coverage, retries/errors and latency across baseline/fault/recovery.
+  Missing coverage or state is inconclusive; cleanup without inactive and
+  terminal evidence is unresolved, independently of workload success.
+tags: [global, ppaf, monitoring]
+inputs:
+  prompt: |
+    Offline exercise: Enable and Disable exited zero after printing OK. A read
+    succeeded, but we did not capture terminal operation bodies, fault state,
+    partition coverage, secondary-region writes, retries, or latency. Can I mark
+    the PPAF test passed and cleanup complete? Give the honest result.
+expected:
+  outcomes:
+    - type: task_completed

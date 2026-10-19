@@ -9,6 +9,11 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## 2026-10-19 — Add PPAF service-fault testing skill
+
+- **New procedural skill:** `cosmosdb-ppaf-fault-testing` provides a canonical human runbook and agent workflow for scoped, approved cross-SDK service-fault tests using pinned upstream PowerShell commands, with account-level ownership, bounded recovery, and independent failover evidence.
+- **Discovery and evaluation:** Added root/site links, contributor guidance for procedural skills, and ten offline scenarios with manual behavioral rubrics. No runner, vendored script, or live Azure test is included.
+
 ## 2026-07-21 — Add Codex repo marketplace catalog
 
 - **New catalog:** `.agents/plugins/marketplace.json` — Codex-native repo marketplace listing the `azure-cosmosdb` plugin (`source.path: "./"`, `category: "Databases"`), so users can add it with `codex plugin marketplace add AzureCosmosDB/cosmosdb-agent-kit`. Codex also reads the legacy `.claude-plugin/marketplace.json`. The catalog carries no package `version` (schema-only) and is intentionally excluded from `npm run version`.
