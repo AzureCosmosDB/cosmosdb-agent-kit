@@ -64,24 +64,43 @@ Download and inspect the exact pinned upstream source from the runbook; do not
 use `main`, bypass warnings, or silently substitute another revision. Isolate
 Azure CLI configuration and verify tenant/subscription identity. The script
 changes the active subscription even for status reads.
+Preserve the script's JSON field casing: outer `properties`, then `Action`,
+`Region`, `DatabaseName`, and `ContainerName`. Do not substitute lowercase
+generated-schema examples. A separately approved equivalent REST execution
+must capture operation headers and be reported as REST testing, not validation
+of the script end-to-end.
 
 Use account-level `-GetStatus` and authoritative service observations to establish
 a **known inactive baseline with no pending transition**. Obtain exclusive
 account-level fault ownership through cleanup. Active, unknown, inaccessible, or
-uninterpretable status blocks enable; never disable someone else's fault to
-manufacture a baseline.
+uninterpretable status blocks enable by default; never disable someone else's
+fault to manufacture a baseline. The README's dedicated-test-account first-use
+exception requires explicit qualified account-owner consent, scoped history
+with no prior attempt or known pending operation, and all observation/recovery
+gates. Record missing-resource uncertainty rather than calling a 404 inactive.
+Never extend that exception to production, generic errors, or ambiguous history.
 
 Validate the real response contract with the operator/service documentation.
 Require an available observer for terminal operation state and actual fault
 state, with bounded polling and an escalation path. HTTP success, process exit,
 elapsed waits, or a guessed response property is not proof. If the available
 tools cannot provide these observations, stop before enable.
+Read the README's observed-contract table: an operation-result `Location` GET
+returning HTTP 202 with `status: Dequeued` is pending, not grounds to abort solely
+for that label. Keep fault-resource `ProvisioningState` distinct from the
+management-operation `status`. Correlate actual response casing and numeric or
+string actions with the issued command; zero is not a missing action.
+Protect intact signed operation URLs only as transient recovery state; never
+print or publish their query parameters. Retain sanitized operation IDs.
 
 Start only the approved workload and capture its healthy baseline. Persist a
 secret-free recovery record, including the exact matching disable command,
 **before attempting enable**, and arrange independent supervision if the session
 or process dies. Mark the enable as potentially applied as soon as attempted,
 even if the command later throws or times out.
+Verify the actual workload host can reach both regional endpoints; do not assume
+an external IP-check service identifies Cosmos DB egress or broaden firewalls
+to work around changing addresses.
 
 ## 3. Supervise and recover
 
@@ -96,8 +115,14 @@ On success, error, cancellation, workload failure, or timeout, use the
 preapproved matching disable recovery and verify terminal completion plus the
 known inactive baseline. Handle an in-flight enable/disable race with the
 service operator; never infer cleanup from a single inactive sample while an
-enable is pending. Bound cleanup retries and escalate immediately when the
-cleanup deadline expires. Do not broaden scope or disable account PPAF.
+enable is pending. A Disable 404 while Enable is pending is not cleanup: retain
+the operation identity, resolve ordering, then retry only the matching cleanup
+within its budget. Do not re-enable or loop concurrent PUTs.
+Bound cleanup retries and escalate immediately when the cleanup deadline
+expires, including while awaiting user input. Reserve cleanup time after
+enable within the overall window; never reset deadlines silently. Reconfirm
+operator availability and approvals after a pause. Do not broaden scope or
+disable account PPAF.
 
 Restore the CLI context after cleanup or explicit recovery handoff. A `finally`
 block cannot guarantee cleanup after process death, host failure, or a lost
@@ -119,3 +144,8 @@ partition, region, or timing evidence **inconclusive**, not passed. Mark cleanup
 uncertainty **unresolved**, even if workload criteria passed. Include the pinned
 revision/hash, scope, approvals, UTC timeline, observer provenance, deviations,
 and escalation owner without credentials, raw payloads, or token-bearing logs.
+Discover service metric availability rather than assuming every metric exists.
+No workload during the active fault means application failover is inconclusive
+even when both management operations succeed. A later cleanup confirmation does
+not establish that the approved deadline was met. Distinguish REST checks,
+script execution, and each SDK actually exercised.

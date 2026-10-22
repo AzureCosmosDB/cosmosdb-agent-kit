@@ -9,6 +9,11 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## 2026-10-22 — Incorporate live PPAF control-plane observations
+
+- **Procedure:** Preserve upstream request casing; separate HTTP-202 operation polling from fault lifecycle state; handle a pending-enable/disable-404 race without claiming cleanup. Add a narrowly scoped, explicit first-use exception for dedicated test accounts without treating generic 404 responses as inactive.
+- **Evidence and safeguards:** Protect signed operation URLs, retain bounded cleanup and deadline reporting, and distinguish baseline traffic plus successful REST enable/disable from unverified application failover or script end-to-end execution. Extend offline regression scenarios for these cases.
+
 ## 2026-10-19 — Add PPAF service-fault testing skill
 
 - **New procedural skill:** `cosmosdb-ppaf-fault-testing` provides a canonical human runbook and agent workflow for scoped, approved cross-SDK service-fault tests using pinned upstream PowerShell commands, with account-level ownership, bounded recovery, and independent failover evidence.

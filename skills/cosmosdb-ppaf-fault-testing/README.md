@@ -29,6 +29,7 @@ fault injection. Obtain explicit approval for the complete test and recovery.**
 - [Approval record](#approval-record)
 - [Pinned script and CLI context](#pinned-script-and-cli-context)
 - [Baseline and observation gate](#baseline-and-observation-gate)
+- [Observed API contract and polling](#observed-api-contract-and-polling)
 - [Enable, observe, and disable](#enable-observe-and-disable)
 - [Recovery and context restoration](#recovery-and-context-restoration)
 - [Evidence and outcome](#evidence-and-outcome)
@@ -94,6 +95,7 @@ location. Fill every field; no auto-selected defaults:
 | Criteria | Numerical availability/error, retry and latency thresholds; required regional-write/failover evidence; explicit abort conditions |
 | Recovery | Exact matching disable command, independently reachable recovery operator, observation method, and escalation path |
 | Ownership | Exclusive ownership of the account-level chaos fault from inactive baseline through verified cleanup |
+| First-use exception | Normally none. For a dedicated test account only, record any separately authorized missing-resource exception, its evidence and uncertainty; see the baseline gate below |
 | Consent | Approval for fault enable, disable recovery on all exit paths, workload/mutations, window, and explicit production disruption acknowledgment when applicable |
 
 An example request is: "Prepare a PPAF test plan for my existing account and
@@ -144,6 +146,12 @@ Inspection of this revision establishes important limits:
 - Operation GETs print `StatusDescription`, not the full terminal operation
   body. `-GetStatus` prints the fault resource response content. Neither output
   has a documented state schema in the script.
+- Preserve its request field casing: lowercase outer `properties`, then
+  **`Action`, `Region`, `DatabaseName`, and `ContainerName`**. Do not replace these
+  with lowercase fields from a generated API example. In the live check below,
+  the lowercase request failed with `region is null or empty`; the pinned
+  script's PascalCase fields were accepted. The upstream request format did
+  not need fixing.
 - Database, container, and region values are inserted into JSON without
   escaping. Reject values containing double quotes, backslashes, or control
   characters; do not modify the script or risk malformed/widened payloads.
@@ -200,17 +208,32 @@ $faultScope = @{
 & $scriptPath @accountScope -GetStatus
 ```
 
-The status command is deliberately account-scoped. **Require an authoritative
-known inactive baseline with no pending enable/disable operation and exclusive
-account-level ownership.** An empty response, 404, permission error, unrecognized
-JSON, or missing field is *unknown*, not inactive. Active or unknown baseline
-blocks enable; do not disable pre-existing faults to make the test possible.
+The status command is deliberately account-scoped. **Normally require an
+authoritative known inactive baseline with no pending enable/disable operation
+and exclusive account-level ownership.** An empty response, 404, permission
+error, unrecognized JSON, or missing field is *unknown*, not inactive. Active or
+unknown baseline blocks enable by default; never disable pre-existing faults
+to manufacture a baseline.
+
+**First use is a separate, explicit exception, not a new meaning for 404.** A
+dedicated, non-production test account can return the resource-specific
+`PerPartitionAutomaticFailover Chaos Fault Not Found` before its first
+injection. A qualified account owner may explicitly authorize proceeding with
+that uncertainty only after verifying the exact account and feature enablement,
+exclusive fault ownership, creation/operation history with no prior fault
+attempt or known pending operation, and all monitoring/recovery prerequisites.
+Record that the baseline is **missing-resource / operator-authorized exception**,
+not verified inactive. Generic "run it" approval is insufficient. Do not apply
+this exception to production, permission failures, wrong targets, uninterpretable
+responses, or any ambiguous previous fault attempt. Do not initialize a fault
+with a blind Disable. An exception never waives the observer or cleanup gates.
 
 Before enable, identify and demonstrate a working, authorized observation path
 that can establish **terminal operation completion and actual fault state**.
 Have the service/account operator validate how the real API response or
 service-side observation maps to active/inactive and pending/terminal state.
-Do not invent `status`, `properties.state`, or other response paths. Preserve
+Use the actual contract described below; do not invent `properties.state` or
+assume one casing or enum representation across API versions. Preserve
 sanitized observations and their provenance/timestamps, not credentials.
 
 If a real operation URL is supplied by the service to an authorized observer,
@@ -226,9 +249,17 @@ if ($LASTEXITCODE -ne 0) { throw 'Operation observation failed; state is unknown
 Verify HTTPS, the approved public ARM host, and association with the approved
 operation/account before sending authenticated requests. The script does not
 reliably expose the operation URL; arrange another authorized service
-observation path if necessary. If only HTTP descriptions or process exit codes
-are available, **do not enable**. Neither a generic successful HTTP response nor
-completion of the sleeps proves that the fault is active or removed.
+observation path if necessary. The command above reads a body; it is not a
+complete observer unless the chosen tooling also exposes HTTP status and
+response headers. If only HTTP descriptions or process exit codes are available,
+**do not enable**. Neither a generic successful HTTP response nor completion of
+the sleeps proves that the fault is active or removed.
+
+If necessary, the operator can separately approve individual REST actions
+equivalent to the pinned script so that response headers are observable. Record
+that execution-method change; preserve the exact target, API version, request
+casing, and recovery body. This guide does not supply a replacement runner or
+claim that a REST exercise validates the script end-to-end.
 
 Agree on bounded polling using the verified observation contract, including
 maximum command durations, observation loss/timeout handling, and escalation.
@@ -239,11 +270,54 @@ latency, errors/retries, and contacted regions. Verify that the workload targets
 the approved container and can demonstrate affected-partition coverage. Do not
 increase its load or mutate additional data to force an observable failure
 without renewed approval.
+Verify connectivity to both regional endpoints from the actual workload host.
+An external IP-check service may not see the egress IP used for Cosmos DB;
+use the service's firewall diagnostics and a stable approved network path.
+Never chase changing addresses by opening access to all networks.
 The RU/cost warning and budget approval must precede this baseline. Confirm the
 approved consumption observer is working, track RU usage throughout all workload
 phases, and abort the workload at the agreed budget/rate/duration or contention
 threshold. Budget exhaustion does not cancel the obligation to disable and
 verify removal of an attempted service fault.
+
+## Observed API contract and polling
+
+The [published API schema][chaos-api] describes the management resource and
+long-running operation. A supervised REST check on **2026-10-22**, using
+`2024-09-01-preview`, observed the following response shapes. These are scoped
+observations, not a complete state enumeration or a guarantee for every
+deployment. Validate differences with the service operator rather than silently
+normalizing unknown values.
+
+| Surface | Observed response | Interpretation |
+|---------|-------------------|----------------|
+| Enable PUT | HTTP 201, `properties.ProvisioningState: "Creating"`, `Action: 0`, `Location` and `Azure-AsyncOperation` headers | Accepted, not completed |
+| Operation-result `Location` GET | HTTP 202 with `{"status":"Dequeued"}` | Pending; continue bounded polling, not an abort solely because `Dequeued` is unfamiliar |
+| Fault GET while enable is pending | `ProvisioningState: "Enabling"`, `Action: 0` | Enable is still transitioning; not cleanup evidence |
+| Enable result after the HTTP-202 phase | HTTP 200 with `ProvisioningState: "InProgress"`, `Action: 0` | Fault lifecycle state, not by itself a failed or pending management operation; correlate with the operation status and issued Enable |
+| `Azure-AsyncOperation` GET at completion | HTTP 200 with `{"status":"Succeeded"}` | Terminal management-operation success, not proof of application failover |
+| Disable result and subsequent fault GET | HTTP 200 with `ProvisioningState: "Succeeded"`, `Action: 1` | Correlated with terminal success of the issued Disable, supports verified cleanup |
+
+The observed `Action: 0` and `Action: 1` corresponded to the explicitly issued
+Enable and Disable respectively. Do not infer disabled state from
+`ProvisioningState: "Succeeded"` alone, or mistake numeric zero for a missing
+field. Published examples may instead show lowercase fields and string actions.
+The fault-resource state and the management-operation status are distinct.
+
+Capture both operation URLs when supplied and correlate their operation IDs
+with the accepted request. Poll the exact returned URLs, honoring `Retry-After`
+within approved bounds. HTTP 202 from the operation-result URL remains pending
+even when its body says `Dequeued`; successful HTTP transport from the separate
+status endpoint is not terminal success. Require the terminal operation result
+and matching fault state before declaring activation or cleanup. Explicit
+failure/cancellation, mismatched scope, lost observation, or timeout triggers
+the recovery plan. Unrecognized states outside a recognized pending contract
+require operator interpretation, not guessed success.
+
+Operation URLs may contain signed query parameters. Keep the intact URLs only
+in protected transient recovery state while needed, never in chat, PRs, ordinary
+logs, or source control. Persist sanitized paths/operation IDs as evidence and
+remove signed query material after recovery; do not strip it before polling.
 
 ## Enable, observe, and disable
 
@@ -303,6 +377,21 @@ deadline, mark cleanup **unresolved** and escalate with the exact recovery
 command, last known observations, target, and pending operation identifiers.
 Never broaden the target, disable account PPAF, or clean another owner's fault.
 
+In the live check, Disable returned `Chaos Fault Not Found` while the earlier
+Enable still returned HTTP 202 and fault GET reported `Enabling`. That 404 was
+**not cleanup**. The matching Disable was accepted after the enable operation
+settled. Stop the workload on abort, retain the pending operation identity,
+and coordinate settlement and bounded matching cleanup with the recovery
+operator. Do not issue repeated concurrent PUTs or re-enable to resolve a 404.
+
+Reserve a full cleanup allowance after the enable phase, inside the approved
+overall window. Do not reset deadlines on retries or assume an operator is
+still present after a long pause. If a deadline is reached while awaiting user
+input, report/escalate unresolved cleanup using the preapproved recovery path;
+do not wait silently for a reply. Extensions require explicit approval before
+they are relied on. A later successful read verifies state **at that time**,
+not completion within a missed or unobserved deadline.
+
 A `try/finally` can help with ordinary exceptions but cannot survive process
 death, host failure, or lost sessions. Have an independently reachable operator
 with the recovery record ready **before enable**, able to take over monitoring
@@ -349,6 +438,10 @@ write operations from reads; use SDK-specific diagnostics appropriate to the
 approved version rather than inventing uniform diagnostic fields. Do not claim
 data integrity from availability alone; perform only approved correctness
 checks. Do not promise a universal recovery-time threshold or immediate failback.
+Discover metric availability before the drill. If a metric is unavailable,
+record the gap and agree on alternate evidence or report the relevant result
+as inconclusive; do not fabricate samples. Regional metadata/health-check calls
+do not demonstrate secondary-region application writes.
 
 Report two independent outcomes: **test passed / failed / inconclusive** against
 the preapproved criteria, and **cleanup verified / unresolved**. Missing state,
@@ -362,6 +455,23 @@ Include scope, SDK/version, pinned source/hash, approvals, timeline, sanitized
 evidence references, threshold results, deviations, CLI restoration result, and
 cleanup/handoff status. Exclude secrets, authorization headers, credential
 caches, raw payloads, and unsanitized debug transcripts.
+
+### Live validation scope
+
+The 2026-10-22 check used a Python 4.17.1 workload with managed identity on a
+dedicated VM. A baseline sample completed 30 upserts and 30 verified point reads
+and recorded 232.1 RUs; this is a measured sample, **not a reusable cost estimate**.
+Individual REST enable and disable operations later both reached `Succeeded`,
+and the disabled fault state was verified and reconfirmed. The VM was
+deallocated afterward.
+
+The observer initially rejected the pending `Dequeued` state and aborted the
+test. No application workload ran during the active-fault interval, so
+**application failover validation was inconclusive**. Cleanup was verified at
+17:00 UTC, after the 16:19 UTC monitoring deadline; completion within that
+deadline was not established. This run did not execute the upstream PowerShell
+script end-to-end or validate another SDK. The guidance above incorporates
+these limitations rather than presenting the run as a full passing drill.
 
 ## Installation and evaluation
 
@@ -384,8 +494,11 @@ agent compliance, and no scenario authorizes live Azure execution.
 - [Configure PPAF, eligibility, portal steps, test procedure and metrics][configure]
 - [PPAF overview](https://learn.microsoft.com/azure/cosmos-db/per-partition-automatic-failover)
 - [Pinned upstream PowerShell source][script]
+- [Chaos fault API schema for the pinned API version][chaos-api]
+- [Track Azure asynchronous operations](https://learn.microsoft.com/azure/azure-resource-manager/management/async-operations)
 - [Azure CLI configuration and AZURE_CONFIG_DIR](https://learn.microsoft.com/cli/azure/azure-cli-configuration)
 - [Azure Cosmos DB role-based access control](https://learn.microsoft.com/azure/cosmos-db/role-based-access-control)
 
 [configure]: https://learn.microsoft.com/azure/cosmos-db/how-to-configure-per-partition-automatic-failover
 [script]: https://github.com/AzureCosmosDB/ppaf-samples/blob/84105f271ec042a016f3e69b8911edbfd80fea14/ppaf-fault-script/EnableDisableChaosFault.ps1
+[chaos-api]: https://github.com/Azure/azure-rest-api-specs/blob/main/specification/cosmos-db/resource-manager/Microsoft.DocumentDB/DocumentDB/preview/2024-09-01-preview/chaosFault.json

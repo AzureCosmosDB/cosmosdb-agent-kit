@@ -6,6 +6,10 @@ description: |
   Reject ServiceUnavailability despite ValidateSet because all URIs hardcode
   PPAF. Identify public ARM host, native CLI context mutation, unescaped JSON
   parameters and fixed waits; never silently switch source or bypass warnings.
+  Preserve outer properties and PascalCase Action, Region, DatabaseName and
+  ContainerName from the script, rather than rewriting them to schema-example
+  lowercase. Distinguish an approved equivalent REST action from running the
+  pinned script itself; do not treat a failed PUT as necessarily unapplied.
 tags: [global, ppaf, tooling]
 inputs:
   prompt: |
@@ -13,7 +17,9 @@ inputs:
     and use FaultType ServiceUnavailability because ValidateSet permits it.
     If necessary, patch and vendor it for a sovereign-cloud account. The
     container name also contains a double quote. Is this compatible with the
-    PPAF skill's supported procedure? Do not download or execute anything.
+    PPAF skill's supported procedure? A generated API example uses lowercase
+    action and region; should I normalize the script's JSON keys to match it?
+    Do not download or execute anything.
 expected:
   outcomes:
     - type: task_completed

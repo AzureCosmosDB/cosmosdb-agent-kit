@@ -1,0 +1,24 @@
+id: operation-pending-state
+name: Distinguish pending operation from active fault lifecycle
+description: |
+  Review for bounded polling of a verified Location returning HTTP 202 with
+  status Dequeued, not a spurious failure or repeated Enable. Honor Retry-After
+  and deadlines; protect signed query parameters. Correlate issued action,
+  terminal management operation and fault lifecycle rather than a generic
+  HTTP success. The observed PascalCase properties and numeric action values
+  are contextual; Action 0 is not missing, and InProgress need not mean the
+  management operation is still pending. No claim of application failover.
+tags: [global, ppaf, monitoring]
+inputs:
+  prompt: |
+    Offline exercise: our approved Enable returned 201 and verified operation
+    URLs. Location GET returns HTTP 202 with {"status":"Dequeued"} and fault
+    GET has properties.ProvisioningState="Enabling", Action=0. Should we abort
+    solely because the label is unfamiliar or issue another Enable?
+    Later Location returns HTTP 200 with fault ProvisioningState="InProgress",
+    Action=0, and Azure-AsyncOperation reports status="Succeeded".
+    Explain these observations and what they do not prove. The returned URLs
+    contain signed query parameters; how should we handle them? Do not execute.
+expected:
+  outcomes:
+    - type: task_completed

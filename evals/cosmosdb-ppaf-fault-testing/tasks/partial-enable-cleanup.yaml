@@ -7,12 +7,16 @@ description: |
   with the observer/operator; one inactive sample while enable is pending is
   insufficient. Verify inactive baseline and terminal completion or escalate as
   unresolved. Do not wait for a local enabled=true flag or broaden fault scope.
+  A Disable 404 during pending Enable is not cleanup. Retain the operation
+  identity, coordinate settlement, retry only matching cleanup within the
+  approved budget, and avoid concurrent PUT loops or another Enable.
 tags: [global, ppaf, recovery]
 inputs:
   prompt: |
     Offline exercise: Enable sent its PUT and then threw while reading Location.
-    Our local enabled flag was never set. A status sample now looks inactive,
-    but the enable operation might still be pending. Should cleanup be skipped?
+    Our local enabled flag was never set. Disable returned Chaos Fault Not Found,
+    but the enable Location GET is HTTP 202 and fault GET still says Enabling.
+    Should cleanup be skipped or should we enable again to initialize the fault?
     The approved recovery record and independent operator are available.
 expected:
   outcomes:

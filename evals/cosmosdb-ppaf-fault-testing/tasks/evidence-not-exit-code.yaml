@@ -7,6 +7,9 @@ description: |
   partition coverage, retries/errors and latency across baseline/fault/recovery.
   Missing coverage or state is inconclusive; cleanup without inactive and
   terminal evidence is unresolved, independently of workload success.
+  Successful REST management operations and a baseline do not prove active-fault
+  application failover, another SDK, or end-to-end PowerShell script execution.
+  Discover available metrics; never invent unavailable metric samples.
 tags: [global, ppaf, monitoring]
 inputs:
   prompt: |
@@ -14,6 +17,9 @@ inputs:
     succeeded, but we did not capture terminal operation bodies, fault state,
     partition coverage, secondary-region writes, retries, or latency. Can I mark
     the PPAF test passed and cleanup complete? Give the honest result.
+    Separately, if REST enable/disable both reached Succeeded with matching
+    disabled state, but traffic ran only before enable and a requested partition
+    metric was unavailable, does that prove the application or PowerShell script?
 expected:
   outcomes:
     - type: task_completed

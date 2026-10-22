@@ -6,6 +6,8 @@ description: |
   without an authoritative state/terminal-operation observer. Do not invent a
   properties.state contract, rely on waits, or propose enabling to find out.
   Distinguish drafting the plan from execution readiness.
+  Do not use the dedicated-test-account first-use exception for unapproved
+  monitoring, ambiguous prior activity, production, or a generic error.
 tags: [global, ppaf, monitoring]
 inputs:
   prompt: |
