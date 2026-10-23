@@ -1,0 +1,28 @@
+id: evidence-not-exit-code
+name: Require independent failover and cleanup evidence
+description: |
+  Review for rejecting process exit/HTTP OK and successful reads as proof.
+  Require real terminal operation and active/inactive state observations, not
+  fabricated JSON properties. Correlate successful writes, regions, affected
+  partition coverage, retries/errors and latency across baseline/fault/recovery.
+  Missing coverage or state is inconclusive; cleanup without inactive and
+  terminal evidence is unresolved, independently of workload success.
+  Successful REST management operations and a baseline do not prove active-fault
+  application failover, another SDK, or end-to-end PowerShell script execution.
+  Discover available metrics; never invent unavailable metric samples.
+  Score failover, availability, full-drill completion, and cleanup separately;
+  a gap in one dimension must not erase independently corroborated evidence in
+  another, or allow an overall pass when a mandatory criterion is unmet.
+tags: [global, ppaf, monitoring]
+inputs:
+  prompt: |
+    Offline exercise: Enable and Disable exited zero after printing OK. A read
+    succeeded, but we did not capture terminal operation bodies, fault state,
+    partition coverage, secondary-region writes, retries, or latency. Can I mark
+    the PPAF test passed and cleanup complete? Give the honest result.
+    Separately, if REST enable/disable both reached Succeeded with matching
+    disabled state, but traffic ran only before enable and a requested partition
+    metric was unavailable, does that prove the application or PowerShell script?
+expected:
+  outcomes:
+    - type: task_completed

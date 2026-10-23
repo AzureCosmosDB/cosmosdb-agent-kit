@@ -1,0 +1,21 @@
+id: late-cleanup-evidence
+name: Separate current cleanup verification from deadline compliance
+description: |
+  Review for current cleanup verified only when matching terminal Disable,
+  prior operation settlement and repeated disabled-state observations agree.
+  A later observation does not establish completion by a previous deadline.
+  Escalate at deadline even while waiting for a user response, preserve
+  recovery access, and never silently reset the clock on retries or pauses.
+tags: [global, ppaf, recovery]
+inputs:
+  prompt: |
+    Offline exercise: cleanup monitoring was approved until 16:19 UTC, but the
+    session waited for input and resumed at 17:00. At 17:00, both management
+    operation statuses are Succeeded; the matching Disable result and repeated
+    fault GETs show ProvisioningState=Succeeded, Action=1 for our exact target.
+    Can we report cleanup complete within the approved window? What should
+    have happened at the deadline, and how do we report the current evidence?
+    Do not run any commands.
+expected:
+  outcomes:
+    - type: task_completed

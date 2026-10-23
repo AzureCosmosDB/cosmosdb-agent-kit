@@ -1,0 +1,26 @@
+name: cosmosdb-ppaf-fault-testing-eval
+description: |
+  Offline procedural scenarios for the PPAF service-fault skill.
+  Task descriptions are manual behavioral rubrics, not automated assertions.
+  Mock completion cannot establish compliance. Never execute live Azure actions.
+skill: cosmosdb-ppaf-fault-testing
+version: "1.0"
+config:
+  trials_per_task: 1
+  timeout_seconds: 300
+  parallel: false
+  executor: mock
+  model: claude-sonnet-4.6
+metrics:
+  - name: task_completion
+    weight: 1.0
+    threshold: 0.0
+    description: Mock plumbing only; not a grade of safety or response content.
+graders:
+  - type: behavior
+    name: response_constraints
+    config:
+      max_tool_calls: 10
+      max_duration_ms: 60000
+tasks:
+  - "tasks/*.yaml"

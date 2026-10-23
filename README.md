@@ -60,6 +60,7 @@ So the combined recommendation is simple: **use a Recommended-tier model *and* d
 | Skill | Description | Status |
 |-------|-------------|--------|
 | [cosmosdb-best-practices](skills/cosmosdb-best-practices/) | Performance optimization (111 rules, 12 categories) | ✅ Stable |
+| [cosmosdb-ppaf-fault-testing](skills/cosmosdb-ppaf-fault-testing/) | Cross-SDK PPAF service-fault test planning, supervision, and verified cleanup | Procedural |
 | migration-capacity-planning | RU calculation, data sizing, pre-split partitions | 🚧 Planned |
 
 ### cosmosdb-best-practices
@@ -86,6 +87,15 @@ Azure Cosmos DB performance optimization guidelines containing 111 rules across 
 - Global Distribution (Medium)
 - Developer Tooling (Medium)
 - Monitoring & Diagnostics (Low-Medium)
+
+### cosmosdb-ppaf-fault-testing
+
+Use the [PPAF fault-testing runbook](skills/cosmosdb-ppaf-fault-testing/README.md)
+to plan an approved service-side partition failover test with an existing account
+and workload in any SDK. It covers Features-tab eligibility, pinned upstream
+PowerShell commands, account-level fault ownership, bounded recovery, and
+independent workload evidence. Production execution requires explicit approval;
+the skill does not provision resources or replace SDK-local fault injection.
 
 ## Installation
 

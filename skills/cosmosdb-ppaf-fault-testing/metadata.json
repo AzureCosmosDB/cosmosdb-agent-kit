@@ -1,0 +1,11 @@
+{
+  "version": "1.3.0",
+  "organization": "CosmosDB Agent Kit",
+  "date": "October 2026",
+  "abstract": "Cross-SDK procedural guide for approved Azure Cosmos DB per-partition automatic failover service-fault tests, with pinned upstream commands, account-level ownership, bounded recovery, and independent workload evidence.",
+  "references": [
+    "https://learn.microsoft.com/azure/cosmos-db/how-to-configure-per-partition-automatic-failover",
+    "https://learn.microsoft.com/azure/cosmos-db/per-partition-automatic-failover",
+    "https://github.com/AzureCosmosDB/ppaf-samples/blob/84105f271ec042a016f3e69b8911edbfd80fea14/ppaf-fault-script/EnableDisableChaosFault.ps1"
+  ]
+}

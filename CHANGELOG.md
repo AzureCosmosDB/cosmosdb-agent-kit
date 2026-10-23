@@ -9,6 +9,23 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## 2026-10-23 — Separate PPAF recovery evidence from drill success
+
+- **Failure policy:** Require explicit bounded approval to continue after specified transient errors without hiding failures or changing retry settings; retain RU/accounting and cleanup safeguards.
+- **Evidence:** Record secondary-region writes independently of terminal enable completion, separate failover/availability/full-drill/cleanup verdicts, and preserve the earlier run alongside the latest scoped live findings.
+- **Regression coverage:** Add offline scenarios for bounded error recovery, migration before terminal enable, and observer failure after corroborated failover.
+
+## 2026-10-22 — Incorporate live PPAF control-plane observations
+
+- **Procedure:** Preserve upstream request casing; separate HTTP-202 operation polling from fault lifecycle state; handle a pending-enable/disable-404 race without claiming cleanup. Add a narrowly scoped, explicit first-use exception for dedicated test accounts without treating generic 404 responses as inactive.
+- **Evidence and safeguards:** Protect signed operation URLs, retain bounded cleanup and deadline reporting, and distinguish baseline traffic plus successful REST enable/disable from unverified application failover or script end-to-end execution. Extend offline regression scenarios for these cases.
+
+## 2026-10-19 — Add PPAF service-fault testing skill
+
+- **New procedural skill:** `cosmosdb-ppaf-fault-testing` provides a canonical human runbook and agent workflow for scoped, approved cross-SDK service-fault tests using pinned upstream PowerShell commands, with account-level ownership, bounded recovery, and independent failover evidence.
+- **Discovery and evaluation:** Added root/site links, contributor guidance for procedural skills, and ten offline scenarios with manual behavioral rubrics. No runner, vendored script, or live Azure test is included.
+- **RU awareness:** Warn before baseline traffic that test operations consume RUs and can contend with production capacity or increase charges. Require an approved measured budget and stop thresholds without treating workload exhaustion as permission to skip fault cleanup.
+
 ## 2026-07-21 — Add Codex repo marketplace catalog
 
 - **New catalog:** `.agents/plugins/marketplace.json` — Codex-native repo marketplace listing the `azure-cosmosdb` plugin (`source.path: "./"`, `category: "Databases"`), so users can add it with `codex plugin marketplace add AzureCosmosDB/cosmosdb-agent-kit`. Codex also reads the legacy `.claude-plugin/marketplace.json`. The catalog carries no package `version` (schema-only) and is intentionally excluded from `npm run version`.
