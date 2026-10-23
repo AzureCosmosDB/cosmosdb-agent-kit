@@ -93,6 +93,7 @@ location. Fill every field; no auto-selected defaults:
 | Mutations | Permitted reads/writes/deletes, deterministic test IDs or namespace, data ownership, and any separately approved data cleanup |
 | Timing | UTC start/end, enable deadline, active observation deadline, cleanup deadline, polling interval, and bounded retry budget |
 | Criteria | Numerical availability/error, retry and latency thresholds; required regional-write/failover evidence; explicit abort conditions |
+| Failure policy | SDK timeout/retry configuration; stop-on-error or explicitly allowed transient failures; maximum failed operations and time without a successful write; unknown-charge handling |
 | Recovery | Exact matching disable command, independently reachable recovery operator, observation method, and escalation path |
 | Ownership | Exclusive ownership of the account-level chaos fault from inactive baseline through verified cleanup |
 | First-use exception | Normally none. For a dedicated test account only, record any separately authorized missing-resource exception, its evidence and uncertainty; see the baseline gate below |
@@ -109,6 +110,32 @@ exact monetary estimate without the account's throughput/pricing configuration.
 Treat a monitored budget as a stop threshold, not a guaranteed hard billing cap:
 in-flight requests and metric delays can cause overshoot. Do not increase
 throughput or autoscale limits without separate approval.
+
+### Transient failures versus abort conditions
+
+Stopping on the first unhandled workload failure remains the default. To
+measure recovery through a disruption, the operator may instead explicitly
+approve continuing after specified transient failures (for example, selected
+timeouts or 503s) at the same rate, within a maximum failure count and maximum
+time without a successful write. Record each failed logical operation,
+underlying attempts when observable, latency, and the exact retry/timeout
+configuration. Do not silently retry an ambiguous write, alter SDK settings,
+raise traffic, or suppress errors to improve the result. An ambiguous write
+may have committed; define safe verification or subsequent-operation behavior
+in the approved workload rather than assuming it failed.
+
+Any client-visible error fails a requested **zero-error availability** criterion,
+even when continuation is authorized and secondary-region writes recover.
+The continuation allowance controls whether observation may proceed, not
+whether availability passes. Evaluate separately approved availability targets;
+if none were defined, report availability as inconclusive rather than inventing
+a success threshold from the abort limit.
+Correctness violations, authentication failures, observation loss beyond its
+approved tolerance, and RU/rate/time/failure thresholds remain abort conditions.
+A timeout may hide a billable request charge: label observed RUs as incomplete,
+not the billing total. Without an explicitly approved bounded policy for
+unknown-charge attempts, stop traffic. Never treat missing charges as zero,
+permit unlimited unknown consumption, or allow any exception to waive cleanup.
 
 ## Pinned script and CLI context
 
@@ -309,9 +336,14 @@ with the accepted request. Poll the exact returned URLs, honoring `Retry-After`
 within approved bounds. HTTP 202 from the operation-result URL remains pending
 even when its body says `Dequeued`; successful HTTP transport from the separate
 status endpoint is not terminal success. Require the terminal operation result
-and matching fault state before declaring activation or cleanup. Explicit
-failure/cancellation, mismatched scope, lost observation, or timeout triggers
-the recovery plan. Unrecognized states outside a recognized pending contract
+and matching fault state before declaring terminal activation or cleanup.
+An individual management GET timeout is an observation gap, not a failed
+Enable or Disable. Only if the plan explicitly permits it, retry that
+read-only observation within a bounded count, maximum observation gap, and
+the unchanged phase deadline. Never resend a mutation because polling failed.
+Explicit failure/cancellation, mismatched scope, lost observation beyond the
+approved tolerance, or a phase timeout triggers the recovery plan.
+Unrecognized states outside a recognized pending contract
 require operator interpretation, not guessed success.
 
 Operation URLs may contain signed query parameters. Keep the intact URLs only
@@ -339,8 +371,16 @@ disable, plus network requests and observation time, when approving the window.
 The sleeps are not a guarantee of completion. If the approved window cannot
 accommodate cleanup, do not start; do not silently extend it.
 
-Use terminal operation evidence **and** active fault evidence to mark the active
-interval. Continue the approved workload while recording independent metrics.
+Use terminal operation evidence **and** active fault evidence to mark the
+confirmed post-enable observation interval. Also retain the full traffic
+timeline from baseline through enable and recovery: successful secondary-region
+writes can precede terminal management completion. Correlate those writes with
+the exact target, issued fault, baseline topology, client diagnostics and
+independent regional write metrics. Record that migration when demonstrated;
+do not discard it because a controller's `active` phase has not started. It
+does not prove the management operation completed, all partitions moved, or a
+required post-completion observation interval was exercised.
+Continue the approved workload while recording independent metrics.
 The service chooses affected partitions; selecting a logical partition key
 does not select a faulted partition. Lack of observable impact may mean missing
 coverage, not successful failover.
@@ -361,9 +401,10 @@ proves cleanup if a prior enable is still pending.
 
 ## Recovery and context restoration
 
-The supervisor must initiate cleanup after success, errors (including partial
-enable), workload failure, cancellation, lost observation, and enable/active
-timeouts. Set a separate bounded cleanup deadline and retry budget. Stop or
+The supervisor must initiate cleanup after completion, failed or uncertain
+enable attempts, cancellation, failures outside the approved transient-error
+allowance, observation loss beyond its approved tolerance, and abort/deadline
+thresholds. Set a separate bounded cleanup deadline and retry budget. Stop or
 hand off the approved workload according to the plan; do not leave it running
 unattended.
 
@@ -391,6 +432,15 @@ input, report/escalate unresolved cleanup using the preapproved recovery path;
 do not wait silently for a reply. Extensions require explicit approval before
 they are relied on. A later successful read verifies state **at that time**,
 not completion within a missed or unobserved deadline.
+
+Observer and workload-reporting failures must not skip fault cleanup or consume
+the reserved shutdown budget. Remote command transport success is not proof
+that the command succeeded: verify its execution outcome and a complete,
+structured result. Keep summaries compact, retrieve large logs separately with
+completeness checks, and report truncated/invalid output as an observation gap,
+not an empty successful result. A partial workload summary is not a final
+operation count or RU total. These are requirements for the chosen execution
+tooling, not a replacement runner supplied by this skill.
 
 A `try/finally` can help with ordinary exceptions but cannot survive process
 death, host failure, or lost sessions. Have an independently reachable operator
@@ -443,13 +493,23 @@ record the gap and agree on alternate evidence or report the relevant result
 as inconclusive; do not fabricate samples. Regional metadata/health-check calls
 do not demonstrate secondary-region application writes.
 
-Report two independent outcomes: **test passed / failed / inconclusive** against
-the preapproved criteria, and **cleanup verified / unresolved**. Missing state,
-region, partition coverage, or timing observations makes failover validation
-inconclusive. Violated workload thresholds can still be reported as failures;
-neither outcome excuses unresolved cleanup. A zero script exit code, successful
-PUT, healthy reads, or no errors in a workload that missed the faulted partitions
-cannot establish a pass.
+Report the following verdicts separately, then assess the overall drill against
+the preapproved criteria:
+
+| Criterion | Verdict and evidence |
+|-----------|----------------------|
+| Failover | **Observed / not observed / inconclusive**. Corroborate actual secondary-region application writes and target/partition coverage; an absent signal with insufficient coverage is inconclusive, not proof of no failover. State the demonstrated scope. |
+| Availability | **Passed / failed / inconclusive** against the approved error/latency thresholds. Zero-error availability fails on any surfaced error; backend attempts and client-visible failures are not interchangeable. |
+| Full drill | **Completed / incomplete**. Confirm all prescribed intervals, workload verification, and recovery checks occurred; successful traffic migration cannot fill a missing interval. |
+| Cleanup | **Verified / unresolved**, plus **deadline met / missed / not established**. Correlate terminal operations, repeated matching disabled state, and timestamps independently of workload success. |
+
+Missing state, region, coverage, or timing evidence makes the affected
+criterion inconclusive; it does not invalidate other corroborated findings.
+For example, an observer timeout after successful regional writes can leave
+failover observed, availability failed, and the full drill incomplete.
+Overall success requires every mandatory criterion to be satisfied. A zero
+script exit code, successful PUT, healthy reads, or an error-free workload that
+missed the faulted partitions cannot establish a pass.
 
 Include scope, SDK/version, pinned source/hash, approvals, timeline, sanitized
 evidence references, threshold results, deviations, CLI restoration result, and
@@ -457,6 +517,8 @@ cleanup/handoff status. Exclude secrets, authorization headers, credential
 caches, raw payloads, and unsanitized debug transcripts.
 
 ### Live validation scope
+
+#### 2026-10-22: baseline and control-plane check
 
 The 2026-10-22 check used a Python 4.17.1 workload with managed identity on a
 dedicated VM. A baseline sample completed 30 upserts and 30 verified point reads
@@ -472,6 +534,28 @@ test. No application workload ran during the active-fault interval, so
 deadline was not established. This run did not execute the upstream PowerShell
 script end-to-end or validate another SDK. The guidance above incorporates
 these limitations rather than presenting the run as a full passing drill.
+
+#### 2026-10-23: traffic migration with separately scored failures
+
+A subsequent dedicated-account run kept Python 4.17.1 traffic flowing with an
+explicit bounded timeout/503 allowance, while retaining `retry_total=0` and
+10-second request timeout settings. Client regional request records and
+independent target-scoped Azure metrics corroborated **676 successful upserts
+and 684 successful reads in West US 2**, following baseline writes in East US.
+This established secondary-region write failover during fault injection, even
+while management polling still reported a pending enable operation. Metric
+counts are service requests, not necessarily distinct logical operations, and
+minute buckets do not establish precise failover latency.
+
+The client recorded **10 logical timeouts**, so zero-error availability failed.
+A separate management polling timeout ended observation before the planned
+post-completion interval; the full drill was incomplete. Remote stop-summary
+parsing also failed, so the last observed RU snapshot was not an exact final
+total. Both management operations ultimately reported success; repeated
+disabled-state checks verified cleanup within the approved 25-minute cleanup
+allowance and 60-minute overall window. VM deallocation was independently
+verified. This is a scoped recovery result, not seamless availability, a universal
+SDK behavior guarantee, or an end-to-end validation of the PowerShell script.
 
 ## Installation and evaluation
 

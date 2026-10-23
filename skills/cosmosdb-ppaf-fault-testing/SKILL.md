@@ -27,6 +27,16 @@ enable/observation/cleanup deadlines, success thresholds, abort criteria, and
 named recovery operator. Do not select resources, invent a workload, or treat
 this documentation request as authorization to execute.
 
+Separate the approved transient-error allowance from abort conditions. Default
+to stopping on an unhandled workload failure unless the operator explicitly
+approves recording specified failures while continuing at the same bounded
+rate. Record SDK timeout/retry settings, maximum failed operations, maximum
+time without a successful write, and treatment of unknown request charges.
+Continuation permission is not an availability pass threshold; evaluate the
+separately approved availability criteria or report that verdict inconclusive.
+Never silently increase retries, hide failures, or relax correctness,
+authentication, observation, RU, or cleanup safeguards to obtain a pass.
+
 Include this customer-facing warning in every test plan **before the baseline
 workload stage**, even when cost approval is already recorded:
 
@@ -90,6 +100,9 @@ returning HTTP 202 with `status: Dequeued` is pending, not grounds to abort sole
 for that label. Keep fault-resource `ProvisioningState` distinct from the
 management-operation `status`. Correlate actual response casing and numeric or
 string actions with the issued command; zero is not a missing action.
+Record corroborated secondary-region writes even if the management operation
+is still pending. This is traffic-migration evidence, not proof of terminal
+enable completion or the prescribed post-completion observation interval.
 Protect intact signed operation URLs only as transient recovery state; never
 print or publish their query parameters. Retain sanitized operation IDs.
 
@@ -111,9 +124,13 @@ Monitor workload RU consumption across baseline, fault, and recovery. Stop the
 workload at its approved budget or contention threshold, but still perform
 fault cleanup. Record consumption, observation gaps, and any budget overshoot.
 
-On success, error, cancellation, workload failure, or timeout, use the
-preapproved matching disable recovery and verify terminal completion plus the
-known inactive baseline. Handle an in-flight enable/disable race with the
+On completion, cancellation, any failure outside the approved transient-error
+allowance, or an abort/deadline threshold, use the preapproved matching disable
+recovery and verify terminal completion plus the known inactive baseline.
+Record every allowed error while continuing observation; zero-error availability
+fails on any client-visible error even if writes recover. Unknown charges are
+not zero RU and require the explicitly approved bounded accounting policy.
+Handle an in-flight enable/disable race with the
 service operator; never infer cleanup from a single inactive sample while an
 enable is pending. A Disable 404 while Enable is pending is not cleanup: retain
 the operation identity, resolve ordering, then retry only the matching cleanup
@@ -138,14 +155,19 @@ requests from retry attempts, and read traffic from writes. Require evidence
 that the approved workload exercised affected partitions; do not infer coverage
 from one successful write or one chosen partition key.
 
-Report workload results and cleanup status separately. Pass only when the
-approved thresholds and failover observations are met; mark missing fault,
-partition, region, or timing evidence **inconclusive**, not passed. Mark cleanup
-uncertainty **unresolved**, even if workload criteria passed. Include the pinned
+Report four separate verdicts: **failover observed / not observed /
+inconclusive**, **availability passed / failed / inconclusive** against approved
+thresholds (explicitly score zero-error availability when requested),
+**full drill completed / incomplete**, and **cleanup verified / unresolved**
+with deadline compliance. Missing evidence makes the affected criterion
+inconclusive, not every independently established result. A later observer
+failure does not erase corroborated traffic migration, but cannot validate an
+unobserved interval or cleanup. Pass the overall drill only if all required
+criteria are satisfied. Include the pinned
 revision/hash, scope, approvals, UTC timeline, observer provenance, deviations,
 and escalation owner without credentials, raw payloads, or token-bearing logs.
 Discover service metric availability rather than assuming every metric exists.
-No workload during the active fault means application failover is inconclusive
-even when both management operations succeed. A later cleanup confirmation does
+No workload evidence during fault injection means application failover is
+inconclusive even when both management operations succeed. A later cleanup confirmation does
 not establish that the approved deadline was met. Distinguish REST checks,
 script execution, and each SDK actually exercised.

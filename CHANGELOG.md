@@ -9,6 +9,12 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## 2026-10-23 — Separate PPAF recovery evidence from drill success
+
+- **Failure policy:** Require explicit bounded approval to continue after specified transient errors without hiding failures or changing retry settings; retain RU/accounting and cleanup safeguards.
+- **Evidence:** Record secondary-region writes independently of terminal enable completion, separate failover/availability/full-drill/cleanup verdicts, and preserve the earlier run alongside the latest scoped live findings.
+- **Regression coverage:** Add offline scenarios for bounded error recovery, migration before terminal enable, and observer failure after corroborated failover.
+
 ## 2026-10-22 — Incorporate live PPAF control-plane observations
 
 - **Procedure:** Preserve upstream request casing; separate HTTP-202 operation polling from fault lifecycle state; handle a pending-enable/disable-404 race without claiming cleanup. Add a narrowly scoped, explicit first-use exception for dedicated test accounts without treating generic 404 responses as inactive.

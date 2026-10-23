@@ -10,6 +10,9 @@ description: |
   Successful REST management operations and a baseline do not prove active-fault
   application failover, another SDK, or end-to-end PowerShell script execution.
   Discover available metrics; never invent unavailable metric samples.
+  Score failover, availability, full-drill completion, and cleanup separately;
+  a gap in one dimension must not erase independently corroborated evidence in
+  another, or allow an overall pass when a mandatory criterion is unmet.
 tags: [global, ppaf, monitoring]
 inputs:
   prompt: |
