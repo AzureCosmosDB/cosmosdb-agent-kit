@@ -1,0 +1,27 @@
+id: model-unique-keys
+name: Data Modeling - Enforce uniqueness within the correct partition scope
+description: |
+  Exercise guidance for native unique-key policies instead of application-only
+  duplicate checks: logical partition scope, hierarchical keys, case and null
+  semantics, mixed document types, immutable policies, and HTTP 409 conflicts.
+tags:
+  - modeling
+  - unique-keys
+  - partitioning
+  - data-integrity
+inputs:
+  prompt: |
+    I am migrating a relational customer table to Azure Cosmos DB for NoSQL using
+    the TypeScript SDK. Email must be unique within each tenant, while different
+    tenants may share an email. I query for an existing email before inserting a
+    customer with a random ID, but concurrent requests still create duplicates.
+    Show how to enforce this for a new container partitioned by /tenantId and
+    handle conflicting writes. Explain whether an existing container without a
+    policy can be updated in place, whether /tenantId plus /region hierarchical
+    partitioning preserves tenant-wide uniqueness, and what happens with missing
+    or null emails, case differences, and order documents without email in the
+    same container. Could a composite index, ETags on the customer items, or a
+    reservation document alone guarantee uniqueness across partitions?
+expected:
+  outcomes:
+    - type: task_completed
