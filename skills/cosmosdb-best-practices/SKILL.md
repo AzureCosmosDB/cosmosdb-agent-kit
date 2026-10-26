@@ -70,6 +70,7 @@ Reference these guidelines when:
 - [model-reference-large](rules/model-reference-large.md) - Reference data when items get too large
 - [model-avoid-2mb-limit](rules/model-avoid-2mb-limit.md) - Keep items well under 2MB limit
 - [model-id-constraints](rules/model-id-constraints.md) - Follow ID value length and character constraints
+- [model-unique-keys](rules/model-unique-keys.md) - Enforce business-key uniqueness within the correct logical partition scope
 - [model-nesting-depth](rules/model-nesting-depth.md) - Stay within 128-level nesting depth limit
 - [model-numeric-precision](rules/model-numeric-precision.md) - Understand IEEE 754 numeric precision limits
 - [model-denormalize-reads](rules/model-denormalize-reads.md) - Denormalize for read-heavy workloads including pre-computed aggregates
