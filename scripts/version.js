@@ -15,6 +15,8 @@ if (!newVersion || !/^\d+\.\d+\.\d+$/.test(newVersion)) {
     process.exit(1);
 }
 
+const updates = [];
+
 function updateJsonFile(filePath) {
     if (!fs.existsSync(filePath)) return false;
     const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -23,8 +25,11 @@ function updateJsonFile(filePath) {
     if (path.basename(filePath) === 'package-lock.json' && content.packages?.['']) {
         content.packages[''].version = newVersion;
     }
-    fs.writeFileSync(filePath, JSON.stringify(content, null, 2) + '\n');
-    console.log('  ' + path.relative(ROOT, filePath) + ': ' + oldVersion + ' -> ' + newVersion);
+    updates.push({
+        filePath,
+        content: JSON.stringify(content, null, 2) + '\n',
+        message: '  ' + path.relative(ROOT, filePath) + ': ' + oldVersion + ' -> ' + newVersion,
+    });
     return true;
 }
 
@@ -34,8 +39,11 @@ function updateYamlVersion(filePath) {
     const oldContent = content;
     content = content.replace(/^version:\s*.+$/m, 'version: ' + newVersion);
     if (content === oldContent) return false;
-    fs.writeFileSync(filePath, content);
-    console.log('  ' + path.relative(ROOT, filePath) + ': -> ' + newVersion);
+    updates.push({
+        filePath,
+        content,
+        message: '  ' + path.relative(ROOT, filePath) + ': -> ' + newVersion,
+    });
     return true;
 }
 
@@ -59,6 +67,11 @@ if (fs.existsSync(skillsDir)) {
         const metadataPath = path.join(skillsDir, skill, 'metadata.json');
         updateJsonFile(metadataPath);
     }
+}
+
+for (const update of updates) {
+    fs.writeFileSync(update.filePath, update.content);
+    console.log(update.message);
 }
 
 console.log('\nDone. To release:\n');

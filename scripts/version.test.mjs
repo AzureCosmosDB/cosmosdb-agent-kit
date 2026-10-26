@@ -98,6 +98,20 @@ test('manifest validation rejects malformed lockfile JSON', (context) => {
     assert.match(result.stderr, /Invalid JSON in package-lock\.json/);
 });
 
+for (const malformedFile of ['package-lock.json', 'plugin.json', 'skills/cosmosdb-best-practices/metadata.json']) {
+    test(`malformed ${malformedFile} leaves all files unchanged during a version bump`, (context) => {
+        const directory = createFixture(context);
+        writeFileSync(join(directory, malformedFile), '{');
+        const originals = fixtureFiles.map((file) => readFileSync(join(directory, file), 'utf8'));
+        const result = runScript(directory, 'version.js', '9.8.7');
+        assert.equal(result.status, 1, result.stderr);
+        assert.match(result.stderr, /SyntaxError/);
+        fixtureFiles.forEach((file, index) => {
+            assert.equal(readFileSync(join(directory, file), 'utf8'), originals[index], file);
+        });
+    });
+}
+
 test('invalid versions leave all manifests unchanged', (context) => {
     const directory = createFixture(context);
     const originals = fixtureFiles.map((file) => readFileSync(join(directory, file), 'utf8'));
