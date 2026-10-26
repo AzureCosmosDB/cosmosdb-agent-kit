@@ -43,6 +43,8 @@ const legacyScenarios = {
     'security-private-endpoint-dns': 'security-private-endpoint-dns',
     'should-not-trigger-001': 'should-not-trigger',
     'throughput-autoscale-006': 'throughput-autoscale',
+    'tooling-cosmosdb-shell-target': 'tooling-cosmosdb-shell-target',
+    'tooling-cosmosdb-shell-writes': 'tooling-cosmosdb-shell-writes',
     'vector-index-type-013': 'vector-index-type',
 };
 const skill = { type: 'skill_activation', data: { name: 'cosmosdb-best-practices' } };

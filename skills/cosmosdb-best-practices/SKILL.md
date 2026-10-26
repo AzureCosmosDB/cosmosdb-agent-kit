@@ -8,7 +8,7 @@ description: |
   USE FOR: Cosmos DB NoSQL, partition key design, RU optimization, point reads,
   cross-partition queries, SDK singleton, CosmosClient, container modeling,
   change feed, bulk operations, vector search, full-text search, hierarchical
-  partition keys, global distribution, autoscale throughput, indexing policy.
+  partition keys, global distribution, autoscale throughput, indexing policy,
   DO NOT USE FOR: PostgreSQL, MySQL, MongoDB (non-Azure), DynamoDB, Cassandra,
   Azure SQL, Cosmos DB for PostgreSQL (vCore), Cosmos DB for MongoDB vCore, Azure DocumentDB,
   general SQL databases, Redis, Elasticsearch.
@@ -212,6 +212,9 @@ Reference these guidelines when:
 
 - [tooling-vscode-extension](rules/tooling-vscode-extension.md) - Use the VS Code extension for routine inspection and management
 - [tooling-emulator-setup](rules/tooling-emulator-setup.md) - Use the Emulator for local development and testing
+- [tooling-cosmosdb-shell-target](rules/tooling-cosmosdb-shell-target.md) - Verify the Cosmos DB Shell account and target before reading data
+- [tooling-cosmosdb-shell-writes](rules/tooling-cosmosdb-shell-writes.md) - Scope, preview, and confirm Cosmos DB Shell writes and deletions
+- [tooling-cosmosdb-shell-setup](rules/tooling-cosmosdb-shell-setup.md) - Diagnose Cosmos DB Shell MCP problems without changing the user's environment
 
 ### 11. Vector Search (HIGH)
 
