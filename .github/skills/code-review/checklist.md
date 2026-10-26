@@ -108,15 +108,18 @@ new rule against the existing rule set:
 
 | Field | Required | Type |
 |-------|----------|------|
-| `id` | 🔴 Yes | String (unique identifier) |
-| `name` | 🔴 Yes | String (short descriptive name) |
-| `description` | 🔴 Yes | String (what this test validates) |
-| `tags` | 🔴 Yes | List (should match rule category: sdk, model, partition, query, security, fts, vector, etc.) |
-| `inputs.prompt` | 🔴 Yes | String (realistic user query triggering the rule's guidance) |
-| `expected.outcomes` | 🔴 Yes | List (at minimum `- type: task_completed`) |
+| `name` | 🔴 Yes | String (eval name) |
+| `description` | 🟡 Recommended | String (what this eval validates) |
+| `stimuli` | 🔴 Yes | Non-empty list of test cases |
+| `stimuli[].name` | 🔴 Yes | String (unique stimulus identifier) |
+| `stimuli[].tags` | 🔴 Yes | Map (for example `category: sdk`) |
+| `stimuli[].prompt` or `turns` | 🔴 Yes | Realistic user query or multi-turn conversation |
+| `stimuli[].graders` | 🔴 Yes | Completion, skill activation/non-activation, and response correctness checks |
+| `stimuli[].rubric` | 🔴 For LLM grading | Non-empty list of concrete correctness criteria |
 
 - 🟡 The prompt should be a realistic developer question, not synthetic or overly specific
 - 🟡 Tags should align with the rule categories in `_sections.md`
+- 🔴 `npm run eval:lint` and `npm run eval:test` must pass; offline tests do not establish live response quality
 
 ---
 

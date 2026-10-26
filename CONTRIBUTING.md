@@ -97,40 +97,173 @@ npm run build
 npm run validate
 ```
 
-## Writing Tests (Optional)
+## Writing Tests
 
-The repo includes a [Vally](https://github.com/microsoft/vally) eval framework under `evals/`. Eval tasks are not currently enforced in CI (the mock executor cannot validate response content), but you're encouraged to add them alongside new rules for future use.
+[Vally](https://github.com/microsoft/vally) tests live skill activation and answer
+correctness. Each rule, apart from the [documented exclusions](#evaluation-exclusions),
+has exactly one stimulus in its category's
+[`eval.yaml`](evals/cosmosdb-best-practices/); the root spec checks that PostgreSQL
+does not activate the skill. Category files keep the suite readable and stay
+within Vally's YAML alias limits.
 
-### Adding a task for a new rule
+The npm commands discover specs explicitly under `evals/`; the live runner
+([`scripts/eval.mjs`](scripts/eval.mjs)) passes each file to Vally. No root Vally
+configuration or legacy task/fixture files are needed.
 
-Create a YAML file in `evals/cosmosdb-best-practices/tasks/`:
+### Evaluation exclusions
+
+Two cases were removed after intermittent generated-code failures across
+[CI run 38128858977](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/actions/runs/38128858977)
+and its rerun:
+
+- `model-relationship-references`: the generated Java model declared `customerId` twice.
+- `pattern-langgraph-multi-agent`: the generated graph had broken routing state and missing handoffs.
+
+Those two cases had correctness failures in generated answers, not confirmed false
+positives from the judge.
+
+The `sdk-langchain-mcp-tool-content-format` case is also excluded from live
+evaluation. In [CI run 38231001186](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/actions/runs/38231001186),
+its answer was correct but did not activate the Cosmos DB skill. Generic MCP
+content parsing does not inherently require Cosmos DB guidance. Instead,
+[`test_mcp_tool_content_format.py`](evals/cosmosdb-best-practices/test_mcp_tool_content_format.py)
+executes the rule's documented Python parsing function against deterministic
+string/block inputs and malformed or unsupported content. It also reproduces the
+old example's failure on content blocks. These tests use only Python's standard
+library and a message-shaped stand-in; they do not test LangChain imports,
+adapter integration, skill activation, or live agent response quality.
+
+The `sdk-langchain-mcp-persistent-session` case is excluded for the same
+reason. In [CI run 38699459892](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/actions/runs/38699459892),
+both the first attempt and its retry gave correct `langchain-mcp-adapters`
+lifetime guidance but did not activate the Cosmos DB skill. MCP client lifetime
+management is generic LangChain guidance, and adding Cosmos DB cues to the prompt
+would only game activation. No deterministic replacement test exists.
+
+The underlying skill rules remain available, but no live evaluation covers these
+four rules. The explicit `excludedRules` set in
+[`graders.test.mjs`](evals/cosmosdb-best-practices/graders.test.mjs) permits only these
+coverage gaps; all other rules still require exactly one evaluation. Remove an
+exclusion when restoring its case. Remaining cases retain strict grading and may
+still fail because live model output is nondeterministic.
+
+The `model-id-constraints` case was restored after
+[CI run 38223348711](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/actions/runs/38223348711)
+exposed a prompt/rubric mismatch. Its prompt now explicitly requests character
+restrictions and maximum ID length with its unit, without supplying the expected
+limit. Its rubric and correctness threshold are unchanged.
+
+### Adding a test for a rule
+
+Add a stimulus to `evals/cosmosdb-best-practices/<prefix>/eval.yaml`. Match its
+`name` and `tags.rule` to the rule filename without `.md`, and reuse that file's
+`rule-graders` anchor:
 
 ```yaml
-id: your-rule-name
-name: "Short descriptive name"
-description: |
-  What this test validates — should map to a specific rule or behavior.
-inputs:
-  prompt: "A realistic user prompt that should trigger your rule's guidance"
-expected:
-  outcomes:
-    - type: task_completed
+  # Project needed fields.
+  - name: query-use-projections
+    tags: { category: query, rule: query-use-projections }
+    prompt: |
+      A Cosmos DB list page needs only id and name but SELECT * returns large
+      attachments too. Show the better query.
+    rubric:
+      - Select c.id and c.name only, reducing payload/client work without returning unused attachments.
+    graders: *rule-graders
 ```
+
+Keep the comment to a few words (at most six) and new prompts short (at most 65
+words). Use specific rubric criteria that distinguish correct guidance from the
+anti-pattern. Test the rule's current body, not just its filename or index
+summary. Do not supply the expected answer in the prompt.
+
+The 13 original Vally scenarios are migrated into these category specs with
+their original prompts (apart from whitespace wrapping). Their `tags.legacy`
+values preserve the old task IDs; stimulus names match the corresponding rules.
+The original vector-index decision matrix is the one longer prompt retained to
+preserve its small-dataset fallback and recall-tuning coverage (up to 180 words).
+The obsolete task files and mock configuration are removed, not the scenarios.
+
+All four checks must pass: execution completed, correct skill activation,
+nonempty output, and the LLM judge's binary correctness verdict. The overall
+threshold is 1, so activation alone cannot compensate for incorrect advice.
+Offline tests verify exact rule coverage minus the explicit exclusions and exercise both passing and failing
+grader outcomes with a fake judge; they do not establish live response quality.
+They also require every rule to be linked from the skill's quick reference.
+Ask explicitly for any scenario-specific caveats the rubric requires; a request
+for a brief recommendation should not secretly require an exhaustive checklist.
+Check SDK documentation/source before treating a version number or exact wording
+as the only correct answer.
+All correctness judges use the same semantic-equivalence instructions: actionable
+prose can satisfy guidance criteria unless code is explicitly required, but
+missing requirements and technically incorrect advice still fail.
 
 ### Running tests locally
 
+Use Node.js 22.22.2 or newer supported by the pinned dependencies, plus Python
+3.11 or newer for the deterministic MCP example tests (no pip dependencies).
+
 ```bash
-# Install Vally by following the instructions at https://github.com/microsoft/vally
+npm ci
+npm run build
+npm run eval:lint
+npm run eval:test
+python -B -m unittest discover -s evals/cosmosdb-best-practices -p "test_*.py" -v
 
-# Run all eval tasks (mock executor — no API key needed)
-vally run evals/cosmosdb-best-practices/eval.yaml -v
+# Live evaluations require Copilot model access.
+npm run eval
 
-# Run a single task by name
-vally run evals/cosmosdb-best-practices/eval.yaml --task "Your Task Name"
+# Limit live execution to one rule or category.
+npm run eval -- --tag rule=query-point-reads
+npm run eval -- --tag category=query
 
-# Check skill readiness
-vally check skills/cosmosdb-best-practices
+# Run a migrated scenario by its original task ID.
+npm run eval -- --tag legacy=indexing-composite-005
+
+# Check non-activation.
+npm run eval -- --tag category=activation
 ```
+
+For live runs, authenticate the Copilot CLI or set `COPILOT_GITHUB_TOKEN` and
+`GITHUB_TOKEN` to a Copilot-enabled token in your shell. Never commit tokens.
+The pinned defaults use `gpt-5.6-luna` for execution and `gpt-5.6-terra` for
+judging; override them with `--model` and `--judge-model` if needed.
+Runs use five workers, one trial per stimulus, up to two executor retries for
+timeouts and rate limits, and a three-minute per-trial timeout. LLM grading adds
+time and model usage.
+
+Live model output is nondeterministic, so [`scripts/eval.mjs`](scripts/eval.mjs)
+retries each failed stimulus once (only the failed ones, selected by their
+`rule` tag; untagged cases rerun their spec). Grading is unchanged: the retry
+must pass on its own with the same threshold of 1, and a stimulus that fails
+twice fails the run. Only retry invocations that exit successfully and write a
+final run summary can recover failures; passing records from failed or
+incomplete retries do not count. Retried stimuli are listed in a retry summary (console and
+Actions summary) as flaky; investigate repeat offenders rather than relying on
+the retry. Raising `runs` does not reduce flakiness here: Vally averages trial
+scores, so with a threshold of 1 every trial must pass.
+
+Reports and trajectories are written under the ignored `results/` directory, in
+`results/attempt-1/` and, when needed, `results/retry/`.
+
+### CI behavior
+
+The [Vally workflow](.github/workflows/evals.yml) runs on manual dispatch,
+relevant main-branch pushes, and every pull request. Unrelated PRs receive a
+successful skip check. Relevant PRs run build, spec lint, offline grader tests,
+and deterministic Python example tests; fork and Dependabot PRs never receive
+organization-billed model access.
+
+Same-repository PRs (except those authored or triggered by Dependabot),
+main-branch pushes, and manual runs also execute live tests
+using `github.token` with `contents: read` and `copilot-requests: write`. This
+requires organization/repository Copilot access to the configured models.
+The live runner has no PR-comment write permission.
+
+Markdown reports appear in the Actions summary, and reports/trajectories are
+uploaded as artifacts for 14 days, including after failures. The aggregate
+`Vally evaluation gate` fails on offline errors or failed live evaluations;
+whether it blocks merging depends on branch protection settings. No PR comment
+is posted.
 
 ## Rule File Format
 
@@ -169,7 +302,7 @@ Show code or configuration examples when applicable.
 3. **Do not commit `AGENTS.md`** — it is generated on demand (release CI and benchmarking)
 4. **Write clear commit messages** describing the change
 5. **Link related issues** in the PR description
-6. **(Optional)** Add an eval task in `evals/` for your rule
+6. **Add or update the matching evaluation** in `evals/` for your rule
 
 ## PR Merge Requirements
 
