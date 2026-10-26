@@ -59,12 +59,12 @@ So the combined recommendation is simple: **use a Recommended-tier model *and* d
 
 | Skill | Description | Status |
 |-------|-------------|--------|
-| [cosmosdb-best-practices](skills/cosmosdb-best-practices/) | Performance optimization (111 rules, 12 categories) | ✅ Stable |
+| [cosmosdb-best-practices](skills/cosmosdb-best-practices/) | Best practices and developer tooling (139 rules, 13 categories) | ✅ Stable |
 | migration-capacity-planning | RU calculation, data sizing, pre-split partitions | 🚧 Planned |
 
 ### cosmosdb-best-practices
 
-Azure Cosmos DB performance optimization guidelines containing 111 rules across 12 categories, prioritized by impact.
+Azure Cosmos DB performance optimization guidelines containing 139 rules across 13 categories, prioritized by impact.
 
 **Use when:**
 - Writing new code that interacts with Cosmos DB

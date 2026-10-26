@@ -183,6 +183,10 @@ The original vector-index decision matrix is the one longer prompt retained to
 preserve its small-dataset fallback and recall-tuning coverage (up to 180 words).
 The obsolete task files and mock configuration are removed, not the scenarios.
 
+The two Cosmos DB Shell read-targeting and deletion scenarios are also migrated
+into the tooling spec, preserving their task IDs in `tags.legacy`. A separate
+setup stimulus covers read-only diagnostics and consent before environment changes.
+
 All four checks must pass: execution completed, correct skill activation,
 nonempty output, and the LLM judge's binary correctness verdict. The overall
 threshold is 1, so activation alone cannot compensate for incorrect advice.
@@ -215,6 +219,9 @@ npm run eval
 # Limit live execution to one rule or category.
 npm run eval -- --tag rule=query-point-reads
 npm run eval -- --tag category=query
+
+# Run all developer-tooling cases, including Cosmos DB Shell guidance.
+npm run eval -- --tag category=tooling
 
 # Run a migrated scenario by its original task ID.
 npm run eval -- --tag legacy=indexing-composite-005
