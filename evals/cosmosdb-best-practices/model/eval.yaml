@@ -145,3 +145,24 @@ stimuli:
     rubric:
       - Persist a type discriminator such as type with distinct values and use it to filter and deserialize the appropriate entity type.
     graders: *rule-graders
+
+  # Enforce partition-scoped uniqueness.
+  - name: model-unique-keys
+    tags: { category: model, rule: model-unique-keys }
+    prompt: |
+      Cosmos DB customers need tenant-wide email uniqueness. Concurrent
+      query-before-insert checks allow duplicates. Explain enforcement and conflicts
+      for a new /tenantId container and migration for an existing unconstrained
+      container. Would hierarchical /tenantId plus /region keys preserve tenant-wide
+      uniqueness? Address missing/null emails, case differences, and orders without
+      email. Can composite indexes, per-item ETags, or reservation documents alone
+      enforce uniqueness across partitions? No code.
+    rubric:
+      - Define a native uniqueKeyPolicy with a unique key on /email at container creation; query-before-write is not race-safe, and ordinary composite indexes do not enforce uniqueness.
+      - Explain that uniqueness is scoped to the full logical partition key, so different tenants may share an email and hierarchical /tenantId plus /region keys enforce uniqueness per tenant-region tuple, not tenant-wide.
+      - Treat HTTP 409 as a conflict rather than blindly retrying or bypassing the constraint with another ID or upsert.
+      - Explain that unique-key policies cannot be changed in place; an existing container without the policy requires an approved new-container and data-migration plan rather than createIfNotExists or automatic deletion and recreation.
+      - Explain that paths and string values are case-sensitive, and missing or null emails participate as null and can collide within a partition because sparse unique keys are unsupported.
+      - Account for every document type in the container; orders without email can collide because there is no implicit type isolation or filtered constraint, so separate incompatible types or explicitly account for null collisions in a type-scoped composite unique key.
+      - Do not claim that ETags on separate items or a reservation document alone provide atomic cross-partition uniqueness; a requirement beyond native scope needs an explicit alternative partitioning or enforcement design.
+    graders: *rule-graders
