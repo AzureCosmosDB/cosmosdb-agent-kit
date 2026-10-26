@@ -20,6 +20,9 @@ function updateJsonFile(filePath) {
     const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     const oldVersion = content.version;
     content.version = newVersion;
+    if (path.basename(filePath) === 'package-lock.json' && content.packages?.['']) {
+        content.packages[''].version = newVersion;
+    }
     fs.writeFileSync(filePath, JSON.stringify(content, null, 2) + '\n');
     console.log('  ' + path.relative(ROOT, filePath) + ': ' + oldVersion + ' -> ' + newVersion);
     return true;
@@ -40,6 +43,7 @@ console.log('\nBumping version to ' + newVersion + '\n');
 
 // Root manifests
 updateJsonFile(path.join(ROOT, 'package.json'));
+updateJsonFile(path.join(ROOT, 'package-lock.json'));
 updateJsonFile(path.join(ROOT, 'plugin.json'));
 updateJsonFile(path.join(ROOT, 'gemini-extension.json'));
 updateJsonFile(path.join(ROOT, '.claude-plugin', 'plugin.json'));
