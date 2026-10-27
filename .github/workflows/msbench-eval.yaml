@@ -112,7 +112,7 @@ jobs:
       # fall back to the repo/ref the run was started on. persist-credentials:false avoids
       # leaving a token in the checked-out (potentially untrusted) working tree.
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.ref }}
@@ -122,7 +122,7 @@ jobs:
       # OIDC (federated credentials) — no client secret is stored. All later az /
       # msbench-cli calls run as this identity, which authorizes the submission.
       - name: Sign in to Azure (OIDC — managed identity)
-        uses: azure/login@v2
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -130,7 +130,7 @@ jobs:
 
       # Use Python 3.11 for the evaluation tooling and repository scripts.
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.11'
 
@@ -235,7 +235,7 @@ jobs:
       # Includes the skill-off baseline and comparison files when --baseline was used.
       - name: Upload results artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: msbench-results
           path: |

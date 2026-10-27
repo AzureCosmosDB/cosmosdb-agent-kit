@@ -59,13 +59,13 @@ So the combined recommendation is simple: **use a Recommended-tier model *and* d
 
 | Skill | Description | Status |
 |-------|-------------|--------|
-| [cosmosdb-best-practices](skills/cosmosdb-best-practices/) | Performance optimization (111 rules, 12 categories) | ✅ Stable |
+| [cosmosdb-best-practices](skills/cosmosdb-best-practices/) | Best practices and developer tooling (139 rules, 13 categories) | ✅ Stable |
 | [cosmosdb-ppaf-fault-testing](skills/cosmosdb-ppaf-fault-testing/) | Cross-SDK PPAF service-fault test planning, supervision, and verified cleanup | Procedural |
 | migration-capacity-planning | RU calculation, data sizing, pre-split partitions | 🚧 Planned |
 
 ### cosmosdb-best-practices
 
-Azure Cosmos DB performance optimization guidelines containing 111 rules across 12 categories, prioritized by impact.
+Azure Cosmos DB performance optimization guidelines containing 139 rules across 13 categories, prioritized by impact.
 
 **Use when:**
 - Writing new code that interacts with Cosmos DB
@@ -245,20 +245,6 @@ Works with Claude Code, Codex, Cursor, Gemini CLI, Grok Build, Kimi Code, GitHub
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
-## Evaluation (Local Only)
-
-This project includes a [Vally](https://github.com/microsoft/vally) eval framework for local skill testing. Evals are not enforced in CI today (the mock executor cannot validate response content), but you can run them locally to sanity-check your changes:
-
-```bash
-# Install Vally by following the instructions at https://github.com/microsoft/vally
-
-# Run evaluations
-vally run evals/cosmosdb-best-practices/eval.yaml -v
-
-# Check skill readiness
-vally check skills/cosmosdb-best-practices
-```
-
 **Looking for a way to help?** Check out our [good first issues](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) or browse the [Discussions](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/discussions) board to share ideas.
 
 ## Contributors
@@ -276,20 +262,36 @@ Contributions of any kind welcome! See the [contributing guide](CONTRIBUTING.md)
 
 ## Evaluation with Vally
 
-This project uses [Vally](https://github.com/microsoft/vally) to evaluate skill quality, testing that the agent produces correct Cosmos DB guidance across data modeling, partitioning, queries, SDK usage, and throughput scenarios.
+This project uses [Vally](https://github.com/microsoft/vally) to test
+`cosmosdb-best-practices`: one short test per rule, except for the four
+[documented exclusions](CONTRIBUTING.md#evaluation-exclusions), plus a non-activation test.
+Each test checks completion, skill activation, nonempty output, and answer
+correctness using an LLM judge. A failed test is retried once with unchanged
+grading and reported as flaky if the retry passes.
+
+The excluded MCP content-parsing case is covered by deterministic Python example
+tests instead. Running those tests requires Python 3.11 or newer.
 
 ```bash
-# Install Vally by following the instructions at https://github.com/microsoft/vally
+npm ci
+npm run build
+npm run eval:lint
+npm run eval:test
+python -B -m unittest discover -s evals/cosmosdb-best-practices -p "test_*.py" -v
 
-# Run evaluations (mock executor, no API key needed)
-vally run evals/cosmosdb-best-practices/eval.yaml -v
+# Live evaluations (requires Copilot authentication and model access)
+npm run eval
 
-# Check skill readiness
-vally check skills/cosmosdb-best-practices
-
-# Run with a real model (requires Copilot auth)
-vally run evals/cosmosdb-best-practices/eval.yaml --executor copilot-sdk --model claude-sonnet-4.6
+# Run just one rule
+npm run eval -- --tag rule=query-point-reads
 ```
+
+The [Vally workflow](.github/workflows/evals.yml) validates relevant changes
+offline, runs live evaluations only for trusted same-repository events, and
+publishes Actions summaries and result artifacts. Fork and Dependabot PRs run
+offline checks only. The aggregate check reports failures; branch protection determines merge
+enforcement. See [Writing Tests](CONTRIBUTING.md#writing-tests) for authentication,
+grading, cost controls, and adding a rule test.
 
 ## Changelog
 

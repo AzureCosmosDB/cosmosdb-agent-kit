@@ -9,27 +9,56 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
-## 2026-10-23 — Separate PPAF recovery evidence from drill success
-
-- **Failure policy:** Require explicit bounded approval to continue after specified transient errors without hiding failures or changing retry settings; retain RU/accounting and cleanup safeguards.
-- **Evidence:** Record secondary-region writes independently of terminal enable completion, separate failover/availability/full-drill/cleanup verdicts, and preserve the earlier run alongside the latest scoped live findings.
-- **Regression coverage:** Add offline scenarios for bounded error recovery, migration before terminal enable, and observer failure after corroborated failover.
-
-## 2026-10-22 — Incorporate live PPAF control-plane observations
-
-- **Procedure:** Preserve upstream request casing; separate HTTP-202 operation polling from fault lifecycle state; handle a pending-enable/disable-404 race without claiming cleanup. Add a narrowly scoped, explicit first-use exception for dedicated test accounts without treating generic 404 responses as inactive.
-- **Evidence and safeguards:** Protect signed operation URLs, retain bounded cleanup and deadline reporting, and distinguish baseline traffic plus successful REST enable/disable from unverified application failover or script end-to-end execution. Extend offline regression scenarios for these cases.
-
 ## 2026-10-19 — Add PPAF service-fault testing skill
 
-- **New procedural skill:** `cosmosdb-ppaf-fault-testing` provides a canonical human runbook and agent workflow for scoped, approved cross-SDK service-fault tests using pinned upstream PowerShell commands, with account-level ownership, bounded recovery, and independent failover evidence.
-- **Discovery and evaluation:** Added root/site links, contributor guidance for procedural skills, and ten offline scenarios with manual behavioral rubrics. No runner, vendored script, or live Azure test is included.
-- **RU awareness:** Warn before baseline traffic that test operations consume RUs and can contend with production capacity or increase charges. Require an approved measured budget and stop thresholds without treating workload exhaustion as permission to skip fault cleanup.
+- **New procedural skill:** `cosmosdb-ppaf-fault-testing` adds a concise human runbook and agent workflow for approved cross-SDK service-fault tests using pinned upstream commands, with RU/cost warnings, scoped ownership, bounded execution, verified cleanup, and separate failover and availability criteria.
+- **Discovery and evaluation:** Added root/site links, Codex metadata, contributor guidance, and 16 explanation-only Vally scenarios with activation and correctness grading. No runner or vendored script is included.
 
-## 2026-07-21 — Add Codex repo marketplace catalog
+## v1.4.0 — 2026-10-26 — Vally evaluations and rule updates
 
-- **New catalog:** `.agents/plugins/marketplace.json` — Codex-native repo marketplace listing the `azure-cosmosdb` plugin (`source.path: "./"`, `category: "Databases"`), so users can add it with `codex plugin marketplace add AzureCosmosDB/cosmosdb-agent-kit`. Codex also reads the legacy `.claude-plugin/marketplace.json`. The catalog carries no package `version` (schema-only) and is intentionally excluded from `npm run version`.
-- **Docs:** README adds an OpenAI Codex CLI install section and updates the per-agent manifest table to reference both marketplace catalogs.
+- **New rule:** `model-unique-keys` — partition-scoped uniqueness, comparison semantics, conflict handling, and immutable policy migration ([#279](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/279)); add matching activation and correctness evaluation coverage ([#282](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/282)).
+- **Developer tooling:** Add three Cosmos DB Shell rules and matching evaluations for account/target verification and bounded reads, scoped writes with ETag checks and confirmation, and read-only setup diagnostics ([#271](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/271)). Refine Shell safety guidance and explanation-only evaluations ([#284](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/284)).
+- **Amended:** `sdk-patch-counter-increment` — increment creates missing fields; existing targets must be numeric and parent objects must exist ([#276](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/276)).
+- **Evaluations:** Migrate legacy scenarios to category-based Vally specs with activation and correctness grading. Align prompts with rubrics; add offline tests, guarded retries, and CI reports. Document [four live exclusions](CONTRIBUTING.md#evaluation-exclusions) and add deterministic MCP parsing tests; fork and Dependabot PRs run offline only ([#277](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/277)).
+- **Skill index:** Restore missing rule links and the security category; require reading relevant rule bodies before answering (#277).
+- **CI:** Pin existing workflow actions to commit SHAs, preserve Rust's stable toolchain, and add grouped weekly Dependabot updates with a seven-day cooldown ([#275](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/275)). Refresh pinned action versions across workflows ([#280](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/280)).
+- **Version tooling:** Align manifests and skill metadata at `1.4.0`. Update and validate both lockfile version fields without dependency changes; add regression tests.
+
+### 2026-10-16 — Verify retry completion
+
+- Require a successful retry invocation and its final run summary before accepting recovery. Passing records from failed or incomplete retries cannot turn a failed evaluation into a pass.
+
+### 2026-10-15 — Evaluation scope and retries
+
+- Scope spatial-index and managed-identity cases to recommendations rather than unrequested API snippets; preserve strict grading with offline scope checks.
+- Restore the eight rule files changed during #277 and remove its provisional version bump. Keep corrected rubrics and test Java create-only behavior in the evaluation, not by changing published rules.
+- Retry each failed stimulus once at the unchanged threshold of 1; report recovered cases as flaky. Retain two executor retries for timeouts and rate limits.
+- Exclude `sdk-langchain-mcp-persistent-session`: both attempts answered correctly without activating the skill ([CI evidence](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/actions/runs/38699459892)). The rule remains available; no deterministic replacement test exists.
+
+### 2026-10-13 — Align prompts with rubric scope
+
+- Ask explicitly about schema-version fields across all persisted document types and alternative partition-key handling for reads, writes, and original values. Keep both rubrics and pass thresholds unchanged.
+
+### 2026-10-12 — Refine live coverage
+
+- Exclude `model-relationship-references` and `pattern-langgraph-multi-agent` after generated-code failures, not confirmed judge false positives ([CI evidence](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/actions/runs/38128858977)). Keep the underlying rules.
+- Replace the `sdk-langchain-mcp-tool-content-format` live case after a correct answer failed to activate the skill ([CI evidence](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/actions/runs/38231001186)). Deterministic Python tests cover the parsing example, not LangChain integration, skill activation, or live answer quality.
+- Restore `model-id-constraints` by explicitly asking for character restrictions and the maximum length with its unit, without supplying the answer or relaxing grading ([CI evidence](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/actions/runs/38223348711)).
+- Ground managed-identity grading in the published `endpoint` and `credentials` API; request emulator platform support and deployment limitations explicitly. Enforce exactly one evaluation per rule outside the documented exclusions.
+
+### 2026-10-09 — Rule discovery and grading ([#277](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/277))
+
+- Restore rule links and require reading relevant rule bodies. Preserve the 13 original evaluation scenarios and their legacy IDs in the category specs.
+- Align prompts with required caveats and accept equivalent explanations, propagated parsing errors, and supported Go SDK versions. Keep strict correctness grading without requiring unrequested code or exact phrases; distinguish unsafe TLS advice from omitted boilerplate warnings.
+
+## v1.3.0 — 2026-10-03 — Rule corrections and agent integrations ([#273](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/273))
+
+- **New rule:** `sdk-python-client-kwargs` — configure Python v4 clients with flat keyword arguments instead of legacy `ConnectionPolicy` objects ([#225](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/225)).
+- **Indexing:** Preserve container settings during policy updates; clarify range paths, composite-index requirements and reverse sorts, full-text exclusions, predicate ordering, and vector-index selection.
+- **SDK and LangGraph:** Correct interrupt/checkpoint resumption, parameterized LangChain filters, Java patch method names, and request-options lifetime guidance. Qualify point-read and patch RU costs.
+- **Testing:** Fix .NET cascade-delete paging, remove the unreliable async-client verifier check, and extend SDK skill-efficacy evaluation workflows ([#240](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/240), [#243](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/243), [#259](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/259)).
+- **Integrations:** Add the Codex repository catalog, Codex metadata and icons, and Grok marketplace support ([#239](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/239), [#246](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/246), [#247](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/247)).
+- **Docs and maintenance:** Publish evaluation-backed model and skill-delivery recommendations, update code owners, and align manifests at `1.3.0` ([#244](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/244), [#272](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/272)).
 
 ## v1.2.0 — 2026-07-21 — Add Kimi Code plugin surface
 

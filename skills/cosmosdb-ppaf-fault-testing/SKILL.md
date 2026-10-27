@@ -4,7 +4,7 @@ description: Plan, supervise, and assess Azure Cosmos DB per-partition automatic
 license: MIT
 metadata:
   author: cosmosdb-agent-kit
-  version: "1.3.0"
+  version: "1.4.0"
 ---
 
 # Azure Cosmos DB PPAF Fault Testing
@@ -95,7 +95,7 @@ Require an available observer for terminal operation state and actual fault
 state, with bounded polling and an escalation path. HTTP success, process exit,
 elapsed waits, or a guessed response property is not proof. If the available
 tools cannot provide these observations, stop before enable.
-Read the README's observed-contract table: an operation-result `Location` GET
+Read the README's operation-polling guidance: an operation-result `Location` GET
 returning HTTP 202 with `status: Dequeued` is pending, not grounds to abort solely
 for that label. Keep fault-resource `ProvisioningState` distinct from the
 management-operation `status`. Correlate actual response casing and numeric or
