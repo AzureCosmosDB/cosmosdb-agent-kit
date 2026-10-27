@@ -19,6 +19,12 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 - **CI:** Pin existing workflow actions to commit SHAs, preserve Rust's stable toolchain, and add grouped weekly Dependabot updates with a seven-day cooldown ([#275](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/275)). Refresh pinned action versions across workflows ([#280](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/280)).
 - **Version tooling:** Align manifests and skill metadata at `1.4.0`. Update and validate both lockfile version fields without dependency changes; add regression tests.
 
+### 2026-10-26 — Clarify Cosmos DB Shell guidance evaluations ([#284](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/284))
+
+- Make account-target and deletion evaluations explanation-only, with an explicit fallback when Shell MCP is unavailable; accept equivalent account and endpoint wording without requiring tool calls or JSON.
+- Add concise preflight checklists to the existing Shell rules, preserving target verification, typed partition keys, ETags, scan-cost warnings, backups, confirmation, and uncertain-outcome handling.
+- Add offline regression checks for the evaluation scope and retained safety requirements; keep skill activation and strict correctness thresholds unchanged.
+
 ### 2026-10-16 — Verify retry completion
 
 - Require a successful retry invocation and its final run summary before accepting recovery. Passing records from failed or incomplete retries cannot turn a failed evaluation into a pass.

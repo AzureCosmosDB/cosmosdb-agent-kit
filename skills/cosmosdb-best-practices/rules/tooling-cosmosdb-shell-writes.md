@@ -9,6 +9,17 @@ tags: tooling, cosmosdb-shell, mcp, writes, destructive-operations, safety
 
 A request to inspect or diagnose data is not permission to change it. Run writes through Cosmos DB Shell only when the user asks for them. Before a write, verify the account (see `tooling-cosmosdb-shell-target`), database, container, and the affected item's `id` and partition key, and read the current state when relevant.
 
+**Single-item deletion preflight, including when explaining a proposed procedure:**
+
+1. Verify the account, database, container, and intended customer. An unscoped `rm` pattern matches partition keys by default, not IDs. Stop until the target is unambiguous.
+2. Keep the exact non-wildcard ID, `key=id`, complete correctly typed partition key, database, and container identical in preview and execution. Require one intended item and inspect its ID, partition key, and ETag, not just a count.
+3. Use that actual preview ETag on execution. Stop on a mismatch or unsupported safety options; never refresh the ETag automatically or retry without the condition.
+4. Explain cost: exact ID plus partition key uses point operations; other patterns can scan and consume substantial RUs, and a partition key restricts scans to that partition.
+5. Remind the user to back up important data and preserve the MCP confirmation gate. Do not bypass declined or unavailable confirmation with force, a terminal, or another tool.
+6. Verify success with a narrow read. If the result is uncertain, inspect current state before retrying; never claim deletion without evidence.
+
+If the user asks only for an explanation, do not execute writes. If Shell MCP is unavailable, say so and describe the proposed procedure without claiming tool discovery or execution; do not install tools or switch to another execution route to answer.
+
 Through MCP, call the Shell tool named after the command with structured arguments (`--database=MyDb` becomes `"database": "MyDb"`, `--dry-run` becomes `"dry-run": true`, positional values use their parameter names). The `bash` blocks are the equivalent interactive Cosmos DB Shell commands, not system terminal commands to run instead of MCP.
 
 **Incorrect (deleting by an assumed ID, relying on navigation, and trying to skip confirmation):**

@@ -9,6 +9,13 @@ tags: tooling, cosmosdb-shell, mcp, inspection, query
 
 Cosmos DB Shell MCP tools share one connection and navigation location with the user's interactive shell and any other MCP clients. A location or connection seen earlier in a chat may no longer be current. Discover the Shell tools available in the client and follow their schemas; use `help <command>` for the installed version's syntax instead of inventing commands or options. If the user only asks for a command or an explanation, provide it without running a database operation.
 
+**Read preflight:**
+
+1. Verify the current account identity and endpoint (`accountId` and `uri`) with account-root `info`; `pwd` alone is not account verification. If not at the root, ask for agreement before navigating there or ask the user to confirm the account. Stop on ambiguity.
+2. Specify the database, container, required fields, and a positive `max` for the proposed query, regardless of earlier navigation.
+3. Use discovered MCP schemas when available. If Shell MCP is unavailable, state that limitation and explain the intended checks and arguments without claiming schema discovery or execution. Do not install tools, change navigation, or run a terminal substitute just to answer.
+4. Distinguish a proposed read from returned data; report IDs, costs, and completeness only from actual results.
+
 **Call MCP tools with structured arguments.** When using MCP, invoke the discovered Cosmos DB Shell tool named after the command (`query`, `info`, `ls`; some clients add a server prefix) with arguments that match its input schema. Shell flags are not literal MCP argument names: `--database=MyDb` corresponds to `"database": "MyDb"`, `--max=5` to `"max": 5`, `--dry-run` to `"dry-run": true`, and a positional value such as the query text to its named parameter (`"query": "SELECT ..."`). The `bash` blocks show the equivalent interactive Cosmos DB Shell commands for the user to run in the Shell. Do not execute them in a system terminal as a substitute for MCP.
 
 **Incorrect (treating navigation as the account and running an unbounded query):**
