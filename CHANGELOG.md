@@ -9,6 +9,12 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## 2026-10-26 - Clarify Cosmos DB Shell guidance evaluations
+
+- Make account-target and deletion evaluations explanation-only, with an explicit fallback when Shell MCP is unavailable; accept equivalent account and endpoint wording without requiring tool calls or JSON.
+- Add concise preflight checklists to the existing Shell rules, preserving target verification, typed partition keys, ETags, scan-cost warnings, backups, confirmation, and uncertain-outcome handling.
+- Add offline regression checks for the evaluation scope and retained safety requirements; keep skill activation and strict correctness thresholds unchanged.
+
 ## 2026-10-15 - Focus live evaluations on rule recommendations
 
 - Scope the spatial-index case to index category and geometry type, and the LangChain.js managed-identity case to keyless authentication and data-plane RBAC.

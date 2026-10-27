@@ -110,6 +110,45 @@ test('spatial and managed-identity cases test recommendations without API snippe
     assert.doesNotMatch(rubric, /Use endpoint plus|cosmosClientOptions|AzureCosmosDBNoSQLVectorStore|credentials \(plural\)/);
 });
 
+test('Shell guidance cases support unavailable MCP without requiring execution', () => {
+    for (const name of ['tooling-cosmosdb-shell-target', 'tooling-cosmosdb-shell-writes']) {
+        const stimulus = stimuli.find((entry) => entry.name === name);
+        assert.match(stimulus.prompt, /Do not run (?:database )?operations/);
+        assert.match(stimulus.prompt, /MCP tools are\s+unavailable/);
+        assert.match(stimulus.rubric.join('\n'), /explanation-only/);
+        assert.match(stimulus.rubric.join('\n'), /do not claim/i);
+    }
+    const target = stimuli.find((entry) => entry.name === 'tooling-cosmosdb-shell-target');
+    const rubric = target.rubric.join('\n');
+    assert.match(target.prompt, /database demo, container orders/);
+    assert.match(rubric, /exact field names are not required/);
+    assert.match(rubric, /does not require actual schema discovery/);
+    assert.match(rubric, /conditional steps and illustrative arguments are acceptable/);
+    assert.match(rubric, /neither a tool call nor JSON is required/);
+    assert.match(rubric, /database demo and container orders.*positive max of 5/);
+    assert.match(rubric, /agreement.*stop if the account remains ambiguous/s);
+});
+
+test('Shell deletion guidance retains identification and safety requirements', () => {
+    const stimulus = stimuli.find((entry) => entry.name === 'tooling-cosmosdb-shell-writes');
+    const rubric = stimulus.rubric.join('\n');
+    assert.match(stimulus.prompt, /Shell matching defaults/);
+    assert.match(stimulus.prompt, /unsupported safety options/);
+    for (const safeguard of [
+        /pattern matches the partition key by default/,
+        /exact non-wildcard ID, key=id/,
+        /complete correctly typed partition key in both preview and execution/,
+        /exactly one intended ID and partition key with its ETag/,
+        /actual ETag.*stop on a mismatch.*without refreshing/,
+        /options are unavailable, stop/,
+        /point operations.*scan.*RUs.*partition-key scoping/,
+        /confirmation gate.*back up important data.*never bypass/,
+        /narrow bounded read.*inspecting current state before retrying/,
+    ]) {
+        assert.match(rubric, safeguard);
+    }
+});
+
 test('cases stay short, commented, and meaningfully graded', () => {
     for (const { spec, source } of specs) {
         assert.equal(spec.scoring.threshold, 1);
