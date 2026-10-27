@@ -1,0 +1,19 @@
+id: sdk-transactional-batch-001
+name: SDK Best Practice - Transactional Batch
+description: |
+  Test that the skill recommends atomic same-partition writes, respects batch
+  limits, and checks both the batch and individual operation results.
+tags:
+  - sdk
+  - happy-path
+  - transactional-batch
+inputs:
+  prompt: |
+    Review this C# code that creates an order and its lines in Cosmos DB. The
+    order and lines share a partition key. Explain whether separate writes are
+    safe, then show how to use TransactionalBatch. Include the operation and
+    payload limits, and explain how to identify an individual failed operation
+    from the response.
+expected:
+  outcomes:
+    - type: task_completed

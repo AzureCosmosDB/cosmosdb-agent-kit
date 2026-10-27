@@ -84,6 +84,7 @@ Performance optimization and best practices guide for Azure Cosmos DB applicatio
    - 4.29 [Reuse CosmosClient as Singleton](#429-reuse-cosmosclient-as-singleton)
    - 4.30 [Annotate entities for Spring Data Cosmos with @Container, @PartitionKey, and String IDs](#430-annotate-entities-for-spring-data-cosmos-with-container-partitionkey-and-string-ids)
    - 4.31 [Use CosmosRepository correctly and handle Iterable return types](#431-use-cosmosrepository-correctly-and-handle-iterable-return-types)
+   - 4.32 [Use Transactional Batch for Atomic Multi-Item Operations](#432-use-transactional-batch-for-atomic-multi-item-operations)
 5. [Indexing Strategies](#5-indexing-strategies) — **MEDIUM-HIGH**
    - 5.1 [Composite Index Directions Must Match ORDER BY](#51-composite-index-directions-must-match-order-by)
    - 5.2 [Use Composite Indexes for ORDER BY](#52-use-composite-indexes-for-order-by)
@@ -7161,6 +7162,63 @@ Pet getPetById(String id);
 **Update all callers** — controllers, tests, formatters, and other services must reference the renamed methods.
 
 Reference: [Spring Data Azure Cosmos DB repository](https://learn.microsoft.com/azure/cosmos-db/nosql/how-to-java-spring-data#define-a-repository)
+
+### 4.32 Use Transactional Batch for Atomic Multi-Item Operations
+
+**Impact: HIGH** (provides atomic writes within one logical partition)
+
+Use transactional batch when multiple creates, updates, deletes, or patches must succeed or fail together within the same logical partition. This avoids custom compensation logic for operations that Azure Cosmos DB can already execute atomically.
+
+**Incorrect (separate writes that can partially succeed):**
+
+```csharp
+await container.CreateItemAsync(order, new PartitionKey(order.OrderId));
+await container.CreateItemAsync(orderLine, new PartitionKey(order.OrderId));
+await container.PatchItemAsync<OrderSummary>(
+    order.OrderId,
+    new PartitionKey(order.OrderId),
+    patchOperations);
+```
+
+If one operation fails after an earlier operation succeeds, the application must detect and repair partial state.
+
+**Correct (batch related writes in one logical partition):**
+
+```csharp
+var partitionKey = new PartitionKey(order.OrderId);
+
+TransactionalBatch batch = container.CreateTransactionalBatch(partitionKey)
+    .CreateItem(order)
+    .CreateItem(orderLine)
+    .PatchItem(order.OrderId, patchOperations);
+
+TransactionalBatchResponse response = await batch.ExecuteAsync();
+
+if (!response.IsSuccessStatusCode)
+{
+    throw new InvalidOperationException(
+        $"Order batch failed with status {response.StatusCode}");
+}
+
+for (var index = 0; index < 3; index++)
+{
+    TransactionalBatchOperationResult<object> operation =
+        response.GetOperationResultAtIndex<object>(index);
+
+    if (!operation.IsSuccessStatusCode)
+    {
+        // Handle or log the specific operation failure before returning success.
+        throw new InvalidOperationException(
+            $"Batch operation {index} failed with status {operation.StatusCode}");
+    }
+}
+```
+
+All items in a transactional batch must share the same partition key value. A batch can contain at most 100 operations and its serialized payload cannot exceed 2 MB. Keep headroom for serialization overhead and split larger aggregates into multiple batches only when the application can preserve the required consistency across those transactions.
+
+Check `IsSuccessStatusCode` on the overall response and inspect each operation result with `GetOperationResultAtIndex<T>()` when the caller needs operation-level diagnostics. A failed operation causes the transaction to roll back; the failed operation carries its error status and other operations can report 424 (Failed Dependency). Do not report success based only on the HTTP-level batch response or discard the failing operation's status.
+
+References: [Transactional batch operations](https://learn.microsoft.com/azure/cosmos-db/nosql/transactional-batch), [service quotas and limits](https://learn.microsoft.com/azure/cosmos-db/concepts-limits).
 
 ---
 
