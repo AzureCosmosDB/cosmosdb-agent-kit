@@ -174,8 +174,11 @@ Capture the service-returned `Location` and `Azure-AsyncOperation` when supplied
 verify HTTPS, ARM host, target scope, and correlated operation IDs. Never guess
 operation URLs. A body read alone is insufficient without HTTP status/headers:
 
+The observer must first capture `$operationUrl` directly from the approved
+request's response headers in memory and validate it as above. Do not paste a
+signed URL into a command literal or saved script: shell history can retain it.
+
 ```powershell
-$operationUrl = '<actual-verified-service-operation-url>'
 az rest --method get --url $operationUrl --output json
 if ($LASTEXITCODE -ne 0) { throw 'Operation observation failed; state is unknown.' }
 ```
