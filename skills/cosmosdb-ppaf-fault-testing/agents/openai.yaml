@@ -1,0 +1,5 @@
+interface:
+  display_name: "Azure Cosmos DB PPAF Fault Testing"
+  short_description: "Plan and supervise approved PPAF service-fault tests"
+  brand_color: "#0078D4"
+  default_prompt: "Use $cosmosdb-ppaf-fault-testing to prepare a scoped PPAF service-fault test plan with workload evidence and verified cleanup; do not execute until I approve."

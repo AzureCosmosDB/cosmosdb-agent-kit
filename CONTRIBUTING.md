@@ -44,7 +44,14 @@ skills/
       {prefix}-{name}.md  # Individual rule files
 ```
 
-3. Define sections in `rules/_sections.md` with frontmatter:
+For **procedural skills**, omit `rules/` and generated `AGENTS.md`. Keep the
+agent workflow in `SKILL.md` and the canonical human procedure in `README.md`;
+include `metadata.json` and, for Codex discovery, `agents/openai.yaml`. See
+[cosmosdb-ppaf-fault-testing](skills/cosmosdb-ppaf-fault-testing/) for an example.
+Add focused eval tasks with explicit review criteria, and link the skill from
+the root README and website. Existing plugin manifests discover `skills/`.
+
+3. For rule-based skills, define sections in `rules/_sections.md` with frontmatter:
 
 ```yaml
 ---
@@ -68,6 +75,14 @@ npm run validate:skill {skill-name}
 ```
 
 5. Create a matching eval directory at `evals/{skill-name}/` (see [Writing Tests](#writing-tests))
+
+The compiler intentionally skips procedural skills without `rules/`.
+`npm run validate` checks only rule-based skills, and
+`npm run validate:skill <procedural-skill>` reports no rules rather than validating
+the skill. Validate procedural frontmatter, metadata, links, command examples,
+and eval YAML separately. Use the current Vally stimulus format with activation
+and correctness graders; `npm run eval:lint` checks structure, not behavioral
+correctness. Fault-testing evaluation prompts must remain explanation-only.
 
 ### 4. Report Issues / Suggest Improvements
 
