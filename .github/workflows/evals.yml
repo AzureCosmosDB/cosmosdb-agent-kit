@@ -94,6 +94,7 @@ jobs:
     timeout-minutes: 180
     permissions:
       contents: read
+      actions: read
       copilot-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -106,21 +107,33 @@ jobs:
       - run: npm ci
       - run: npm run build
       - name: Run Vally
+        id: vally
         env:
           COPILOT_GITHUB_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
-        run: npm run eval
-      - name: Publish Markdown reports
-        if: always()
         shell: bash
         run: |
-          if [ -d results ]; then
-            while IFS= read -r -d '' report; do
-              cat "$report" >> "$GITHUB_STEP_SUMMARY"
-              printf '\n' >> "$GITHUB_STEP_SUMMARY"
-            done < <(find results -name eval-results.md -type f -print0)
+          mkdir -p results
+          npm run eval 2>&1 | tee results/vally.log
+      - name: Publish failure summary
+        if: always() && steps.vally.outcome != 'skipped'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VALLY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          VALLY_OUTCOME: ${{ steps.vally.outcome }}
+          VALLY_LOG: results/vally.log
+        shell: bash
+        run: |
+          if gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" \
+            > "$RUNNER_TEMP/vally-jobs.json"; then
+            export VALLY_JOBS="$RUNNER_TEMP/vally-jobs.json"
+          else
+            echo "::warning::Could not read pipeline steps; linking to the workflow run instead."
           fi
+          node scripts/eval-summary.mjs results
       - name: Upload reports and trajectories
+        id: reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -128,6 +141,21 @@ jobs:
           path: results/
           if-no-files-found: warn
           retention-days: 14
+      - name: Link results artifact
+        if: always() && steps.vally.outcome != 'skipped'
+        env:
+          ARTIFACT_URL: ${{ steps.reports.outputs.artifact-url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          if [ -n "$ARTIFACT_URL" ]; then
+            printf '\n[Download full results artifact](%s) (reports, grader evidence, trajectories, and logs).\n' \
+              "$ARTIFACT_URL" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::Results artifact is unavailable; check the upload step."
+            printf '\n**Results artifact unavailable.** See the [workflow run](%s) for upload errors.\n' \
+              "$RUN_URL" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   gate:
     name: Vally evaluation gate
@@ -135,10 +163,12 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    permissions: {}
+    permissions:
+      actions: read
     steps:
       - name: Report evaluation outcome
         env:
+          GH_TOKEN: ${{ github.token }}
           CHANGES_RESULT: ${{ needs.changes.result }}
           RELEVANT: ${{ needs.changes.outputs.relevant }}
           VALIDATION_RESULT: ${{ needs.validate.result }}
@@ -153,6 +183,12 @@ jobs:
           fail() {
             echo "::error::$1"
             printf '%s\n' "$1" >> "$GITHUB_STEP_SUMMARY"
+            if ! gh api --paginate \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" \
+              --jq '.jobs[] | select(.conclusion == "failure") | . as $job | .steps[] | select(.conclusion == "failure") | "- [\($job.name) / \(.name)](\($job.html_url)#step:\(.number):1)"' \
+              >> "$GITHUB_STEP_SUMMARY"; then
+              echo "::warning::Could not link the failed pipeline steps."
+            fi
             exit 1
           }
           [ "$CHANGES_RESULT" = success ] || fail "Change detection failed ($CHANGES_RESULT)."

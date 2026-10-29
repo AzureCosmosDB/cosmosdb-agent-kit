@@ -283,6 +283,15 @@ offline checks only. The aggregate check reports failures; branch protection det
 enforcement. See [Writing Tests](CONTRIBUTING.md#writing-tests) for authentication,
 grading, cost controls, and adding a rule test.
 
+Actions summaries list only unresolved failures, grouped by loaded skills, executor,
+model, and variant. Each row includes the failed graders on one line, a compact error
+or grading explanation, and a link to the evaluation step. Failed test names link to
+their definition and rubric at the tested commit. Passing and retry-recovered
+stimuli appear only as counts. Full Markdown reports, unabridged grader evidence,
+trajectories, the invocation manifest, and the console log remain in the results artifact.
+The summary includes a direct download link after the artifact is uploaded, or an
+explicit notice if the upload did not produce an artifact.
+
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for a dated history of updates to the agent kit, including the `cosmosdb-best-practices` skill and the testing framework. Each entry links to the PR that introduced the change.
