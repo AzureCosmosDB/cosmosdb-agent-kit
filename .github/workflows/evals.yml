@@ -133,6 +133,7 @@ jobs:
           fi
           node scripts/eval-summary.mjs results
       - name: Upload reports and trajectories
+        id: reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -140,6 +141,21 @@ jobs:
           path: results/
           if-no-files-found: warn
           retention-days: 14
+      - name: Link results artifact
+        if: always() && steps.vally.outcome != 'skipped'
+        env:
+          ARTIFACT_URL: ${{ steps.reports.outputs.artifact-url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          if [ -n "$ARTIFACT_URL" ]; then
+            printf '\n[Download full results artifact](%s) (reports, grader evidence, trajectories, and logs).\n' \
+              "$ARTIFACT_URL" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::Results artifact is unavailable; check the upload step."
+            printf '\n**Results artifact unavailable.** See the [workflow run](%s) for upload errors.\n' \
+              "$RUN_URL" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   gate:
     name: Vally evaluation gate

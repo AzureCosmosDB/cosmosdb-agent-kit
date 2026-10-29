@@ -1,5 +1,5 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
 import { failedTrials, summarizeStimuli, verifyRetry } from './eval-retry.mjs';
@@ -57,8 +57,34 @@ export function findStepUrl(jobs, jobName = 'Run live evaluations', stepName = '
     return job?.html_url && step ? `${job.html_url}#step:${step.number}:1` : undefined;
 }
 
+export function findTestUrl(evalFilePath, stimulus, { workspace, sourceRootUrl } = {}) {
+    if (!workspace || !sourceRootUrl) return undefined;
+    const file = relative(workspace, evalFilePath);
+    if (!file || isAbsolute(file) || file === '..' || file.startsWith(`..${sep}`)) {
+        console.warn(`Cannot link test outside the repository: ${evalFilePath}`);
+        return undefined;
+    }
+    const url = `${sourceRootUrl}/${file.split(sep).map((part) => encodeURIComponent(part)
+        .replace(/[!'()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`)).join('/')}`;
+    if (!existsSync(evalFilePath)) {
+        console.warn(`Test source is unavailable; linking to the spec without a line: ${evalFilePath}`);
+        return url;
+    }
+    const names = new Set([stimulus, JSON.stringify(stimulus), `'${stimulus.replace(/'/g, "''")}'`]);
+    const lines = readFileSync(evalFilePath, 'utf8').split(/\r?\n/);
+    const matches = lines.flatMap((line, index) => {
+        const name = line.match(/^\s*-\s+name:\s*(.*?)\s*$/)?.[1];
+        return names.has(name) ? [index + 1] : [];
+    });
+    if (matches.length !== 1) {
+        console.warn(`Cannot locate a unique test definition for ${stimulus}; linking to the spec: ${evalFilePath}`);
+        return url;
+    }
+    return `${url}#L${matches[0]}`;
+}
+
 /** Failures only; successful and recovered stimuli remain counts, not table rows. */
-export function renderSummary(attempts, { stepUrl, runUrl, log = '', outcome } = {}) {
+export function renderSummary(attempts, { stepUrl, runUrl, log = '', outcome, testUrl = () => undefined } = {}) {
     const first = attempts[0] ?? { status: 1, records: [] };
     const retryRuns = attempts.slice(1);
     const initial = summarizeStimuli(first.records);
@@ -107,7 +133,7 @@ export function renderSummary(attempts, { stepUrl, runUrl, log = '', outcome } =
             const rows = groups.get(key) ?? new Map();
             const detail = failureDetail(trial);
             const rowKey = JSON.stringify([trial.evalFilePath, trial.stimulus]);
-            const row = rows.get(rowKey) ?? { stimulus: trial.stimulus, graders: new Set(), messages: new Set(), attempt: latestFailures.length ? 'Retry' : 'First' };
+            const row = rows.get(rowKey) ?? { evalFilePath: trial.evalFilePath, stimulus: trial.stimulus, graders: new Set(), messages: new Set(), attempt: latestFailures.length ? 'Retry' : 'First' };
             row.graders.add(detail.graders);
             row.messages.add(compact(note + detail.message));
             rows.set(rowKey, row);
@@ -118,7 +144,9 @@ export function renderSummary(attempts, { stepUrl, runUrl, log = '', outcome } =
         lines.push(`### ${cell(group)}`, '', '| Failed stimulus | Attempt | Failed graders | Error | Step |',
             '|---|---|---|---|---|');
         for (const row of [...rows.values()].sort((a, b) => a.stimulus.localeCompare(b.stimulus))) {
-            lines.push(`| ${cell(row.stimulus)} | ${row.attempt} | ${cell([...row.graders].join(', '))} | ${cell([...row.messages].join('; '))} | ${link} |`);
+            const url = testUrl(row.evalFilePath, row.stimulus);
+            const stimulus = url ? `[${cell(row.stimulus)}](${url})` : cell(row.stimulus);
+            lines.push(`| ${stimulus} | ${row.attempt} | ${cell([...row.graders].join(', '))} | ${cell([...row.messages].join('; '))} | ${link} |`);
         }
         lines.push('');
     }
@@ -145,11 +173,15 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const jobs = jobsPath ? JSON.parse(readFileSync(jobsPath, 'utf8')).flatMap((page) => page.jobs) : [];
     const stepUrl = findStepUrl(jobs);
     if (jobsPath && !stepUrl) console.warn('::warning::Could not locate the Run Vally step; linking to the workflow run instead.');
+    const { GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_SHA, GITHUB_WORKSPACE } = process.env;
+    const sourceRootUrl = GITHUB_SERVER_URL && GITHUB_REPOSITORY && GITHUB_SHA
+        ? `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/${GITHUB_SHA}` : undefined;
     const markdown = renderSummary(readAttempts(outputDir), {
         stepUrl,
         runUrl: process.env.VALLY_RUN_URL,
         outcome: process.env.VALLY_OUTCOME,
         log: logPath && existsSync(logPath) ? readFileSync(logPath, 'utf8') : '',
+        testUrl: (file, stimulus) => findTestUrl(file, stimulus, { workspace: GITHUB_WORKSPACE, sourceRootUrl }),
     });
     mkdirSync(outputDir, { recursive: true });
     writeFileSync(join(outputDir, 'eval-summary.md'), markdown);

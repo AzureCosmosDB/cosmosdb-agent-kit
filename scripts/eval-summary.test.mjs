@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { test } from 'node:test';
-import { extractLogError, findStepUrl, readAttempts, renderSummary } from './eval-summary.mjs';
+import matter from 'gray-matter';
+import { extractLogError, findStepUrl, findTestUrl, readAttempts, renderSummary } from './eval-summary.mjs';
 
 const EVAL = '/repo/evals/query/eval.yaml';
 const STEP = 'https://github.com/owner/repo/actions/runs/10/job/20#step:6:1';
+const SOURCE = 'https://github.com/owner/repo/blob/0123456789abcdef';
 const summary = (overrides = {}) => ({
     type: 'run-summary',
     evals: [{ name: 'query', evalFilePath: EVAL, threshold: 1, ...overrides }],
@@ -170,11 +172,89 @@ test('derives exact step anchors dynamically and falls back explicitly to the ru
     assert.match(markdown, /\[Workflow run\]\(https:\/\/github.com\/owner\/repo\/actions\/runs\/10\)/);
 });
 
+test('links failed test names without adding columns or linking passing tests', () => {
+    const url = `${SOURCE}/evals/query/eval.yaml#L20`;
+    const markdown = renderSummary([run([trial('query-fail'), trial('query-pass', { passed: true })])], {
+        testUrl: (file, stimulus) => {
+            assert.equal(file, EVAL);
+            assert.equal(stimulus, 'query-fail');
+            return url;
+        },
+    });
+    assert.ok(markdown.includes(`| [query-fail](${url}) | First |`));
+    assert.equal(markdown.split('\n').filter((line) => line.startsWith('|')).length, 3);
+});
+
+test('test links use the checked-out path, commit, and exact definition line', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vally-test-link-'));
+    try {
+        const file = join(dir, 'eval [query](test).yaml');
+        writeFileSync(file, [
+            'stimuli:',
+            '  - name: plain-name',
+            '    prompt: Explain this.',
+            '  - name: "quoted-name"',
+            "  - name: 'single-quoted'",
+        ].join('\r\n'));
+        for (const [stimulus, line] of [['plain-name', 2], ['quoted-name', 4], ['single-quoted', 5]]) {
+            assert.equal(findTestUrl(file, stimulus, { workspace: dir, sourceRootUrl: SOURCE }),
+                `${SOURCE}/eval%20%5Bquery%5D%28test%29.yaml#L${line}`);
+        }
+        assert.equal(findTestUrl(file, 'plain-name'), undefined);
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('missing or ambiguous source locations warn and link the spec, never an invented line', (t) => {
+    const warn = t.mock.method(console, 'warn', () => {});
+    const dir = mkdtempSync(join(tmpdir(), 'vally-test-link-missing-'));
+    try {
+        const file = join(dir, 'eval.yaml');
+        const options = { workspace: dir, sourceRootUrl: SOURCE };
+        assert.equal(findTestUrl(file, 'missing', options), `${SOURCE}/eval.yaml`);
+        writeFileSync(file, 'stimuli:\n  - name: repeated\n  - name: repeated\n');
+        assert.equal(findTestUrl(file, 'missing', options), `${SOURCE}/eval.yaml`);
+        assert.equal(findTestUrl(file, 'repeated', options), `${SOURCE}/eval.yaml`);
+        assert.equal(findTestUrl(join(dir, '..', 'outside.yaml'), 'missing', options), undefined);
+        assert.equal(warn.mock.calls.length, 4);
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('the actual interrupt test link points at its definition and nearby rubric', () => {
+    const file = resolve('evals/cosmosdb-best-practices/pattern/eval.yaml');
+    const url = findTestUrl(file, 'pattern-langgraph-interrupt-human', { workspace: process.cwd(), sourceRootUrl: SOURCE });
+    assert.match(url, /\/evals\/cosmosdb-best-practices\/pattern\/eval.yaml#L\d+$/);
+    const index = Number(url.split('#L')[1]) - 1;
+    const lines = readFileSync(file, 'utf8').split(/\r?\n/);
+    assert.equal(lines[index].trim(), '- name: pattern-langgraph-interrupt-human');
+    assert.ok(lines.slice(index, index + 8).some((line) => line.includes('resumption restarts the node')));
+});
+
+test('the artifact link uses the upload output and is published even after a failed evaluation', () => {
+    const source = readFileSync(new URL('../.github/workflows/evals.yml', import.meta.url), 'utf8');
+    const workflow = matter(`---\n${source}\n---`).data;
+    const steps = workflow.jobs.eval.steps;
+    const upload = steps.findIndex((step) => step.id === 'reports');
+    const link = steps.findIndex((step) => step.name === 'Link results artifact');
+    assert.ok(upload >= 0 && link > upload);
+    assert.match(steps[upload].uses, /^actions\/upload-artifact@/);
+    assert.equal(steps[link].if, "always() && steps.vally.outcome != 'skipped'");
+    assert.equal(steps[link].env.ARTIFACT_URL, '${{ steps.reports.outputs.artifact-url }}');
+    assert.match(steps[link].run, /Download full results artifact/);
+    assert.match(steps[link].run, /Results artifact unavailable/);
+});
+
 test('CLI loads only manifest-listed attempts and writes the artifact and Actions summary', () => {
     const dir = mkdtempSync(join(tmpdir(), 'vally-summary-'));
     try {
         mkdirSync(join(dir, 'attempt-1'));
-        writeFileSync(join(dir, 'attempt-1', 'results.jsonl'), run([trial('query-fail')]).records.map((record) => JSON.stringify(record)).join('\n'));
+        const spec = join(dir, 'eval.yaml');
+        writeFileSync(spec, 'stimuli:\n  - name: query-fail\n');
+        const records = [trial('query-fail', { evalFilePath: spec }), summary({ evalFilePath: spec })];
+        writeFileSync(join(dir, 'attempt-1', 'results.jsonl'), records.map((record) => JSON.stringify(record)).join('\n'));
         writeFileSync(join(dir, 'stale.jsonl'), 'not valid JSON');
         writeFileSync(join(dir, 'eval-attempts.json'), JSON.stringify([{ status: 1, files: ['attempt-1/results.jsonl'] }]));
         assert.equal(readAttempts(dir).length, 1);
@@ -183,13 +263,18 @@ test('CLI loads only manifest-listed attempts and writes the artifact and Action
         const stepSummary = join(dir, 'step-summary.md');
         const result = spawnSync(process.execPath, ['scripts/eval-summary.mjs', dir], {
             encoding: 'utf8',
-            env: { ...process.env, GITHUB_STEP_SUMMARY: stepSummary, VALLY_JOBS: jobs, VALLY_OUTCOME: 'failure' },
+            env: {
+                ...process.env, GITHUB_STEP_SUMMARY: stepSummary, VALLY_JOBS: jobs, VALLY_OUTCOME: 'failure',
+                GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'owner/repo',
+                GITHUB_SHA: '0123456789abcdef', GITHUB_WORKSPACE: dir,
+            },
         });
         assert.equal(result.status, 0, result.stderr);
         const markdown = readFileSync(join(dir, 'eval-summary.md'), 'utf8');
         assert.equal(readFileSync(stepSummary, 'utf8'), markdown);
         assert.ok(markdown.includes(STEP));
         assert.match(markdown, /Missing partition filter/);
+        assert.ok(markdown.includes(`[query-fail](${SOURCE}/eval.yaml#L2)`));
     } finally {
         rmSync(dir, { recursive: true, force: true });
     }
