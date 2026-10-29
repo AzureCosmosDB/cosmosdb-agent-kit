@@ -158,12 +158,20 @@ export function renderSummary(attempts, { stepUrl, runUrl, log = '', outcome, te
 export function readAttempts(outputDir) {
     const manifest = join(outputDir, 'eval-attempts.json');
     if (!existsSync(manifest)) return [];
-    return JSON.parse(readFileSync(manifest, 'utf8')).map((attempt) => ({
-        status: attempt.status,
-        error: attempt.error,
-        records: attempt.files.flatMap((file) => readFileSync(join(outputDir, file), 'utf8')
-            .split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line))),
-    }));
+    return JSON.parse(readFileSync(manifest, 'utf8')).map((attempt) => {
+        const records = [];
+        const errors = [attempt.error].filter(Boolean);
+        for (const file of attempt.files) {
+            try {
+                for (const line of readFileSync(join(outputDir, file), 'utf8').split(/\r?\n/).filter(Boolean)) {
+                    records.push(JSON.parse(line));
+                }
+            } catch (error) {
+                errors.push(`Could not read ${file}: ${error.message}`);
+            }
+        }
+        return { status: attempt.status, error: errors.length ? errors.join('; ') : undefined, records };
+    });
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
