@@ -30,7 +30,7 @@
     "validate:manifests": "node scripts/validate-manifests.js",
     "eval": "cross-env VALLY_TELEMETRY_OPTOUT=1 node scripts/eval.mjs --output-dir results --workers 5 --max-retries 2 --require-pass",
     "eval:lint": "cross-env VALLY_TELEMETRY_OPTOUT=1 vally lint --eval-spec evals",
-    "eval:test": "node --test evals/cosmosdb-best-practices/graders.test.mjs scripts/eval-retry.test.mjs",
+    "eval:test": "node --test evals/cosmosdb-best-practices/graders.test.mjs scripts/eval-retry.test.mjs scripts/eval-summary.test.mjs",
     "version": "node scripts/version.js"
   },
   "devDependencies": {

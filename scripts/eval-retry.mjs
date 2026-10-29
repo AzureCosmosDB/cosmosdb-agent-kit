@@ -18,6 +18,13 @@ function trialPassed(trial, threshold) {
         && resolveGradePass(trial.gradeResult, threshold);
 }
 
+/** Apply the same verdict as stimulus aggregation when selecting report rows. */
+export function failedTrials(records) {
+    const threshold = thresholds(records);
+    return records.filter((trial) => trial.type === 'trial-result'
+        && !trialPassed(trial, threshold.get(trial.evalFilePath)));
+}
+
 /** Group trial results by stimulus; a stimulus passes only if every trial passes. */
 export function summarizeStimuli(records) {
     const threshold = thresholds(records);
