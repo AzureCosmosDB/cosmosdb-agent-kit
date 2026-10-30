@@ -70,6 +70,17 @@ stimuli:
       - Combine FullTextContains on description with tenantId equality and a price range in WHERE; do not claim textual predicate order controls performance.
     graders: *rule-graders
 
+  # Rerank retrieved candidates.
+  - name: fts-semantic-reranker-two-stage
+    tags: { category: fts, rule: fts-semantic-reranker-two-stage }
+    prompt: |
+      I enabled Semantic Reranker for Cosmos DB. Can I call it directly over all
+      container items and skip first-stage retrieval?
+    rubric:
+      - "Explain that Semantic Reranker is second-stage reranking over a bounded candidate set retrieved first (for example via full-text, vector, or hybrid queries), not primary retrieval."
+      - "Include key constraints: up to 50 candidate documents per rerank call and required Semantic Reranker User account role."
+    graders: *rule-graders
+
   # Match text keywords.
   - name: fts-keyword-matching
     tags: { category: fts, rule: fts-keyword-matching }
