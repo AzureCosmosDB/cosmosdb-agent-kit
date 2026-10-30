@@ -19,6 +19,24 @@ Semantic Reranker does not retrieve documents from Cosmos DB. It reranks a candi
 
 Keep reranker requests within service limits: up to 50 candidate documents per call, and keep each context-document pair within the supported token limit. Also ensure the caller has the **Semantic Reranker User** role on the account.
 
+Python SDK setup (once per app):
+
+```bash
+python -m pip install --pre azure-data-ai
+```
+
+```python
+import json
+import os
+from azure.core.credentials import AzureKeyCredential
+from azure.data.ai import InferenceClient
+
+reranker_client = InferenceClient(
+    endpoint=os.environ["AZURE_DATA_AI_ENDPOINT"],
+    credential=AzureKeyCredential(os.environ["AZURE_DATA_AI_KEY"]),
+)
+```
+
 **Incorrect (treating reranker as a primary retrieval engine):**
 
 ```python
@@ -28,10 +46,12 @@ candidates = list(container.query_items(
     enable_cross_partition_query=True
 ))
 
-reranked = client.semantic_reranker.rerank(
-    query="Find docs about recovery point objective",
-    documents=[json.dumps(doc) for doc in candidates]  # can exceed 50-doc limit
-)
+reranked = reranker_client.semantic_rerank({
+    "query": "Find docs about recovery point objective",
+    "documents": [json.dumps(doc) for doc in candidates],  # can exceed 50-doc limit
+    "documentType": "json",
+    "topK": 10,
+})
 ```
 
 **Correct (indexed retrieval first, then rerank top candidates):**
@@ -54,11 +74,12 @@ candidates = list(container.query_items(
     enable_cross_partition_query=True
 ))
 
-reranked = client.semantic_reranker.rerank(
-    query=search_text,
-    documents=[json.dumps(doc) for doc in candidates[:50]],
-    top_k=10
-)
+reranked = reranker_client.semantic_rerank({
+    "query": search_text,
+    "documents": [json.dumps(doc) for doc in candidates[:50]],
+    "documentType": "json",
+    "topK": 10,
+})
 ```
 
 Reference: [Semantic Reranker in Azure Cosmos DB](https://learn.microsoft.com/azure/cosmos-db/gen-ai/semantic-reranker)
