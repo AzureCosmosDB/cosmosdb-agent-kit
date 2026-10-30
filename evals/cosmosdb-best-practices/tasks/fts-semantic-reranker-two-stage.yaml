@@ -1,0 +1,19 @@
+id: fts-semantic-reranker-two-stage-014
+name: Full-Text Search - Use Semantic Reranker as Second-Stage Ranking
+description: |
+  Test that the skill explains Semantic Reranker as a post-retrieval reranking step
+  rather than a primary retrieval method, and includes operational constraints:
+  first-stage indexed retrieval, bounded candidate set, and required account role.
+tags:
+  - fts
+  - semantic-reranker
+  - ranking
+  - hybrid
+inputs:
+  prompt: |
+    I enabled Semantic Reranker and now want to call it directly over all items in
+    my container so it can find the best matches by itself. Do I still need to run
+    a full-text or vector query first? What limits and permissions should I account for?
+expected:
+  outcomes:
+    - type: task_completed
