@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { discoverEvals } from '@microsoft/vally';
 import { planRetry, summarizeStimuli, verifyRetry } from './eval-retry.mjs';
@@ -32,6 +32,7 @@ const require = createRequire(import.meta.url);
 const cli = require.resolve('@microsoft/vally-cli/dist/index.js');
 
 const listRuns = (dir) => existsSync(dir) ? new Set(readdirSync(dir)) : new Set();
+const attempts = [];
 
 // The Vally eval command accepts individual files, not directories or globs.
 function runVally(specs, tags, dir) {
@@ -44,25 +45,21 @@ function runVally(specs, tags, dir) {
         '--output-dir', dir,
         ...passthrough,
     ], { stdio: 'inherit', env: process.env });
-    if (result.error) {
-        throw result.error;
-    }
-    if (result.signal) {
-        throw new Error(`Vally terminated by signal ${result.signal}.`);
-    }
-    const records = [...listRuns(dir)].filter((name) => !before.has(name))
+    const error = result.error ?? (result.signal ? new Error(`Vally terminated by signal ${result.signal}.`) : undefined);
+    const files = [...listRuns(dir)].filter((name) => !before.has(name))
         .map((name) => join(dir, name, 'results.jsonl'))
-        .filter((file) => existsSync(file))
-        .flatMap((file) => readFileSync(file, 'utf8').split(/\r?\n/).filter(Boolean)
+        .filter((file) => existsSync(file));
+    attempts.push({
+        status: result.status ?? 1,
+        ...(error ? { error: error.message } : {}),
+        files: files.map((file) => relative(resolve(outputDir), file)),
+    });
+    mkdirSync(outputDir, { recursive: true });
+    writeFileSync(join(outputDir, 'eval-attempts.json'), JSON.stringify(attempts));
+    if (error) throw error;
+    const records = files.flatMap((file) => readFileSync(file, 'utf8').split(/\r?\n/).filter(Boolean)
             .map((line) => JSON.parse(line)));
     return { status: result.status ?? 1, records };
-}
-
-function report(lines) {
-    console.log(lines.join('\n'));
-    if (process.env.GITHUB_STEP_SUMMARY) {
-        appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n\n`);
-    }
 }
 
 const first = runVally(evals.map(({ filePath }) => filePath), [], resolve(outputDir, 'attempt-1'));
@@ -85,14 +82,14 @@ const retryRuns = planRetry(failures)
     .map(({ specs, tags }) => runVally(specs, tags, resolve(outputDir, 'retry')));
 const { recovered, stillFailing } = verifyRetry(failures, retryRuns);
 
-report([
+console.log([
     '## Vally retry summary',
     '',
     'Each stimulus that failed the first attempt was retried once with unchanged grading.',
     '',
     '| Stimulus | First attempt | Retry |',
     '|---|---|---|',
-    ...recovered.map((f) => `| \`${f.stimulus}\` | ❌ | ✅ flaky |`),
     ...stillFailing.map((f) => `| \`${f.stimulus}\` | ❌ | ❌ |`),
-]);
+    ...recovered.map((f) => `| \`${f.stimulus}\` | ❌ | ✅ flaky |`),
+].join('\n'));
 process.exitCode = stillFailing.length === 0 ? 0 : 1;
