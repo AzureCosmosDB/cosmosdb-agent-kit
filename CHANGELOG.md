@@ -9,10 +9,10 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
-## 2026-10-19 — Add PPAF service-fault testing skill
+## 2026-10-19 — Add Cosmos DB fault-testing skill
 
-- **New procedural skill:** `cosmosdb-ppaf-fault-testing` adds a concise human runbook and agent workflow for approved cross-SDK service-fault tests using pinned upstream commands, with RU/cost warnings, scoped ownership, bounded execution, verified cleanup, and separate failover and availability criteria.
-- **Discovery and evaluation:** Added root/site links, Codex metadata, contributor guidance, and 16 explanation-only Vally scenarios with activation and correctness grading. No runner or vendored script is included.
+- **New procedural skill:** `cosmosdb-fault-testing` guides input collection, approval, execution, and recovery, with PPAF as its first scenario. Includes a pinned upstream script snapshot, SHA-256 provenance, and an optional reviewed-update path; the README is an overview, not a runbook dependency.
+- **Discovery and evaluation:** Added root/site links, Codex metadata, contributor guidance, explanation-only Vally scenarios, and offline bundle checks, preserving RU/cost warnings, scoped ownership, bounded execution, and verified cleanup.
 
 ## v1.4.0 — 2026-10-26 — Vally evaluations and rule updates
 

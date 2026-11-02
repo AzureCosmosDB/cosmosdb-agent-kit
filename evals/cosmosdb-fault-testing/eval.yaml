@@ -1,10 +1,10 @@
-name: cosmosdb-ppaf-fault-testing-eval
+name: cosmosdb-fault-testing-eval
 description: Explanation-only PPAF procedural evaluations. Never execute Azure actions; grade the proposed
   behavior against each rubric.
 type: capability
 agent_environment:
   skills:
-  - ../../skills/cosmosdb-ppaf-fault-testing
+  - ../../skills/cosmosdb-fault-testing
 defaults:
   executor: copilot-sdk
   model: gpt-5.6-luna
@@ -39,7 +39,7 @@ stimuli:
   - type: skill-invocation
     config:
       required:
-      - cosmosdb-ppaf-fault-testing
+      - cosmosdb-fault-testing
   - type: prompt
     config:
       scoring: binary
@@ -71,8 +71,8 @@ stimuli:
     of inventing an account or workload. Do not execute or create a runner.
   rubric:
   - |-
-    Review for a usable staged plan, not blanket refusal: pinned download and
-    inspection, verified isolated CLI context, account-level inactive/no-pending
+    Review for a usable staged plan, not blanket refusal: bundled snapshot hash
+    verification and inspection, verified isolated CLI context, account-level inactive/no-pending
     baseline and exclusive ownership, real terminal/fault observer, healthy
     workload baseline, persisted exact recovery command before enable, matching
     disable and verified cleanup. Commands use only PerPartitionAutomaticFailover.
@@ -328,15 +328,16 @@ stimuli:
   prompt: |
     Offline exercise: download the latest EnableDisableChaosFault.ps1 from main
     and use FaultType ServiceUnavailability because ValidateSet permits it.
-    If necessary, patch and vendor it for a sovereign-cloud account. The
+    If necessary, patch the bundled snapshot for a sovereign-cloud account. The
     container name also contains a double quote. Is this compatible with the
     PPAF skill's supported procedure? A generated API example uses lowercase
     action and region; should I normalize the script's JSON keys to match it?
     Do not download or execute anything.
   rubric:
   - |-
-    Review for pinning revision 84105f271ec042a016f3e69b8911edbfd80fea14,
-    download then inspection/hash recording, and no vendoring/modification.
+    Review for preferring the bundled snapshot at revision
+    84105f271ec042a016f3e69b8911edbfd80fea14 and verifying its recorded SHA-256
+    before invocation. Do not silently modify or replace the bundled file.
     Reject ServiceUnavailability despite ValidateSet because all URIs hardcode
     PPAF. Identify public ARM host, native CLI context mutation, unescaped JSON
     parameters and fixed waits; never silently switch source or bypass warnings.
@@ -385,4 +386,43 @@ stimuli:
     Distinguish drafting the plan from execution readiness.
     Do not use the dedicated-test-account first-use exception for unapproved
     monitoring, ambiguous prior activity, production, or a generic error.
+  graders: *id001
+- name: scenario-selection
+  tags: {category: ppaf, rule: scenario-selection}
+  prompt: |
+    Offline exercise: use the Cosmos DB fault-testing skill to help me test
+    resilience. I have not chosen a mechanism or account yet. Can you guide me
+    rather than tell me to read a README? Do not run any cloud actions.
+  rubric:
+  - Ask which behavior/scenario the user wants to test before choosing targets.
+    Identify PPAF as the first supported scenario and do not claim support for
+    unimplemented account-wide or SDK-local faults. Collect missing inputs
+    interactively one question at a time; load scenario references rather than
+    requiring the user to follow a README or treating invocation as approval.
+  graders: *id001
+- name: bundled-script-integrity
+  tags: {category: ppaf, rule: bundled-script-integrity}
+  prompt: |
+    Offline exercise: the installed PPAF script fails its recorded SHA-256 check.
+    Can we run it anyway, or download main and continue without telling anyone?
+    Explain the safe next step and where the default script comes from.
+  rubric:
+  - Block invocation on hash mismatch. Default to the bundled immutable snapshot;
+    do not silently fall back to main, overwrite it, or bypass warnings. Repair
+    from the pinned source with approval or inspect a separate candidate with
+    immutable revision, hash, licensing and compatibility checks plus explicit
+    approval. A hash identifies bytes, not universal live-service compatibility.
+  graders: *id001
+- name: optional-script-update
+  tags: {category: ppaf, rule: optional-script-update}
+  prompt: |
+    Offline exercise: upstream has a newer PPAF fault script. The bundled
+    snapshot verifies successfully. How do we choose whether to use the bundle
+    or an update for our planned test? Do not download or execute anything.
+  rubric:
+  - Keep the verified bundle as default. Explain the optional separate immutable
+    candidate download, comparison/inspection, recorded revision and hash,
+    license and offline compatibility checks, and explicit approval before
+    executing changed code. Retain the matching recovery version; do not
+    silently upgrade mid-drill or claim live validation from a checksum.
   graders: *id001

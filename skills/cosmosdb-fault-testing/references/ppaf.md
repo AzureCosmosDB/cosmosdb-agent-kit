@@ -1,9 +1,9 @@
 # Azure Cosmos DB PPAF fault testing
 
-Use this runbook with [SKILL.md](SKILL.md) to test **per-partition automatic
-failover (PPAF)** on an existing account with an approved workload in any
-supported SDK. This is a service-side partition fault, not SDK-local injection,
-an emulator test, or account-wide failover. No runner or upstream script is bundled.
+Load this resource after selecting PPAF in [SKILL.md](../SKILL.md). Guide the user
+through **per-partition automatic failover (PPAF)** on an existing account with
+an approved workload in a supported SDK. This is a service-side partition fault,
+not SDK-local injection, an emulator test, or account-wide failover.
 
 > **RU and cost warning:** Baseline, fault, recovery, and data-cleanup requests
 > consume RUs and can compete with production traffic or cause throttling.
@@ -20,7 +20,7 @@ an emulator test, or account-wide failover. No runner or upstream script is bund
 - [Enable and observe](#enable-and-observe)
 - [Disable and recover](#disable-and-recover)
 - [Report results](#report-results)
-- [Installation and references](#installation-and-references)
+- [References](#references)
 
 ## Prerequisites and approval
 
@@ -64,20 +64,23 @@ stop traffic. Estimate RU usage from measured requests, not universal costs.
 
 ## Prepare the script and CLI context
 
-Download [the pinned upstream script][script] into an empty scratch directory
-outside the repository. Inspect it before execution; do not use a moving branch,
-vendor/modify the script, or bypass certificate/security warnings.
+Default to the bundled snapshot; no download is required. Resolve the actual
+installed skill root and verify the [recorded hash and provenance](script-provenance.md)
+before any invocation. Do not silently modify or replace the snapshot or bypass
+certificate/security warnings.
 
 ```powershell
-$revision = '84105f271ec042a016f3e69b8911edbfd80fea14'
-$scriptPath = Join-Path (Get-Location) 'EnableDisableChaosFault.ps1'
-if (Test-Path $scriptPath) { throw 'Choose an empty scratch directory.' }
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/AzureCosmosDB/ppaf-samples/$revision/ppaf-fault-script/EnableDisableChaosFault.ps1" -OutFile $scriptPath
-Get-FileHash -Algorithm SHA256 -Path $scriptPath
-Get-Content -Raw -Path $scriptPath
+$skillRoot = '<installed-skill-root>'
+$scriptPath = Join-Path $skillRoot 'scripts/EnableDisableChaosFault.ps1'
+$expectedHash = 'cdc4727bb1ea288f1f65319261cc3780eec29b7d3e7b5b7b251404e2c5f3c25f'
+if ((Get-FileHash -Algorithm SHA256 -LiteralPath $scriptPath).Hash -ine $expectedHash) {
+    throw 'Bundled PPAF script hash mismatch; stop before execution.'
+}
+Get-Content -Raw -LiteralPath $scriptPath
 ```
 
-Record the revision/hash and compare content against the pinned source.
+Record the revision/hash from provenance. Optional downloads and candidate
+updates follow its separate inspection/approval procedure.
 The script has these constraints:
 
 - Use only `PerPartitionAutomaticFailover`: all endpoints hardcode that fault,
@@ -274,17 +277,11 @@ criteria. Include scope, SDK/version, script revision/hash, approvals, sanitized
 evidence, deviations, and context restoration. Unknown RU charges are not zero,
 and incomplete samples are not a final billing total.
 
-## Installation and references
-
-Install with `npx skills add AzureCosmosDB/cosmosdb-agent-kit`, or copy this
-directory to `~/.copilot/skills/` or `~/.claude/skills/`. Activating the skill is
-not execution approval. This procedural skill has no generated `AGENTS.md`;
-explanation-only Vally scenarios live in `evals/cosmosdb-ppaf-fault-testing/eval.yaml`.
-Offline lint checks structure; executing the model-backed activation and
-correctness graders is separate and does not authorize Azure fault injection.
+## References
 
 - [PPAF requirements, configuration, and metrics][configure]
 - [Pinned upstream script][script]
+- [Bundled snapshot provenance and optional update procedure](script-provenance.md)
 - [Chaos fault API schema][chaos-api]
 - [Azure asynchronous operations](https://learn.microsoft.com/azure/azure-resource-manager/management/async-operations)
 - [Request Units and billing](https://learn.microsoft.com/azure/cosmos-db/request-units)

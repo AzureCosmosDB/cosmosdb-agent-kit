@@ -60,7 +60,7 @@ So the combined recommendation is simple: **use a Recommended-tier model *and* d
 | Skill | Description | Status |
 |-------|-------------|--------|
 | [cosmosdb-best-practices](skills/cosmosdb-best-practices/) | Best practices and developer tooling (139 rules, 13 categories) | ✅ Stable |
-| [cosmosdb-ppaf-fault-testing](skills/cosmosdb-ppaf-fault-testing/) | Cross-SDK PPAF service-fault test planning, supervision, and verified cleanup | Procedural |
+| [cosmosdb-fault-testing](skills/cosmosdb-fault-testing/) | Interactive fault-testing and recovery scenarios, starting with PPAF | Procedural |
 | migration-capacity-planning | RU calculation, data sizing, pre-split partitions | 🚧 Planned |
 
 ### cosmosdb-best-practices
@@ -88,14 +88,14 @@ Azure Cosmos DB performance optimization guidelines containing 139 rules across 
 - Developer Tooling (Medium)
 - Monitoring & Diagnostics (Low-Medium)
 
-### cosmosdb-ppaf-fault-testing
+### cosmosdb-fault-testing
 
-Use the [PPAF fault-testing runbook](skills/cosmosdb-ppaf-fault-testing/README.md)
-to plan an approved service-side partition failover test with an existing account
-and workload in any SDK. It covers Features-tab eligibility, pinned upstream
-PowerShell commands, account-level fault ownership, bounded recovery, and
-independent workload evidence. Production execution requires explicit approval;
-the skill does not provision resources or replace SDK-local fault injection.
+Ask your agent to use [cosmosdb-fault-testing](skills/cosmosdb-fault-testing/SKILL.md).
+It collects missing inputs and guides approval, execution, evidence collection,
+and cleanup. PPAF is the first supported scenario, with a bundled script snapshot
+and verified hash; additional scenarios can be added under `references/`.
+Production execution requires explicit approval. The skill does not provision
+resources or substitute SDK-local injection for service faults.
 
 ## Installation
 
