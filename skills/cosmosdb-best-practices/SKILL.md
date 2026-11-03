@@ -233,6 +233,7 @@ Reference these guidelines when:
 - [fts-contains-query](rules/fts-keyword-matching.md) - Use `FullTextContains` / `FullTextContainsAll` / `FullTextContainsAny` instead of `CONTAINS(LOWER(...))`
 - [fts-score-ranking](rules/fts-relevance-ranking.md) - Use `ORDER BY RANK FullTextScore(path, term)` for BM25 relevance ranking
 - [fts-hybrid-query](rules/fts-hybrid-queries.md) - Combine FTS predicates with selective indexed equality/range filters; predicate text order does not control execution
+- [fts-semantic-reranker-two-stage](rules/fts-semantic-reranker-two-stage.md) - Treat Semantic Reranker as second-stage reranking after indexed candidate retrieval
 
 ### 13. Security (HIGH)
 
