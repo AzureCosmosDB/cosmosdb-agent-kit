@@ -78,7 +78,7 @@ stimuli:
       container items and skip first-stage retrieval?
     rubric:
       - "Explain that Semantic Reranker is second-stage reranking over a bounded candidate set retrieved first (for example via full-text, vector, or hybrid queries), not primary retrieval."
-      - "Include key constraints: up to 50 candidate documents per rerank call and required Semantic Reranker User account role."
+      - "Include key constraints: up to 50 candidate documents per rerank call, a 2,048-token limit per context-document pair, and the required Semantic Reranker User account role."
     graders: *rule-graders
 
   # Match text keywords.
