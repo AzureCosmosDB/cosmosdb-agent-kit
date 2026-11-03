@@ -44,7 +44,18 @@ skills/
       {prefix}-{name}.md  # Individual rule files
 ```
 
-3. Define sections in `rules/_sections.md` with frontmatter:
+For **procedural skills**, omit `rules/` and generated `AGENTS.md`. Keep the
+interactive agent workflow in `SKILL.md`, scenario procedures in `references/`,
+and bundled scripts with provenance and hashes in `scripts/`. Keep `README.md`
+as a short installation/overview document, not an execution prerequisite;
+include `metadata.json` and, for Codex discovery, `agents/openai.yaml`. See
+[cosmosdb-fault-testing](skills/cosmosdb-fault-testing/) for an example.
+Add focused eval tasks with explicit review criteria, and link the skill from
+the root README and website. Existing plugin manifests discover `skills/`.
+Add future scenarios to the existing procedural skill when they share its
+workflow; do not advertise a scenario until its procedure and recovery are supported.
+
+3. For rule-based skills, define sections in `rules/_sections.md` with frontmatter:
 
 ```yaml
 ---
@@ -68,6 +79,20 @@ npm run validate:skill {skill-name}
 ```
 
 5. Create a matching eval directory at `evals/{skill-name}/` (see [Writing Tests](#writing-tests))
+
+The compiler intentionally skips procedural skills without `rules/`.
+`npm run validate` checks only rule-based skills, and
+`npm run validate:skill <procedural-skill>` reports no rules rather than validating
+the skill. Validate procedural frontmatter, metadata, links, command examples,
+and eval YAML separately. Use the current Vally stimulus format with activation
+and correctness graders; `npm run eval:lint` checks structure, not behavioral
+correctness. Fault-testing evaluation prompts must remain explanation-only.
+
+For the fault-testing skill, `npm run eval:test` also checks package structure
+and snapshot integrity. Run its mocked PowerShell paths with
+`pwsh -NoProfile -File evals/cosmosdb-fault-testing/script.test.ps1`; no Azure
+login, requests, or actual waits occur. Preserve snapshot bytes and update the
+provenance hash and test expectations together when changing a bundled script.
 
 ### 4. Report Issues / Suggest Improvements
 

@@ -9,6 +9,11 @@ This is the high-level log. For detailed per-iteration evaluation notes (test re
 
 ---
 
+## 2026-10-19 — Add Cosmos DB fault-testing skill
+
+- **New procedural skill:** `cosmosdb-fault-testing` guides input collection, approval, execution, and recovery, with PPAF as its first scenario. Includes a pinned upstream script snapshot, SHA-256 provenance, and an optional reviewed-update path; the README is an overview, not a runbook dependency.
+- **Discovery and evaluation:** Added root/site links, Codex metadata, contributor guidance, explanation-only Vally scenarios, and offline bundle checks, preserving RU/cost warnings, scoped ownership, bounded execution, and verified cleanup.
+
 ## v1.4.0 — 2026-10-26 — Vally evaluations and rule updates
 
 - **New rule:** `model-unique-keys` — partition-scoped uniqueness, comparison semantics, conflict handling, and immutable policy migration ([#279](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/279)); add matching activation and correctness evaluation coverage ([#282](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/pull/282)).

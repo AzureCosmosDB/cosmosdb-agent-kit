@@ -60,6 +60,7 @@ So the combined recommendation is simple: **use a Recommended-tier model *and* d
 | Skill | Description | Status |
 |-------|-------------|--------|
 | [cosmosdb-best-practices](skills/cosmosdb-best-practices/) | Best practices and developer tooling (139 rules, 13 categories) | ✅ Stable |
+| [cosmosdb-fault-testing](skills/cosmosdb-fault-testing/) | Interactive fault-testing and recovery scenarios, starting with PPAF | Procedural |
 | migration-capacity-planning | RU calculation, data sizing, pre-split partitions | 🚧 Planned |
 
 ### cosmosdb-best-practices
@@ -86,6 +87,15 @@ Azure Cosmos DB performance optimization guidelines containing 139 rules across 
 - Global Distribution (Medium)
 - Developer Tooling (Medium)
 - Monitoring & Diagnostics (Low-Medium)
+
+### cosmosdb-fault-testing
+
+Ask your agent to use [cosmosdb-fault-testing](skills/cosmosdb-fault-testing/SKILL.md).
+It collects missing inputs and guides approval, execution, evidence collection,
+and cleanup. PPAF is the first supported scenario, with a bundled script snapshot
+and verified hash; additional scenarios can be added under `references/`.
+Production execution requires explicit approval. The skill does not provision
+resources or substitute SDK-local injection for service faults.
 
 ## Installation
 

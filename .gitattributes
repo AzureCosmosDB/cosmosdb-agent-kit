@@ -1,0 +1,2 @@
+# Preserve the bundled snapshot's documented SHA-256 on every checkout.
+skills/cosmosdb-fault-testing/scripts/EnableDisableChaosFault.ps1 text eol=lf
