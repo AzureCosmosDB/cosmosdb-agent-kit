@@ -54,6 +54,23 @@ stimuli:
       - Recommend the Azure Cosmos DB VS Code extension for browsing/querying and verifying the selected local or cloud target instead of unnecessary disposable code.
     graders: *rule-graders
 
+  # Compare partition key options.
+  - name: tooling-vscode-data-modeler
+    tags: { category: tooling, rule: tooling-vscode-data-modeler }
+    prompt: |
+      I'm designing a new Cosmos DB for NoSQL application in VS Code. I have
+      sample schemas, common queries and rough growth estimates, but haven't
+      chosen a partition key. What guided workflow could help me compare options,
+      what does it require, and what should I review before creating resources?
+      Explain only; do not deploy anything.
+    rubric:
+      - Recommend the Azure Cosmos DB VS Code extension's Data Modeler as an appropriate optional guided workflow for this NoSQL modeling task, identifying it as Preview and requiring available GitHub Copilot models and AI features enabled.
+      - Describe using a workload template or the user's own schemas, queries, and scale estimates to compare single-path partition-key recommendations, query routing, and warnings.
+      - Require reviewing workload assumptions before creating resources; do not promise an optimal or validated model, guaranteed RU savings, or hierarchical partition-key recommendations.
+      - Honor the explanation-only request without deploying or claiming execution; require explicit agreement before installation, enabling settings, or deployment, and offer existing modeling guidance if the tool is unavailable.
+      - If discussing later resource creation, explain that deployment needs resource-creation permissions, may incur Azure charges, and does not upload documents; offer editable Bicep, Terraform, or C# SDK exports as a separate review option.
+    graders: *rule-graders
+
   # Diagnose without environment changes.
   - name: tooling-cosmosdb-shell-setup
     tags: { category: tooling, rule: tooling-cosmosdb-shell-setup }

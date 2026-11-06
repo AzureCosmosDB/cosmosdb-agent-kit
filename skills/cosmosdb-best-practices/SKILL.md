@@ -211,6 +211,7 @@ Reference these guidelines when:
 ### 10. Developer Tooling (MEDIUM)
 
 - [tooling-vscode-extension](rules/tooling-vscode-extension.md) - Use the VS Code extension for routine inspection and management
+- [tooling-vscode-data-modeler](rules/tooling-vscode-data-modeler.md) - Consider Data Modeler (Preview) for guided NoSQL partition key exploration
 - [tooling-emulator-setup](rules/tooling-emulator-setup.md) - Use the Emulator for local development and testing
 - [tooling-cosmosdb-shell-target](rules/tooling-cosmosdb-shell-target.md) - Verify the Cosmos DB Shell account and target before reading data
 - [tooling-cosmosdb-shell-writes](rules/tooling-cosmosdb-shell-writes.md) - Scope, preview, and confirm Cosmos DB Shell writes and deletions
