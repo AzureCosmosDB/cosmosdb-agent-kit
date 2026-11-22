@@ -9,7 +9,7 @@ A collection of skills for AI coding agents working with Azure Cosmos DB. Skills
 
 ![agent-kit-cosmosdb (1)](https://github.com/user-attachments/assets/0a2c2e5f-62ee-4741-adda-9af790980761)
 
-Skills follow the [Agent Skills](https://agentskills.io/) format and the kit ships with plugin manifests for **Claude Code**, **Codex**, **Cursor**, **Gemini CLI**, **Kimi Code**, and **GitHub Copilot**.
+Skills follow the [Agent Skills](https://agentskills.io/) format and the kit ships with plugin manifests for **Claude Code**, **Codex**, **Cursor**, **Gemini CLI**, **Grok Build**, **Kimi Code**, and **GitHub Copilot**.
 
 ## Where this works best
 
@@ -26,16 +26,45 @@ This agent kit is designed for **progressive (on-demand) skill delivery**: hosts
 
 > These recommendations are based on internal skill-efficacy testing across multiple models and delivery mechanisms. Exact context limits vary by model and host.
 
+## Recommended models
+
+We evaluate agent builds on Azure Cosmos DB with an **execution-graded** benchmark on Microsoft Bench: a realistic *AI Chat with RAG* task (Python / FastAPI) built against a **live** Azure Cosmos DB account (Entra ID, no keys) and scored by hidden integration tests. `reward` is the fraction of checks passed, averaged over roughly **100 independent attempts per model**. Based on this, for building non-trivial Cosmos DB applications we recommend:
+
+| Tier | Models (as tested) | Avg reward | Guidance |
+|------|--------------------|-----------|----------|
+| **Recommended** | GPT-5.4, Claude Opus 4.8 | 0.79 – 0.82 | Strongest Cosmos DB build quality; the best default choice. |
+| **Capable** | Claude Sonnet 4.5, Claude Opus 4.5, GPT-5.2, Claude Sonnet 4.6 | 0.59 – 0.68 | Solid results; pair with the kit and a clear specification. |
+| **Best for simpler tasks** | Claude Haiku 4.5, GPT-4.1 | 0.11 – 0.15 | Fine for individual operations; struggle with full application builds regardless of how skills are delivered. |
+
+**How to read this:** the ranking reflects intrinsic model capability on Cosmos DB build tasks, measured *without* any skill injected. Model capability is the dominant factor in outcome quality — **choose a Recommended-tier model first**, then apply the kit.
+
+### Delivery mechanism matters as much as the model
+
+The same testing measured *how* the skill is delivered, and this is where the results are strongest:
+
+- **Always-on injection can hurt — including the strongest models.** Injecting the **entire** skill set as always-on context (~500&nbsp;KB) **overflowed the context window and scored 0** on every model whose usable prompt budget is roughly **130K tokens or less**. And a multi-file always-on variant **significantly reduced quality on large-context, capable models too** (for example Claude Opus 4.8 and GPT-5.2 both dropped by roughly **0.3**). In other words, forcing the full skill payload into every prompt is counter-productive.
+- **Progressive / on-demand delivery is the safe mode.** It avoided both failure modes — no overflow, no regression on strong models — and **matched no-skill quality**. It also costs **roughly 5–13× fewer input tokens than always-on injection** (progressive sends about as many tokens as a no-skill run, because it loads a skill only when needed; always-on re-sends the full payload on every call).
+
+So the combined recommendation is simple: **use a Recommended-tier model *and* deliver skills on demand.** This is exactly what the kit is designed for (see [Where this works best](#where-this-works-best)).
+
+> On this well-specified build task, progressive delivery *matches* a no-skill baseline rather than beating it — the strong models already know a lot. The measurable win today is avoiding the harm of always-on injection at a fraction of the token cost; benefits on *under-specified* prompts and additional scenarios are still being measured.
+
+### Scope & caveats
+
+- Results come from a single build scenario (AI Chat + RAG), a single language (Python), and a single agent host, graded by hidden integration tests over ~100 attempts per model per configuration.
+- These tiers are **directional and specific to this evaluation** (one scenario, one language, one host). Model names reflect the versions exposed by the evaluation harness at test time (mid-2026); exact scores will shift as models evolve and may not transfer to other tasks.
+- On this well-specified task, Recommended-tier models already score well **without** the skill; the kit's role is to encode Cosmos DB-specific best practices and steer agents away from common anti-patterns. Testing is being extended to under-specified prompts and additional scenarios.
+
 ## Available Skills
 
 | Skill | Description | Status |
 |-------|-------------|--------|
-| [cosmosdb-best-practices](skills/cosmosdb-best-practices/) | Performance optimization (111 rules, 12 categories) | ✅ Stable |
+| [cosmosdb-best-practices](skills/cosmosdb-best-practices/) | Best practices and developer tooling (139 rules, 13 categories) | ✅ Stable |
 | migration-capacity-planning | RU calculation, data sizing, pre-split partitions | 🚧 Planned |
 
 ### cosmosdb-best-practices
 
-Azure Cosmos DB performance optimization guidelines containing 111 rules across 12 categories, prioritized by impact.
+Azure Cosmos DB performance optimization guidelines containing 139 rules across 13 categories, prioritized by impact.
 
 **Use when:**
 - Writing new code that interacts with Cosmos DB
@@ -95,6 +124,20 @@ This drops the skill catalog into whichever agent you're using.
 gemini extensions install https://github.com/AzureCosmosDB/cosmosdb-agent-kit
 ```
 
+### Grok Build
+
+Add the Agent Kit marketplace, install the plugin, then verify that Grok discovered its skills:
+
+```bash
+grok plugin marketplace add AzureCosmosDB/cosmosdb-agent-kit
+grok plugin install cosmosdb --trust
+grok inspect
+```
+
+The marketplace catalog lives at `.grok-plugin/marketplace.json`, and the plugin uses the root
+`plugin.json` manifest. Only install trusted plugin sources; Grok requires `--trust` before
+activating a remote plugin's skills and MCP servers.
+
 ### Kimi Code CLI
 
 Install directly from GitHub (recommended):
@@ -132,6 +175,7 @@ The repository includes ready-made plugin manifests:
 | OpenAI Codex | `.codex-plugin/plugin.json` + `.agents/plugins/marketplace.json` |
 | Cursor | `.cursor-plugin/plugin.json` |
 | Gemini CLI | `gemini-extension.json` + `GEMINI.md` |
+| Grok Build | `.grok-plugin/marketplace.json` + `plugin.json` |
 | Kimi Code | `.kimi-plugin/plugin.json` |
 | GitHub Copilot | `skills/cosmosdb-best-practices/SKILL.md` (auto-detected) |
 
@@ -185,25 +229,11 @@ Each skill contains:
 
 ## Compatibility
 
-Works with Claude Code, Codex, Cursor, Gemini CLI, Kimi Code, GitHub Copilot, and other Agent Skills-compatible tools.
+Works with Claude Code, Codex, Cursor, Gemini CLI, Grok Build, Kimi Code, GitHub Copilot, and other Agent Skills-compatible tools.
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
-
-## Evaluation (Local Only)
-
-This project includes a [Vally](https://github.com/microsoft/vally) eval framework for local skill testing. Evals are not enforced in CI today (the mock executor cannot validate response content), but you can run them locally to sanity-check your changes:
-
-```bash
-# Install Vally by following the instructions at https://github.com/microsoft/vally
-
-# Run evaluations
-vally run evals/cosmosdb-best-practices/eval.yaml -v
-
-# Check skill readiness
-vally check skills/cosmosdb-best-practices
-```
 
 **Looking for a way to help?** Check out our [good first issues](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) or browse the [Discussions](https://github.com/AzureCosmosDB/cosmosdb-agent-kit/discussions) board to share ideas.
 
@@ -222,20 +252,45 @@ Contributions of any kind welcome! See the [contributing guide](CONTRIBUTING.md)
 
 ## Evaluation with Vally
 
-This project uses [Vally](https://github.com/microsoft/vally) to evaluate skill quality, testing that the agent produces correct Cosmos DB guidance across data modeling, partitioning, queries, SDK usage, and throughput scenarios.
+This project uses [Vally](https://github.com/microsoft/vally) to test
+`cosmosdb-best-practices`: one short test per rule, except for the four
+[documented exclusions](CONTRIBUTING.md#evaluation-exclusions), plus a non-activation test.
+Each test checks completion, skill activation, nonempty output, and answer
+correctness using an LLM judge. A failed test is retried once with unchanged
+grading and reported as flaky if the retry passes.
+
+The excluded MCP content-parsing case is covered by deterministic Python example
+tests instead. Running those tests requires Python 3.11 or newer.
 
 ```bash
-# Install Vally by following the instructions at https://github.com/microsoft/vally
+npm ci
+npm run build
+npm run eval:lint
+npm run eval:test
+python -B -m unittest discover -s evals/cosmosdb-best-practices -p "test_*.py" -v
 
-# Run evaluations (mock executor, no API key needed)
-vally run evals/cosmosdb-best-practices/eval.yaml -v
+# Live evaluations (requires Copilot authentication and model access)
+npm run eval
 
-# Check skill readiness
-vally check skills/cosmosdb-best-practices
-
-# Run with a real model (requires Copilot auth)
-vally run evals/cosmosdb-best-practices/eval.yaml --executor copilot-sdk --model claude-sonnet-4.6
+# Run just one rule
+npm run eval -- --tag rule=query-point-reads
 ```
+
+The [Vally workflow](.github/workflows/evals.yml) validates relevant changes
+offline, runs live evaluations only for trusted same-repository events, and
+publishes Actions summaries and result artifacts. Fork and Dependabot PRs run
+offline checks only. The aggregate check reports failures; branch protection determines merge
+enforcement. See [Writing Tests](CONTRIBUTING.md#writing-tests) for authentication,
+grading, cost controls, and adding a rule test.
+
+Actions summaries list only unresolved failures, grouped by loaded skills, executor,
+model, and variant. Each row includes the failed graders on one line, a compact error
+or grading explanation, and a link to the evaluation step. Failed test names link to
+their definition and rubric at the tested commit. Passing and retry-recovered
+stimuli appear only as counts. Full Markdown reports, unabridged grader evidence,
+trajectories, the invocation manifest, and the console log remain in the results artifact.
+The summary includes a direct download link after the artifact is uploaded, or an
+explicit notice if the upload did not produce an artifact.
 
 ## Changelog
 

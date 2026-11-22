@@ -1,0 +1,5 @@
+interface:
+  display_name: "Azure Cosmos DB Best Practices"
+  short_description: "Design, review, and optimize Azure Cosmos DB for NoSQL applications"
+  brand_color: "#0078D4"
+  default_prompt: "Use $cosmosdb-best-practices to review this Azure Cosmos DB implementation and recommend prioritized improvements."

@@ -1,11 +1,11 @@
 # Default owners for everything in the repo
-* @sajeetharan @TheovanKraay @jaydestro
+* @sajeetharan @TheovanKraay @jaydestro @sevoku @langguy
 
 # Skills rules
-skills/cosmosdb-best-practices/rules/ @sajeetharan @TheovanKraay @jaydestro
+skills/cosmosdb-best-practices/rules/ @sajeetharan @TheovanKraay @jaydestro @sevoku @langguy
 
 # Build scripts
-scripts/ @sajeetharan @TheovanKraay @jaydestro
+scripts/ @sajeetharan @TheovanKraay @jaydestro @sevoku @langguy
 
 # Testing framework
-testing-v2/ @sajeetharan @TheovanKraay @jaydestro
+testing-v2/ @sajeetharan @TheovanKraay @jaydestro @sevoku @langguy

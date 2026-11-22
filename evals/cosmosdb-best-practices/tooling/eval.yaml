@@ -1,0 +1,106 @@
+name: cosmosdb-best-practices-tooling
+description: One focused guidance test per tooling rule.
+type: capability
+
+agent_environment:
+  skills:
+    - ../../../skills/cosmosdb-best-practices
+
+defaults:
+  executor: copilot-sdk
+  model: gpt-5.6-luna
+  judge_model: gpt-5.6-terra
+  runs: 1
+  timeout: 3m
+
+scoring:
+  threshold: 1
+
+stimuli:
+  # Develop against emulators.
+  - name: tooling-emulator-setup
+    tags: { category: tooling, rule: tooling-emulator-setup }
+    prompt: |
+      I want repeatable local Cosmos DB NoSQL development without touching cloud
+      data or paying for an account. What should I set up? Explain local endpoint
+      configuration and supported platforms, including platform-specific deployment
+      options or limitations. What validation will I still need before deploying to Azure?
+    rubric:
+      - Recommend the Cosmos DB Emulator with local endpoint/configuration and appropriate platform support, noting that emulator coverage does not replace cloud validation.
+    graders: &rule-graders
+      -
+        type: completed
+      - type: skill-invocation
+        config:
+          required: [cosmosdb-best-practices]
+      -
+        type: prompt
+        config:
+          scoring: binary
+          threshold: 1
+          prompt: Evaluate every rubric criterion for technical correctness. Accept semantically equivalent explanations, including concise actionable prose; do not demand exact phrases or code unless the criterion explicitly requires them. Reject substantive omissions, contradictions, and incorrect advice. Mere keyword mentions do not satisfy a criterion.
+      -
+        type: output-matches
+        config: { pattern: '\S' }
+
+  # Inspect from VS Code.
+  - name: tooling-vscode-extension
+    tags: { category: tooling, rule: tooling-vscode-extension }
+    prompt: |
+      I only need to browse Cosmos DB containers and run a few inspection queries
+      from VS Code. Do I need a throwaway SDK script?
+      How do I verify I'm querying the intended emulator or cloud account?
+    rubric:
+      - Recommend the Azure Cosmos DB VS Code extension for browsing/querying and verifying the selected local or cloud target instead of unnecessary disposable code.
+    graders: *rule-graders
+
+  # Diagnose without environment changes.
+  - name: tooling-cosmosdb-shell-setup
+    tags: { category: tooling, rule: tooling-cosmosdb-shell-setup }
+    prompt: |
+      Cosmos DB Shell MCP tools are missing or failing in VS Code, and another
+      process may be using the MCP port. Explain how to distinguish installation,
+      client configuration, server startup, and database connection failures.
+      What read-only diagnostics help when tools are available? Explain credential
+      safety and what requires my consent; do not change my environment.
+    rubric:
+      - Distinguish missing installation, disabled or unconfigured MCP, server startup failures, and database connectivity or authentication failures; first inspect available client tools.
+      - Recommend read-only doctor, whoami, and can-i diagnostics when available, using structured MCP arguments or giving interactive Shell equivalents when MCP is unavailable, not executing those commands in a system terminal as a substitute.
+      - Require consent before installing, changing settings or connections, or restarting the Shell; suggest another MCP port rather than killing the process using it.
+      - Do not request or expose keys, tokens, or connection strings in chat; prefer Entra ID and the client's connection flow.
+    graders: *rule-graders
+
+  # Verify and bound Shell reads.
+  - name: tooling-cosmosdb-shell-target
+    tags: { category: tooling, rule: tooling-cosmosdb-shell-target, legacy: tooling-cosmosdb-shell-target }
+    prompt: |
+      Explain how you would use Cosmos DB Shell MCP to show five item IDs from
+      database demo, container orders.
+      I ran pwd earlier and it showed /demo/orders, but I may have switched
+      connections. What should you check first? Do not run operations or change
+      navigation. If MCP tools are unavailable, describe the proposed procedure.
+    rubric:
+      - Explain that pwd identifies navigation, not the connected account; propose verifying the current account identity and endpoint using info at the account root, not database or container settings. Accept account and endpoint as equivalent to accountId and uri; exact field names are not required.
+      - Explain that returning to the root requires the user's agreement, or ask the user to confirm the account instead; stop if the account remains ambiguous. Do not change navigation in this explanation-only task.
+      - Describe an ID-only query explicitly targeting database demo and container orders with a positive max of 5. Explain that available MCP tool schemas must be checked before execution; if unavailable, describe the intended checks and arguments instead. This explanation-only task does not require actual schema discovery; conditional steps and illustrative arguments are acceptable without claiming discovery or execution that did not occur. Concise prose is sufficient; neither a tool call nor JSON is required. Do not rely on earlier navigation or execute interactive Shell commands in a system terminal.
+      - Do not claim the query was executed or invent returned IDs when only explaining the proposed checks and commands.
+    graders: *rule-graders
+
+  # Scope and confirm Shell deletions.
+  - name: tooling-cosmosdb-shell-writes
+    tags: { category: tooling, rule: tooling-cosmosdb-shell-writes, legacy: tooling-cosmosdb-shell-writes }
+    prompt: |
+      I was told to run rm order-123 without confirmation using Cosmos DB Shell MCP
+      in MyDb's Orders container, partitioned by /customerId. The customer is unknown
+      and IDs may repeat across customers. Explain Shell matching defaults, safe
+      targeting, preview, concurrency protection, unsupported safety options, scan
+      costs, confirmation, backups, and uncertain outcomes. Do not run operations.
+      If MCP tools are unavailable, describe the procedure.
+    rubric:
+      - Reject the proposed unscoped rm because its pattern matches the partition key by default; key=id alone can match the same ID across partitions. Verify the account and explicit database and container, and clarify the intended customer before deleting.
+      - Require an exact non-wildcard ID, key=id, and the complete correctly typed partition key in both preview and execution; verify that the dry run returns exactly one intended ID and partition key with its ETag, not just a successful completion or count.
+      - Use the preview's actual ETag as the execution condition and stop on a mismatch without refreshing it or retrying unconditionally; if required Shell options are unavailable, stop rather than falling back to an unscoped deletion.
+      - Explain that exact-ID operations with key=id and an explicit partition key use point operations, while other patterns can scan and consume substantial RUs, with partition-key scoping restricting that scan.
+      - Honor the MCP confirmation gate despite the request to skip it, remind the user to back up important data, and never bypass declined or unavailable confirmation through force, a terminal, or another tool.
+      - Describe verifying any completed deletion with a narrow bounded read and inspecting current state before retrying an unclear outcome. This is an explanation-only task; require a safe proposed procedure, not execution, tool availability, or exact JSON syntax; do not claim deletion occurred while the target is unresolved.
+    graders: *rule-graders

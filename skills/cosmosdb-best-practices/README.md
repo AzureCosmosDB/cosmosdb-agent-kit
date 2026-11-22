@@ -4,7 +4,7 @@ Azure Cosmos DB best practices for AI coding agents, following the [Agent Skills
 
 ## Overview
 
-This skill contains 118 rules across 13 categories, ordered by impact:
+This skill contains 141 rules across 13 categories, ordered by impact:
 
 | Category | Impact | Description |
 |----------|--------|-------------|
@@ -17,9 +17,9 @@ This skill contains 118 rules across 13 categories, ordered by impact:
 | Global Distribution | MEDIUM | Multi-region configuration |
 | Monitoring & Diagnostics | LOW-MEDIUM | Observability and troubleshooting |
 | Design Patterns | HIGH | Reusable Cosmos DB architecture patterns |
-| Developer Tooling | MEDIUM | Emulator and extension guidance for day-to-day work |
+| Developer Tooling | MEDIUM | Emulator, extension, and Cosmos DB Shell guidance for day-to-day work |
 | Vector Search | HIGH | Semantic search and RAG-related configuration |
-| Full-Text Search | HIGH | Keyword matching, BM25 ranking, and hybrid search configuration |
+| Full-Text Search | HIGH | Keyword matching, BM25 ranking, hybrid search, and semantic reranking integration |
 | Security | CRITICAL | Authentication, RBAC, network isolation, and backup configuration |
 
 ## Installation

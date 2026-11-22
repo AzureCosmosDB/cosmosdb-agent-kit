@@ -67,7 +67,7 @@ jobs:
           HEAD_REF=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUM}" --jq '.head.ref')
           echo "head_ref=${HEAD_REF}" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.pr.outputs.head_ref }}
 
@@ -119,7 +119,7 @@ jobs:
       HEAD_REF: ${{ needs.detect-iteration.outputs.head_ref }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.detect-iteration.outputs.head_ref }}
           fetch-depth: 0
@@ -266,19 +266,19 @@ jobs:
 
       - name: Setup Python
         if: steps.config.outputs.language == 'python'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
 
       - name: Setup .NET
         if: steps.config.outputs.language == 'dotnet'
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '8.0.x'
 
       - name: Setup Java
         if: steps.config.outputs.language == 'java'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -286,19 +286,21 @@ jobs:
 
       - name: Setup Node.js
         if: steps.config.outputs.language == 'nodejs'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '20'
 
       - name: Setup Go
         if: steps.config.outputs.language == 'go'
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.22'
 
       - name: Setup Rust
         if: steps.config.outputs.language == 'rust'
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: stable
 
       # ------------------------------------------------------------------
       # Build the iteration app
@@ -609,7 +611,7 @@ jobs:
 
       - name: Comment test results on PR
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const fs = require('fs');
@@ -736,7 +738,7 @@ jobs:
 
       - name: Request Copilot deep evaluation
         if: always() && steps.start_app.outcome == 'success' && steps.tests.outputs.exit_code == '0'
-        uses: actions/github-script@v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           SKILLS_LOADED_VAL: ${{ steps.config.outputs.skills_loaded }}
         with:
@@ -857,7 +859,7 @@ jobs:
 
       - name: Request Copilot fix startup failure
         if: always() && (steps.start_app.outcome != 'success' || steps.start_emulator.outcome != 'success')
-        uses: actions/github-script@v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           LANGUAGE: ${{ steps.config.outputs.language }}
         with:
@@ -1003,7 +1005,7 @@ jobs:
 
       - name: Request Copilot evaluate test failures
         if: always() && steps.start_app.outcome == 'success' && steps.tests.outputs.exit_code != '0'
-        uses: actions/github-script@v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           SKILLS_LOADED_VAL: ${{ steps.config.outputs.skills_loaded }}
         with:
@@ -1142,7 +1144,7 @@ jobs:
 
       - name: Upload test artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results-${{ env.SCENARIO }}-${{ env.ITERATION }}
           path: |

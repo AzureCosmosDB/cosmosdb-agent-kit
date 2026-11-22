@@ -1,0 +1,26 @@
+{
+  "name": "azure-cosmosdb",
+  "description": "Official Azure Cosmos DB plugins for Grok Build.",
+  "owner": {
+    "name": "Azure Cosmos DB",
+    "url": "https://azure.microsoft.com/products/cosmos-db"
+  },
+  "plugins": [
+    {
+      "name": "cosmosdb",
+      "description": "Azure Cosmos DB best practices and performance optimization skills for data modeling, partitioning, queries, indexing, SDK usage, vector search, full-text search, global distribution, and security.",
+      "category": "development",
+      "source": {
+        "type": "local",
+        "path": "./"
+      },
+      "homepage": "https://github.com/AzureCosmosDB/cosmosdb-agent-kit",
+      "tags": [
+        "azure",
+        "cosmosdb",
+        "database",
+        "nosql"
+      ]
+    }
+  ]
+}

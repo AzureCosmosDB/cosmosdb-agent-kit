@@ -705,3 +705,80 @@ textarea:focus {
     max-width: 14ch;
   }
 }
+
+/* Recommendations section */
+.section-sub {
+  margin: 0.6rem 0 0;
+  max-width: 70ch;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.rec-table-wrap {
+  margin-top: 1.1rem;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.rec-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.94rem;
+  min-width: 640px;
+}
+
+.rec-table th,
+.rec-table td {
+  text-align: left;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.rec-table thead th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rec-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.rec-table td:nth-child(3) {
+  font-family: "IBM Plex Mono", monospace;
+  color: #b9efff;
+  white-space: nowrap;
+}
+
+.tier {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.tier-strong {
+  color: var(--accent-2);
+  border-color: var(--accent-2);
+  background: #0f2a24;
+}
+
+.tier-mid {
+  color: var(--accent-3);
+  border-color: var(--accent-3);
+  background: #2a2410;
+}
+
+.tier-low {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: #2a1414;
+}

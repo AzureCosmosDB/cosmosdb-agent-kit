@@ -17,6 +17,7 @@ const ROOT = path.join(__dirname, '..');
 // JSON manifests that must share the package version.
 const JSON_MANIFESTS = [
     'package.json',
+    'package-lock.json',
     'plugin.json',
     'gemini-extension.json',
     path.join('.claude-plugin', 'plugin.json'),
@@ -45,6 +46,14 @@ function readVersionFromJson(relPath) {
     }
     if (!parsed.version) {
         errors.push(`No "version" field in ${relPath}`);
+    }
+    if (relPath === 'package-lock.json') {
+        const rootVersion = parsed.packages?.['']?.version;
+        if (!rootVersion) {
+            errors.push(`No "packages[\"\"].version" field in ${relPath}`);
+        } else if (rootVersion !== parsed.version) {
+            errors.push(`Version mismatch in ${relPath} packages[""]: found ${rootVersion}, expected ${parsed.version}`);
+        }
     }
     // If a manifest declares a skills path, it must exist.
     if (typeof parsed.skills === 'string') {

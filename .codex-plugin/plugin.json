@@ -38,6 +38,8 @@
       "Set up vector search on my Cosmos DB container.",
       "What security setup do I need for a new Cosmos DB app?"
     ],
-    "brandColor": "#0078D4"
+    "brandColor": "#0078D4",
+    "composerIcon": "./assets/composer-icon.svg",
+    "logo": "./assets/logo.svg"
   }
 }

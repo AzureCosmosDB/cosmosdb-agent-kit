@@ -64,6 +64,7 @@
         <a href="#overview">Overview</a>
         <a href="#install">Install</a>
         <a href="#coverage">Coverage</a>
+        <a href="#recommendations">Recommendations</a>
         <a href="#workflow">Workflow</a>
         <a href="#ecosystem">Ecosystem</a>
         <a href="#survey">Feedback</a>
@@ -262,6 +263,60 @@ npm run build</code></pre>
               <p>Additional skills such as migration capacity planning can extend the catalog without inflating every prompt.</p>
             </article>
           </div>
+        </div>
+      </section>
+
+      <section id="recommendations" class="panel alt reveal stagger-parent">
+        <div class="section-heading">
+          <p class="section-kicker">Recommendations</p>
+          <h2>Pick a capable model, then deliver skills on demand.</h2>
+          <p class="section-sub">Execution-graded on Microsoft Bench: a live-account AI Chat + RAG build (Python / FastAPI) scored by hidden integration tests over roughly 100 attempts per model. <code>reward</code> is the fraction of checks passed, measured without any skill injected.</p>
+        </div>
+        <div class="rec-table-wrap stagger-item">
+          <table class="rec-table" aria-label="Model recommendation tiers and benchmark reward ranges">
+            <thead>
+              <tr>
+                <th>Tier</th>
+                <th>Models (as tested)</th>
+                <th>Avg reward</th>
+                <th>Guidance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="tier tier-strong">Recommended</span></td>
+                <td>GPT-5.4, Claude Opus 4.8</td>
+                <td>0.79 &ndash; 0.82</td>
+                <td>Strongest Cosmos DB build quality; the best default choice.</td>
+              </tr>
+              <tr>
+                <td><span class="tier tier-mid">Capable</span></td>
+                <td>Claude Sonnet 4.5, Claude Opus 4.5, GPT-5.2, Claude Sonnet 4.6</td>
+                <td>0.59 &ndash; 0.68</td>
+                <td>Solid results; pair with the kit and a clear specification.</td>
+              </tr>
+              <tr>
+                <td><span class="tier tier-low">Simpler tasks</span></td>
+                <td>Claude Haiku 4.5, GPT-4.1</td>
+                <td>0.11 &ndash; 0.15</td>
+                <td>Fine for individual operations; struggle with full application builds regardless of how skills are delivered.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="coverage-cards">
+          <article class="card stagger-item">
+            <h3>Capability comes first</h3>
+            <p>The ranking is measured with no skill injected, so it reflects intrinsic model quality on Cosmos DB build tasks. Choose a Recommended-tier model, then apply the kit.</p>
+          </article>
+          <article class="card stagger-item">
+            <h3>Deliver on demand</h3>
+            <p>Always-on injection can hurt: the full skill set (~500&nbsp;KB) overflowed and scored 0 on models with a usable prompt budget of ~130K tokens or less, and a multi-file always-on variant cut quality on strong large-context models too (Opus 4.8 and GPT-5.2 each dropped ~0.3). Progressive delivery avoided both, matching no-skill quality while using ~5&ndash;13&times; fewer input tokens than always-on injection.</p>
+          </article>
+          <article class="card stagger-item">
+            <h3>Scope</h3>
+            <p>One build scenario (AI Chat + RAG), Python, a single host, ~100 attempts per model. Tiers generalize by model family; exact scores shift as models evolve.</p>
+          </article>
         </div>
       </section>
 
