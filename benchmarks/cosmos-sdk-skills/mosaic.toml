@@ -16,7 +16,6 @@ architecture = "x86_64"
 version = "0.0.1"
 
 # The [docker.prod] profile targets an internal Azure Container Registry and is NOT
-# committed here to keep the registry name out of this public repo. CI appends it at
-# publish time from the CES_ACR repo variable (see .github/workflows/publish-benchmark.yaml).
-# To build/publish the prod profile locally, append a matching [docker.prod] section with
-# registry = "<your-acr>.azurecr.io".
+# committed here to keep the registry name out of this public repo. The GitHub
+# publishing workflow has been retired. For separately approved local publishing,
+# append a matching [docker.prod] section with registry = "<your-acr>.azurecr.io".

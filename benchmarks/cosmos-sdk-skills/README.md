@@ -5,8 +5,9 @@ Cosmos DB best-practices skill set (`skills/cosmosdb-best-practices`) when build
 services backed by Azure Cosmos DB.
 
 > **Scope (current):** This benchmark is intentionally scoped to the single
-> **`mosaic-python`** task. The dataset, images, and weekly pipeline run and
-> grade only that one instance. The full three-scenario × five-SDK matrix
+> **`mosaic-python`** task. The dataset and images cover only that one
+> instance. Azure-backed GitHub Actions automation has been retired (see below).
+> The full three-scenario × five-SDK matrix
 > (15 Harbor tasks) is preserved on the `yumnahussain/all-15-tasks-backup`
 > branch and can be restored to expand coverage later. Sections below that
 > mention "five SDKs" or "15 tasks" describe that future full matrix.
@@ -210,23 +211,19 @@ msbench-cli run \
   separate, lighter-weight pytest harness for local iteration, not an
   skill-efficacy benchmark.
 
-## CI Pipeline (GitHub Actions)
+## Retired Azure-backed automation
 
-A GitHub Actions workflow at `cosmosdb-agent-kit/.github/workflows/msbench-eval.yaml`
-automates the evaluation loop:
+The `msbench-eval.yaml` and `publish-benchmark.yaml` GitHub Actions workflows
+have been removed. This repository no longer automates remote MSBench
+evaluation or benchmark image publishing through those workflows.
 
-```bash
-# Runs the single mosaic-python instance × 3 independent attempts
-msbench-cli run --benchmark cosmos-sdk-skills --repeat 3 --runner shared/ces/runner.sh
-```
+The benchmark tasks, runners, graders, registration files, and supporting
+scripts remain available for reference and local development. The removed
+workflow files remain in Git history. Remote evaluation and publishing commands
+in this guide require separately approved authentication and service access;
+they do not imply that the retired GitHub integration is available.
 
-**How it works:**
-1. Workflow is triggered manually via `workflow_dispatch`
-2. Authenticates to Azure as the person who triggered the run (`az login --use-device-code`), so the evaluation harness submits under their own entitlement
-3. Runs `scripts/msbench-eval.py` which submits one `--repeat 3` run
-4. The evaluation harness executes the mosaic-python instance × 3 attempts = 3 tasks
-5. Results are merged with `--merge pass_at_k` for per-instance reliability
-6. If the instance's average pass rate < 90%, `scripts/create-skills-issue.py` creates a GitHub issue mapping failures to specific `sdk-*` rules
+Vally evaluations, emulator tests, and release workflows are unchanged.
 
 **Runner:** `shared/ces/runner.sh` copies the `cosmosdb-best-practices` skill
 into the agent's personal skills directory (`~/.copilot/skills/`) as a normally
