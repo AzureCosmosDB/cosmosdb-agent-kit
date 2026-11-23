@@ -1,0 +1,5 @@
+interface:
+  display_name: "Azure Cosmos DB Fault Testing"
+  short_description: "Guide approved Cosmos DB fault tests, starting with PPAF"
+  brand_color: "#0078D4"
+  default_prompt: "Use $cosmosdb-fault-testing to select a supported scenario, ask for missing inputs, and guide an approved fault test with verified cleanup. Do not execute until I approve."
